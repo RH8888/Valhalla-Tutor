@@ -86,7 +86,7 @@
                 <div class="px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition">
                     <div>
                         <div class="flex items-center space-x-2">
-                            <span class="font-semibold text-slate-900">{{ e.title }}</span>
+                            <a href="/tutor/exams/{{ e.id }}" class="font-bold text-indigo-600 hover:text-indigo-900 text-base">{{ e.title }}</a>
                             {% if e.is_active %}
                                 <span class="px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">Active</span>
                             {% else %}
@@ -94,12 +94,24 @@
                             {% endif %}
                         </div>
                         {% if e.description %}
-                            <p class="text-xs text-slate-500 mt-1">{{ e.description }}</p>
+                            <p class="text-xs text-slate-500 mt-0.5">{{ e.description }}</p>
                         {% endif %}
+                        <div class="flex items-center gap-3 text-xs text-slate-400 mt-1">
+                            <span>{{ e.sessions|length }} occurrences</span>
+                            <span>&bull;</span>
+                            <span>{{ e.grade_track_configs|length }} eligible grade/track groups</span>
+                            <span>&bull;</span>
+                            <span>{{ e.series_assignments|length }} students assigned</span>
+                        </div>
                     </div>
-                    <a href="/tutor/exams/{{ e.id }}/edit" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">
-                        Edit / Archive
-                    </a>
+                    <div class="flex items-center space-x-2">
+                        <a href="/tutor/exams/{{ e.id }}" class="text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition">
+                            Manage Series &rarr;
+                        </a>
+                        <a href="/tutor/exams/{{ e.id }}/edit" class="text-xs font-medium text-slate-600 hover:text-slate-900 px-2 py-1 rounded transition">
+                            Settings
+                        </a>
+                    </div>
                 </div>
             {% endfor %}
         </div>

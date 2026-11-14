@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 from typing import List, Optional
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint, Uuid
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.timezone import now_utc
@@ -9,7 +9,7 @@ from app.models.base import Base
 
 
 class Exam(Base):
-    """Reusable exam definition (e.g. آزمون جامع شماره ۱)."""
+    """Reusable external exam series definition (e.g. قلم‌چی، آزمون‌های آزمایشی سنجش)."""
     __tablename__ = "exams"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -31,6 +31,22 @@ class Exam(Base):
         default=True,
         nullable=False,
     )
+    first_exam_date: Mapped[Optional[date]] = mapped_column(
+        Date,
+        nullable=True,
+    )
+    last_exam_date: Mapped[Optional[date]] = mapped_column(
+        Date,
+        nullable=True,
+    )
+    recurrence_interval_weeks: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+    recurrence_weekday: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -49,11 +65,24 @@ class Exam(Base):
         cascade="all, delete-orphan",
         order_by="desc(ExamSession.date)",
     )
+    grade_track_configs: Mapped[List["ExamGradeTrackConfig"]] = relationship(
+        "ExamGradeTrackConfig",
+        back_populates="exam",
+        cascade="all, delete-orphan",
+    )
+    series_assignments: Mapped[List["ExamSeriesAssignment"]] = relationship(
+        "ExamSeriesAssignment",
+        back_populates="exam",
+        cascade="all, delete-orphan",
+    )
 
 
 class ExamSession(Base):
     """Dated occurrence of an exam."""
     __tablename__ = "exam_sessions"
+    __table_args__ = (
+        UniqueConstraint("exam_id", "date", name="uq_exam_session_date"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
@@ -79,6 +108,25 @@ class ExamSession(Base):
         String(20),
         nullable=True,
         index=True,
+    )
+    status: Mapped[str] = mapped_column(
+        String(20),
+        default="SCHEDULED",
+        nullable=False,
+        index=True,
+    )
+    skip_reason: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    is_manually_added: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+    sequence_order: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
     )
     submission_deadline: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),
@@ -114,6 +162,11 @@ class ExamSession(Base):
     )
     reporting_groups: Mapped[List["ExamReportingGroup"]] = relationship(
         "ExamReportingGroup",
+        back_populates="exam_session",
+        cascade="all, delete-orphan",
+    )
+    audit_logs: Mapped[List["ExamSessionAudit"]] = relationship(
+        "ExamSessionAudit",
         back_populates="exam_session",
         cascade="all, delete-orphan",
     )
@@ -232,6 +285,21 @@ class StudentExamResult(Base):
         String(255),
         nullable=True,
     )
+    grade: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True,
+        index=True,
+    )
+    academic_track_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid,
+        ForeignKey("academic_tracks.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    config_snapshot: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -246,8 +314,14 @@ class StudentExamResult(Base):
 
     student: Mapped["User"] = relationship("User")
     exam_session: Mapped["ExamSession"] = relationship("ExamSession", back_populates="results")
+    academic_track: Mapped[Optional["AcademicTrack"]] = relationship("AcademicTrack")
     subject_results: Mapped[List["StudentExamSubjectResult"]] = relationship(
         "StudentExamSubjectResult",
+        back_populates="exam_result",
+        cascade="all, delete-orphan",
+    )
+    group_results: Mapped[List["StudentExamGroupResult"]] = relationship(
+        "StudentExamGroupResult",
         back_populates="exam_result",
         cascade="all, delete-orphan",
     )
@@ -342,6 +416,91 @@ class ExternalExamAssignment(Base):
     student: Mapped["User"] = relationship("User")
 
 
+class ExamGradeTrackConfig(Base):
+    """Academic grade and track eligibility and reporting structure configuration for an exam series."""
+    __tablename__ = "exam_grade_track_configs"
+    __table_args__ = (
+        UniqueConstraint("exam_id", "grade", "track_id", name="uq_exam_grade_track_config"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    exam_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("exams.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    grade: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        index=True,
+    )
+    track_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("academic_tracks.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=now_utc,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=now_utc,
+        onupdate=now_utc,
+    )
+
+    exam: Mapped["Exam"] = relationship("Exam", back_populates="grade_track_configs")
+    track: Mapped["AcademicTrack"] = relationship("AcademicTrack")
+    reporting_groups: Mapped[List["ExamReportingGroup"]] = relationship(
+        "ExamReportingGroup",
+        back_populates="grade_track_config",
+        cascade="all, delete-orphan",
+        order_by="ExamReportingGroup.order_index",
+    )
+
+
+class ExamSeriesAssignment(Base):
+    """Assigns an entire external exam series to a student."""
+    __tablename__ = "exam_series_assignments"
+    __table_args__ = (
+        UniqueConstraint("exam_id", "student_id", name="uq_exam_series_assignment"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    exam_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("exams.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    student_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=now_utc,
+    )
+
+    exam: Mapped["Exam"] = relationship("Exam", back_populates="series_assignments")
+    student: Mapped["User"] = relationship("User")
+
+
 class ExamReportingGroup(Base):
     """Flexible reporting group for external exams (e.g. Mathematics combining Geometry, Calculus, Stats)."""
     __tablename__ = "exam_reporting_groups"
@@ -351,14 +510,25 @@ class ExamReportingGroup(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
-    exam_session_id: Mapped[uuid.UUID] = mapped_column(
+    exam_session_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         Uuid,
         ForeignKey("exam_sessions.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
+        index=True,
+    )
+    exam_grade_track_config_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid,
+        ForeignKey("exam_grade_track_configs.id", ondelete="CASCADE"),
+        nullable=True,
         index=True,
     )
     title: Mapped[str] = mapped_column(
         String(100),
+        nullable=False,
+    )
+    order_index: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
         nullable=False,
     )
     created_at: Mapped[datetime] = mapped_column(
@@ -367,7 +537,8 @@ class ExamReportingGroup(Base):
         default=now_utc,
     )
 
-    exam_session: Mapped["ExamSession"] = relationship("ExamSession", back_populates="reporting_groups")
+    exam_session: Mapped[Optional["ExamSession"]] = relationship("ExamSession", back_populates="reporting_groups")
+    grade_track_config: Mapped[Optional["ExamGradeTrackConfig"]] = relationship("ExamGradeTrackConfig", back_populates="reporting_groups")
     subjects: Mapped[List["Subject"]] = relationship(
         "Subject",
         secondary="exam_reporting_group_subjects",
@@ -388,6 +559,88 @@ class ExamReportingGroupSubject(Base):
         ForeignKey("subjects.id", ondelete="CASCADE"),
         primary_key=True,
     )
+
+
+class ExamSessionAudit(Base):
+    """Audit record for exam occurrence status modifications (e.g. skip, restore, edit)."""
+    __tablename__ = "exam_session_audits"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    exam_session_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("exam_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    actor_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    action: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+    reason: Mapped[Optional[str]] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=now_utc,
+    )
+
+    exam_session: Mapped["ExamSession"] = relationship("ExamSession", back_populates="audit_logs")
+    actor: Mapped[Optional["User"]] = relationship("User")
+
+
+class StudentExamGroupResult(Base):
+    """Result for a configured reporting group submitted by a student."""
+    __tablename__ = "student_exam_group_results"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    student_exam_result_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("student_exam_results.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    reporting_group_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid,
+        ForeignKey("exam_reporting_groups.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    group_title: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+    percentage: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+        default=0.0,
+    )
+    included_subject_names: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=now_utc,
+    )
+
+    exam_result: Mapped["StudentExamResult"] = relationship("StudentExamResult", back_populates="group_results")
 
 
 class HistoricalExamResult(Base):

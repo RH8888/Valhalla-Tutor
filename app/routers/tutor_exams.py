@@ -16,16 +16,28 @@ from app.services.exam_service import (
     ExamNotFoundError,
     ExamSessionNotFoundError,
     ExamValidationError,
+    IneligibleStudentError,
+    add_manual_replacement_session,
     archive_exam,
+    assign_exam_series_to_students,
+    configure_exam_grade_track,
     create_exam,
     create_exam_session,
+    delete_exam_grade_track_config,
+    evaluate_students_eligibility,
+    generate_series_sessions,
     get_exam_by_id,
+    get_exam_grade_track_config,
     get_exam_session_by_id,
     get_tutor_session_analytics,
     get_tutor_student_analytics,
+    list_exam_grade_track_configs,
     list_exam_sessions,
     list_exams,
+    restore_exam_session,
+    skip_exam_session,
     update_exam,
+    update_future_recurrence,
 )
 
 router = APIRouter(
@@ -83,14 +95,31 @@ def post_create_exam(
     request: Request,
     title: str = Form(...),
     description: Optional[str] = Form(None),
+    first_exam_date: Optional[str] = Form(None),
+    last_exam_date: Optional[str] = Form(None),
+    recurrence_interval_weeks: Optional[str] = Form(None),
+    recurrence_weekday: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
     try:
-        create_exam(db, title=title, description=description)
+        f_date = date.fromisoformat(first_exam_date) if first_exam_date and first_exam_date.strip() else None
+        l_date = date.fromisoformat(last_exam_date) if last_exam_date and last_exam_date.strip() else None
+        r_interval = int(recurrence_interval_weeks) if recurrence_interval_weeks and recurrence_interval_weeks.strip() else None
+        r_weekday = int(recurrence_weekday) if recurrence_weekday and recurrence_weekday.strip() else None
+
+        exam = create_exam(
+            db,
+            title=title,
+            description=description,
+            first_exam_date=f_date,
+            last_exam_date=l_date,
+            recurrence_interval_weeks=r_interval,
+            recurrence_weekday=r_weekday,
+        )
         return RedirectResponse(
-            url="/tutor/exams?msg=Exam definition created successfully",
+            url=f"/tutor/exams/{exam.id}?msg=Exam definition created successfully",
             status_code=status.HTTP_303_SEE_OTHER,
         )
     except ExamValidationError as exc:
@@ -101,11 +130,41 @@ def post_create_exam(
                 "error": str(exc),
                 "title": title,
                 "description": description,
+                "first_exam_date": first_exam_date,
+                "last_exam_date": last_exam_date,
+                "recurrence_interval_weeks": recurrence_interval_weeks,
+                "recurrence_weekday": recurrence_weekday,
                 "current_user": current_user,
                 "current_session": current_session,
             },
             status_code=status.HTTP_400_BAD_REQUEST,
         )
+
+
+@router.get("/{exam_id}", response_class=HTMLResponse)
+def get_exam_series_detail(
+    request: Request,
+    exam_id: uuid.UUID,
+    msg: Optional[str] = None,
+    err: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_session: UserSession = Depends(get_current_session),
+):
+    exam = get_exam_by_id(db, exam_id)
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam series not found")
+    return templates.TemplateResponse(
+        request=request,
+        name="tutor/exams/series_detail.html",
+        context={
+            "exam": exam,
+            "msg": msg,
+            "err": err,
+            "current_user": current_user,
+            "current_session": current_session,
+        },
+    )
 
 
 @router.get("/{exam_id}/edit", response_class=HTMLResponse)
@@ -138,20 +197,33 @@ def post_edit_exam(
     title: str = Form(...),
     description: Optional[str] = Form(None),
     is_active: bool = Form(False),
+    first_exam_date: Optional[str] = Form(None),
+    last_exam_date: Optional[str] = Form(None),
+    recurrence_interval_weeks: Optional[str] = Form(None),
+    recurrence_weekday: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
     try:
+        f_date = date.fromisoformat(first_exam_date) if first_exam_date and first_exam_date.strip() else None
+        l_date = date.fromisoformat(last_exam_date) if last_exam_date and last_exam_date.strip() else None
+        r_interval = int(recurrence_interval_weeks) if recurrence_interval_weeks and recurrence_interval_weeks.strip() else None
+        r_weekday = int(recurrence_weekday) if recurrence_weekday and recurrence_weekday.strip() else None
+
         update_exam(
             db,
             exam_id=exam_id,
             title=title,
             description=description,
             is_active=is_active,
+            first_exam_date=f_date,
+            last_exam_date=l_date,
+            recurrence_interval_weeks=r_interval,
+            recurrence_weekday=r_weekday,
         )
         return RedirectResponse(
-            url="/tutor/exams?msg=Exam updated successfully",
+            url=f"/tutor/exams/{exam_id}?msg=Exam updated successfully",
             status_code=status.HTTP_303_SEE_OTHER,
         )
     except (ExamValidationError, ExamNotFoundError) as exc:
@@ -161,6 +233,256 @@ def post_edit_exam(
             name="tutor/exams/edit_exam.html",
             context={
                 "exam": exam,
+                "error": str(exc),
+                "current_user": current_user,
+                "current_session": current_session,
+            },
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+
+@router.get("/{exam_id}/grade-tracks/create", response_class=HTMLResponse)
+def get_configure_grade_track_form(
+    request: Request,
+    exam_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_session: UserSession = Depends(get_current_session),
+):
+    exam = get_exam_by_id(db, exam_id)
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam series not found")
+    tracks = list_tracks(db)
+    return templates.TemplateResponse(
+        request=request,
+        name="tutor/exams/configure_grade_track.html",
+        context={
+            "exam": exam,
+            "tracks": tracks,
+            "error": None,
+            "current_user": current_user,
+            "current_session": current_session,
+        },
+    )
+
+
+@router.post("/{exam_id}/grade-tracks/create")
+async def post_configure_grade_track(
+    request: Request,
+    exam_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_session: UserSession = Depends(get_current_session),
+):
+    exam = get_exam_by_id(db, exam_id)
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam series not found")
+
+    form_data = await request.form()
+    grade = str(form_data.get("grade", "")).strip()
+    track_id_raw = form_data.get("track_id")
+    if not track_id_raw or not grade:
+        raise HTTPException(status_code=400, detail="Grade and track are required.")
+
+    track_id = uuid.UUID(str(track_id_raw))
+    selected_subject_ids_raw = form_data.getlist("selected_subjects")
+    selected_subject_ids = [uuid.UUID(str(sid)) for sid in selected_subject_ids_raw if sid]
+
+    groups_map: Dict[str, List[uuid.UUID]] = {}
+    for sid in selected_subject_ids:
+        grp_name = str(form_data.get(f"subject_group_{sid}", "")).strip()
+        if not grp_name:
+            sub = db.query(Subject).filter(Subject.id == sid).first()
+            grp_name = sub.name if sub else str(sid)
+        if grp_name not in groups_map:
+            groups_map[grp_name] = []
+        groups_map[grp_name].append(sid)
+
+    reporting_groups_data = [
+        {"title": g_title, "order_index": idx, "subject_ids": s_ids}
+        for idx, (g_title, s_ids) in enumerate(groups_map.items())
+    ]
+
+    try:
+        configure_exam_grade_track(db, exam_id, grade, track_id, reporting_groups_data)
+        return RedirectResponse(
+            url=f"/tutor/exams/{exam_id}?msg=Grade and track reporting structure configured successfully",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except ExamValidationError as exc:
+        tracks = list_tracks(db)
+        return templates.TemplateResponse(
+            request=request,
+            name="tutor/exams/configure_grade_track.html",
+            context={
+                "exam": exam,
+                "tracks": tracks,
+                "error": str(exc),
+                "current_user": current_user,
+                "current_session": current_session,
+            },
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+
+@router.post("/{exam_id}/grade-tracks/{config_id}/delete")
+def post_delete_grade_track(
+    exam_id: uuid.UUID,
+    config_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    delete_exam_grade_track_config(db, config_id)
+    return RedirectResponse(
+        url=f"/tutor/exams/{exam_id}?msg=Grade/track configuration removed",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.post("/{exam_id}/schedule/generate")
+def post_generate_schedule(
+    exam_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        sessions = generate_series_sessions(db, exam_id, actor_id=current_user.id)
+        return RedirectResponse(
+            url=f"/tutor/exams/{exam_id}?msg=Generated {len(sessions)} scheduled occurrence(s)",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except ExamValidationError as exc:
+        return RedirectResponse(
+            url=f"/tutor/exams/{exam_id}?err={exc}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+
+@router.post("/sessions/{session_id}/skip")
+def post_skip_session(
+    session_id: uuid.UUID,
+    reason: Optional[str] = Form(None),
+    force: bool = Form(False),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        session = skip_exam_session(db, session_id, actor_id=current_user.id, reason=reason, force_if_results=force)
+        return RedirectResponse(
+            url=f"/tutor/exams/{session.exam_id}?msg=Occurrence on {session.date} marked as No Exam (skipped)",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except ExamValidationError as exc:
+        session = get_exam_session_by_id(db, session_id)
+        redirect_url = f"/tutor/exams/{session.exam_id}" if session else "/tutor/exams"
+        return RedirectResponse(
+            url=f"{redirect_url}?err={exc}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+
+@router.post("/sessions/{session_id}/restore")
+def post_restore_session(
+    session_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    session = restore_exam_session(db, session_id, actor_id=current_user.id)
+    return RedirectResponse(
+        url=f"/tutor/exams/{session.exam_id}?msg=Occurrence on {session.date} restored to Scheduled",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.post("/{exam_id}/sessions/manual")
+def post_add_manual_session(
+    exam_id: uuid.UUID,
+    manual_date: str = Form(...),
+    title: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        d = date.fromisoformat(manual_date)
+        session = add_manual_replacement_session(db, exam_id, d, title=title, actor_id=current_user.id)
+        return RedirectResponse(
+            url=f"/tutor/exams/{exam_id}?msg=Manual occurrence on {session.date} added",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except (ValueError, ExamValidationError) as exc:
+        return RedirectResponse(
+            url=f"/tutor/exams/{exam_id}?err={exc}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+
+@router.get("/{exam_id}/assignments", response_class=HTMLResponse)
+def get_assign_students_page(
+    request: Request,
+    exam_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_session: UserSession = Depends(get_current_session),
+):
+    exam = get_exam_by_id(db, exam_id)
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam series not found")
+
+    all_students = db.query(User).filter(User.role == "STUDENT", User.is_active == True).order_by(User.full_name).all()
+    student_ids = [s.id for s in all_students]
+    eval_result = evaluate_students_eligibility(db, exam_id, student_ids)
+
+    currently_assigned_ids = {sa.student_id for sa in exam.series_assignments}
+
+    return templates.TemplateResponse(
+        request=request,
+        name="tutor/exams/assign_students.html",
+        context={
+            "exam": exam,
+            "eligible": eval_result["eligible"],
+            "ineligible": eval_result["ineligible"],
+            "currently_assigned_ids": currently_assigned_ids,
+            "error": None,
+            "current_user": current_user,
+            "current_session": current_session,
+        },
+    )
+
+
+@router.post("/{exam_id}/assignments")
+async def post_assign_students(
+    request: Request,
+    exam_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_session: UserSession = Depends(get_current_session),
+):
+    exam = get_exam_by_id(db, exam_id)
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam series not found")
+
+    form_data = await request.form()
+    student_ids_raw = form_data.getlist("student_ids")
+    student_ids = [uuid.UUID(str(sid)) for sid in student_ids_raw if sid]
+
+    try:
+        res = assign_exam_series_to_students(db, exam_id, student_ids)
+        return RedirectResponse(
+            url=f"/tutor/exams/{exam_id}?msg=Series assigned to {res['assigned_count']} student(s) successfully",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except ExamValidationError as exc:
+        all_students = db.query(User).filter(User.role == "STUDENT", User.is_active == True).all()
+        eval_result = evaluate_students_eligibility(db, exam_id, [s.id for s in all_students])
+        currently_assigned_ids = {sa.student_id for sa in exam.series_assignments}
+        return templates.TemplateResponse(
+            request=request,
+            name="tutor/exams/assign_students.html",
+            context={
+                "exam": exam,
+                "eligible": eval_result["eligible"],
+                "ineligible": eval_result["ineligible"],
+                "currently_assigned_ids": currently_assigned_ids,
                 "error": str(exc),
                 "current_user": current_user,
                 "current_session": current_session,

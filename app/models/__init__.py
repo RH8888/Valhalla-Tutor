@@ -19,6 +19,10 @@ from app.models.exam import (
     ExamReportingGroupSubject,
     HistoricalExamResult,
     HistoricalExamSubjectResult,
+    ExamGradeTrackConfig,
+    ExamSeriesAssignment,
+    ExamSessionAudit,
+    StudentExamGroupResult,
 )
 from app.models.practice_exam import (
     PracticeExam,
@@ -66,6 +70,10 @@ __all__ = [
     "ExamReportingGroupSubject",
     "HistoricalExamResult",
     "HistoricalExamSubjectResult",
+    "ExamGradeTrackConfig",
+    "ExamSeriesAssignment",
+    "ExamSessionAudit",
+    "StudentExamGroupResult",
     "PracticeExam",
     "PracticeExamBooklet",
     "PracticeExamReportingGroup",

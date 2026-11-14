@@ -29,6 +29,7 @@ from app.services.exam_service import (
     get_student_exam_analytics,
     get_student_exam_result,
     get_student_exam_result_by_id,
+    get_student_series_grade_track_config,
     submit_student_exam_result,
     update_student_exam_result,
 )
@@ -93,7 +94,10 @@ def get_submit_result_form(
 
     effective_subjects = get_student_effective_subjects(current_user)
     effective_ids = {s.id for s in effective_subjects}
-    subjects = [sc.subject for sc in track_config.subject_configs if sc.subject_id in effective_ids]
+    subjects = [sc.subject for sc in track_config.subject_configs if sc.subject_id in effective_ids] if track_config else []
+
+    grade_track_cfg = get_student_series_grade_track_config(db, session.exam_id, current_user)
+    reporting_groups = grade_track_cfg.reporting_groups if grade_track_cfg else []
 
     return templates.TemplateResponse(
         request=request,
@@ -101,6 +105,7 @@ def get_submit_result_form(
         context={
             "session": session,
             "subjects": subjects,
+            "reporting_groups": reporting_groups,
             "error": None,
             "current_user": current_user,
             "current_session": current_session,
@@ -128,22 +133,37 @@ async def post_submit_result(
         (tc for tc in session.track_configs if tc.track_id == current_user.academic_track_id),
         None,
     )
-    if not track_config:
-        raise HTTPException(status_code=403, detail="Exam not available for your track.")
+
+    grade_track_cfg = get_student_series_grade_track_config(db, session.exam_id, current_user)
+    reporting_groups = grade_track_cfg.reporting_groups if grade_track_cfg else []
+
+    group_data = []
+    if reporting_groups:
+        for grp in reporting_groups:
+            pct_val = form_data.get(f"group_{grp.id}_percentage")
+            if pct_val is not None and str(pct_val).strip():
+                sub_names = "، ".join(s.name for s in grp.subjects) if grp.subjects else grp.title
+                group_data.append({
+                    "reporting_group_id": grp.id,
+                    "group_title": grp.title,
+                    "percentage": float(pct_val),
+                    "included_subject_names": sub_names,
+                })
 
     subject_data = []
-    for sc in track_config.subject_configs:
-        sub_id = sc.subject_id
-        corr_val = form_data.get(f"correct_{sub_id}")
-        incorr_val = form_data.get(f"incorrect_{sub_id}")
-        pct_val = form_data.get(f"percentage_{sub_id}")
-        if corr_val is not None and pct_val is not None:
-            subject_data.append({
-                "subject_id": sub_id,
-                "correct_answers": corr_val,
-                "incorrect_answers": incorr_val or 0,
-                "percentage": pct_val,
-            })
+    if track_config:
+        for sc in track_config.subject_configs:
+            sub_id = sc.subject_id
+            corr_val = form_data.get(f"correct_{sub_id}")
+            incorr_val = form_data.get(f"incorrect_{sub_id}")
+            pct_val = form_data.get(f"percentage_{sub_id}")
+            if corr_val is not None and pct_val is not None:
+                subject_data.append({
+                    "subject_id": sub_id,
+                    "correct_answers": corr_val,
+                    "incorrect_answers": incorr_val or 0,
+                    "percentage": pct_val,
+                })
 
     report_card_file = form_data.get("report_card_file")
     rc_path = None
@@ -163,7 +183,8 @@ async def post_submit_result(
             db,
             student=current_user,
             exam_session_id=session_id,
-            subject_data=subject_data,
+            subject_data=subject_data if subject_data else None,
+            group_data=group_data if group_data else None,
             overall_rank=rank_val,
             notes=str(notes) if notes else None,
             report_card_file_path=rc_path,
@@ -176,12 +197,20 @@ async def post_submit_result(
     except (ExamValidationError, DuplicateExamResultError) as exc:
         effective_subjects = get_student_effective_subjects(current_user)
         effective_ids = {s.id for s in effective_subjects}
-        subjects = [sc.subject for sc in track_config.subject_configs if sc.subject_id in effective_ids]
+        subjects = [sc.subject for sc in track_config.subject_configs if sc.subject_id in effective_ids] if track_config else []
         return templates.TemplateResponse(
             request=request,
             name="student/exams/submit.html",
             context={
                 "session": session,
+                "subjects": subjects,
+                "reporting_groups": reporting_groups,
+                "error": str(exc),
+                "current_user": current_user,
+                "current_session": current_session,
+            },
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
                 "subjects": subjects,
                 "error": str(exc),
                 "current_user": current_user,
