@@ -302,13 +302,12 @@ def configure_exam_grade_track(
         raise ExamValidationError("At least one reporting group must be configured.")
 
     track_subject_ids = {s.id for s in track.subjects}
-    assigned_subject_ids: Set[uuid.UUID] = set()
 
     for grp in reporting_groups_data:
         grp_title = (grp.get("title") or "").strip()
         if not grp_title:
             raise ExamValidationError("Reporting group title cannot be empty.")
-        s_ids = grp.get("subject_ids") or []
+        s_ids = list(dict.fromkeys(grp.get("subject_ids") or []))
         for sid in s_ids:
             if isinstance(sid, str):
                 sid = uuid.UUID(sid)
@@ -316,11 +315,6 @@ def configure_exam_grade_track(
                 sub = get_subject_by_id(db, sid)
                 sub_name = sub.name if sub else str(sid)
                 raise ExamValidationError(f"Subject '{sub_name}' does not belong to track '{track.name}'.")
-            if sid in assigned_subject_ids:
-                sub = get_subject_by_id(db, sid)
-                sub_name = sub.name if sub else str(sid)
-                raise ExamValidationError(f"Subject '{sub_name}' cannot be assigned to multiple reporting groups.")
-            assigned_subject_ids.add(sid)
 
     config = db.query(ExamGradeTrackConfig).filter(
         ExamGradeTrackConfig.exam_id == exam.id,

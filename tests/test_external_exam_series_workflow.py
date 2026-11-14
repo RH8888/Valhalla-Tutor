@@ -220,6 +220,22 @@ def test_workflow_2_and_3_grade_track_and_reporting_groups(db: Session, test_set
     fetched_exam = get_exam_by_id(db, exam.id)
     assert len(fetched_exam.grade_track_configs) == 2
 
+    # 3. Verify a subject (e.g. حسابان) CAN be assigned to multiple reporting groups without error
+    multi_group_config = [
+        {"title": "حسابان تخصصی", "order_index": 1, "subject_ids": [s["calc"].id]},
+        {"title": "ریاضی جامع", "order_index": 2, "subject_ids": [s["calc"].id, s["geom"].id]},
+    ]
+    cfg_multi = configure_exam_grade_track(
+        db,
+        exam_id=exam.id,
+        grade="12",
+        track_id=track_math.id,
+        reporting_groups_data=multi_group_config,
+    )
+    assert len(cfg_multi.reporting_groups) == 2
+    assert s["calc"] in cfg_multi.reporting_groups[0].subjects
+    assert s["calc"] in cfg_multi.reporting_groups[1].subjects
+
 
 def test_workflow_4_biweekly_recurrence(db: Session, test_setup):
     """Workflow 4: Generate biweekly schedule (every 2 weeks)."""
