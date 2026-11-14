@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # Security Configuration
     SECRET_KEY: str = "dev-secret-key-please-change-in-production-min-32-chars"
 
+    # Uploads Configuration
+    UPLOAD_DIR: str = "uploads"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

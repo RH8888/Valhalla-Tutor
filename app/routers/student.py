@@ -26,6 +26,7 @@ from app.services.plan_service import (
     list_student_plans,
     PlanValidationError,
 )
+from app.services.exam_service import get_student_external_exams_in_date_range
 from app.services.resource_service import list_books, list_courses
 
 router = APIRouter(
@@ -138,6 +139,8 @@ def get_student_active_plan(
         if a.is_completed:
             completed_count += 1
 
+    external_exams_by_day = get_student_external_exams_in_date_range(db, current_user, plan.start_date, plan.end_date)
+
     return templates.TemplateResponse(
         request=request,
         name="student/plan.html",
@@ -147,6 +150,7 @@ def get_student_active_plan(
             "effective_subjects": effective_subjects,
             "days": days,
             "assignments_by_cell": assignments_by_cell,
+            "external_exams_by_day": external_exams_by_day,
             "daily_totals": daily_totals,
             "daily_totals_formatted": daily_totals_formatted,
             "subject_totals": subject_totals,
@@ -230,6 +234,8 @@ def get_student_plan_detail(
     from app.models.plan import PlanStatus
     is_archived = (plan.status != PlanStatus.PUBLISHED)
 
+    external_exams_by_day = get_student_external_exams_in_date_range(db, current_user, plan.start_date, plan.end_date)
+
     return templates.TemplateResponse(
         request=request,
         name="student/plan.html",
@@ -239,6 +245,7 @@ def get_student_plan_detail(
             "effective_subjects": effective_subjects,
             "days": days,
             "assignments_by_cell": assignments_by_cell,
+            "external_exams_by_day": external_exams_by_day,
             "daily_totals": daily_totals,
             "daily_totals_formatted": daily_totals_formatted,
             "subject_totals": subject_totals,

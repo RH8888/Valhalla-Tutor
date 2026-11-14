@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Practice Exams - Valhalla Tutor{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="border-b border-slate-200 pb-4">
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900">Practice Exams (آزمون‌های تمرینی)</h1>
+        <p class="text-sm text-slate-500 mt-1">Practice exams assigned to your grade and track. Download PDF booklets, submit answers, and receive instant graded results.</p>
+    </div>
+
+    {% if msg %}
+        <div class="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">{{ msg }}</div>
+    {% endif %}
+    {% if err %}
+        <div class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">{{ err }}</div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {% for ex in exams %}
+            {% set user_attempt = none %}
+            {% for att in ex.attempts %}
+                {% if att.student_id == current_user.id %}{% set user_attempt = att %}{% endif %}
+            {% endfor %}
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between space-y-4">
+                <div>
+                    <div class="flex items-center justify-between">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {% if ex.is_timed %}bg-amber-100 text-amber-800{% else %}bg-slate-100 text-slate-700{% endif %}">
+                            {% if ex.is_timed %}⏱️ Timed Mode{% else %}Untimed{% endif %}
+                        </span>
+                        <span class="text-xs text-slate-400">Grade {{ ex.grade }} &bull; {{ ex.track.name }}</span>
+                    </div>
+                    <h2 class="text-lg font-bold text-slate-900 mt-2">{{ ex.title }}</h2>
+                    {% if ex.description %}
+                        <p class="text-xs text-slate-500 mt-1 line-clamp-2">{{ ex.description }}</p>
+                    {% endif %}
+                    <div class="mt-4 flex items-center space-x-4 text-xs text-slate-500">
+                        <span>📖 {{ ex.booklets|length }} Booklet(s)</span>
+                        <span>❓ {{ ex.questions|length }} Questions</span>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
+                    {% if user_attempt and user_attempt.status == 'COMPLETED' %}
+                        <div class="text-xs">
+                            <span class="text-slate-500 block">Completed Score</span>
+                            <span class="text-lg font-extrabold text-indigo-600">{{ "%.1f"|format(user_attempt.overall_percentage) }}%</span>
+                        </div>
+                        <a href="/student/practice-exams/attempts/{{ user_attempt.id }}/results"
+                           class="inline-flex items-center px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition">
+                            Review Results &rarr;
+                        </a>
+                    {% elif user_attempt and user_attempt.status == 'IN_PROGRESS' %}
+                        <div class="text-xs">
+                            <span class="text-amber-600 font-semibold block">In Progress</span>
+                            <span class="text-slate-400">Started {{ user_attempt.started_at.strftime('%m/%d %H:%M') }}</span>
+                        </div>
+                        <form method="POST" action="/student/practice-exams/{{ ex.id }}/start">
+                            <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                            <button type="submit" class="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition">
+                                Resume Exam &rarr;
+                            </button>
+                        </form>
+                    {% else %}
+                        <div class="text-xs text-slate-400">Not started yet</div>
+                        <form method="POST" action="/student/practice-exams/{{ ex.id }}/start">
+                            <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                            <button type="submit" class="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition">
+                                Start Exam &rarr;
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        {% else %}
+            <div class="col-span-2 bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-500">
+                <p class="text-base font-semibold">No practice exams currently available.</p>
+                <p class="text-sm mt-1">Practice exams assigned to you by your tutor will appear here.</p>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+

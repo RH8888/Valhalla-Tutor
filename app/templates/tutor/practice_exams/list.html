@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Practice Exams - Valhalla Tutor{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+        <div>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900">Practice Exams (آزمون‌های اختصاصی)</h1>
+            <p class="text-sm text-slate-500 mt-1">Tutor-created multiple choice exams with downloadable PDF booklets, server timer, and automatic grading.</p>
+        </div>
+        <a href="/tutor/practice-exams/create" class="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition">
+            + Create Practice Exam
+        </a>
+    </div>
+
+    {% if msg %}
+        <div class="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">{{ msg }}</div>
+    {% endif %}
+    {% if err %}
+        <div class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">{{ err }}</div>
+    {% endif %}
+
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        {% if exams %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-600">
+                    <thead class="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
+                        <tr>
+                            <th class="px-6 py-3">Exam Title</th>
+                            <th class="px-4 py-3 text-center">Grade</th>
+                            <th class="px-6 py-3">Academic Track</th>
+                            <th class="px-4 py-3 text-center">Mode</th>
+                            <th class="px-4 py-3 text-center">Booklets</th>
+                            <th class="px-4 py-3 text-center">Questions</th>
+                            <th class="px-4 py-3 text-center">Attempts</th>
+                            <th class="px-6 py-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for ex in exams %}
+                            <tr class="hover:bg-slate-50 transition">
+                                <td class="px-6 py-4 font-semibold text-slate-900">
+                                    <a href="/tutor/practice-exams/{{ ex.id }}" class="hover:text-indigo-600 transition">{{ ex.title }}</a>
+                                </td>
+                                <td class="px-4 py-4 text-center whitespace-nowrap text-xs font-semibold text-slate-700">Grade {{ ex.grade }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-xs text-slate-700">{{ ex.track.name }}</td>
+                                <td class="px-4 py-4 text-center whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {% if ex.is_timed %}bg-amber-50 text-amber-800{% else %}bg-slate-100 text-slate-700{% endif %}">
+                                        {% if ex.is_timed %}Timed{% else %}Untimed{% endif %}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-4 text-center font-medium">{{ ex.booklets|length }}</td>
+                                <td class="px-4 py-4 text-center font-medium">{{ ex.questions|length }}</td>
+                                <td class="px-4 py-4 text-center font-semibold text-indigo-600">{{ ex.attempts|length }}</td>
+                                <td class="px-6 py-4 text-right whitespace-nowrap">
+                                    <a href="/tutor/practice-exams/{{ ex.id }}" class="text-indigo-600 hover:text-indigo-900 font-medium text-xs bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-md transition">
+                                        Manage &bull; Configure &rarr;
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="p-12 text-center text-slate-500">
+                <p class="text-base font-semibold">No practice exams created yet.</p>
+                <p class="text-sm mt-1">Create your first PDF practice exam to test students on specific curriculum modules.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

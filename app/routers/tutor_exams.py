@@ -318,3 +318,27 @@ def get_tutor_student_analytics_page(
             "current_session": current_session,
         },
     )
+
+
+@router.get("/results/{result_id}/report-card")
+def download_tutor_exam_report_card(
+    result_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = get_student_exam_result_by_id(db, result_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Result not found.")
+    if not result.report_card_file_path:
+        raise HTTPException(status_code=404, detail="No report card attachment uploaded.")
+
+    from app.core.storage import get_absolute_file_path
+    abs_path = get_absolute_file_path(result.report_card_file_path)
+    if not abs_path.exists():
+        raise HTTPException(status_code=404, detail="Report card file not found on disk.")
+
+    from fastapi.responses import FileResponse
+    return FileResponse(
+        path=str(abs_path),
+        filename=result.report_card_file_name or "report_card.pdf",
+    )

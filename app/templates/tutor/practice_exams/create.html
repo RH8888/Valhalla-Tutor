@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Create Practice Exam - Valhalla Tutor{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+    <div class="border-b border-slate-200 pb-4">
+        <a href="/tutor/practice-exams" class="text-sm text-slate-500 hover:text-slate-800 transition">&larr; Back to Practice Exams</a>
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-2">Create Practice Exam</h1>
+        <p class="text-sm text-slate-500 mt-1">Define exam details. In the next step, upload PDF booklets, configure answer keys, and assign students.</p>
+    </div>
+
+    {% if error %}
+        <div class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" action="/tutor/practice-exams/create" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+        <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+
+        <div>
+            <label for="title" class="block text-sm font-semibold text-slate-700">Exam Title *</label>
+            <input type="text" id="title" name="title" required placeholder="e.g. آزمون شبیه‌ساز کنکور تجربی - جامع زیست و شیمی"
+                   value="{{ title or '' }}" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+                <label for="grade" class="block text-sm font-semibold text-slate-700">Grade Level *</label>
+                <select id="grade" name="grade" required class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="">Select Grade...</option>
+                    <option value="10" {% if grade == '10' %}selected{% endif %}>Grade 10 (دهم)</option>
+                    <option value="11" {% if grade == '11' %}selected{% endif %}>Grade 11 (یازدهم)</option>
+                    <option value="12" {% if grade == '12' or not grade %}selected{% endif %}>Grade 12 (دوازدهم)</option>
+                    <option value="Konkur" {% if grade == 'Konkur' %}selected{% endif %}>Konkur / پشت کنکور</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="academic_track_id" class="block text-sm font-semibold text-slate-700">Academic Track *</label>
+                <select id="academic_track_id" name="academic_track_id" required class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="">Select Track...</option>
+                    {% for tr in tracks %}
+                        <option value="{{ tr.id }}">{{ tr.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1">Exam Mode</label>
+            <div class="flex items-center space-x-6">
+                <label class="inline-flex items-center">
+                    <input type="radio" name="is_timed" value="true" checked class="text-indigo-600 focus:ring-indigo-500">
+                    <span class="ml-2 text-sm text-slate-700">Timed Mode (Server-enforced timer per booklet)</span>
+                </label>
+                <label class="inline-flex items-center">
+                    <input type="radio" name="is_timed" value="false" class="text-indigo-600 focus:ring-indigo-500">
+                    <span class="ml-2 text-sm text-slate-700">Untimed Mode (Self-paced)</span>
+                </label>
+            </div>
+        </div>
+
+        <div>
+            <label for="description" class="block text-sm font-semibold text-slate-700">Description / Instructions</label>
+            <textarea id="description" name="description" rows="3" placeholder="e.g. این آزمون شامل ۲ دفترچه عمومی و اختصاصی است. نمره منفی لحاظ می‌شود."
+                      class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+        </div>
+
+        <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-200">
+            <a href="/tutor/practice-exams" class="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition">Cancel</a>
+            <button type="submit" class="px-5 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition">Create &amp; Proceed</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+

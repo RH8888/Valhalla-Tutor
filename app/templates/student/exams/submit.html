@@ -15,7 +15,7 @@
         <div class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">{{ error }}</div>
     {% endif %}
 
-    <form method="POST" action="/student/exams/{{ session.id }}/submit" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+    <form method="POST" action="/student/exams/{{ session.id }}/submit" enctype="multipart/form-data" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
         <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4 border-b border-slate-200">
@@ -29,6 +29,13 @@
                 <input type="text" id="notes" name="notes" placeholder="e.g. زمان‌بندی فیزیک کم آمد"
                        class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
             </div>
+        </div>
+
+        <div class="pb-4 border-b border-slate-200">
+            <label for="report_card_file" class="block text-sm font-semibold text-slate-700">Upload Report Card / Result Sheet (کارنامه)</label>
+            <p class="text-xs text-slate-500 mt-0.5 mb-2">Optional. Attach official institute report card (PDF, PNG, JPG, WEBP - Max 15MB).</p>
+            <input type="file" id="report_card_file" name="report_card_file" accept=".pdf,image/png,image/jpeg,image/webp"
+                   class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer">
         </div>
 
         <div class="space-y-4">

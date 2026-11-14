@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}My Historical Exam Records - Valhalla Tutor{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="border-b border-slate-200 pb-4">
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900">Historical External Exam Records</h1>
+        <p class="text-sm text-slate-500 mt-1">Past external institute exams (قلم‌چی، گزینه دو، سنجش، ماز) recorded for your profile.</p>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        {% if results %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-600">
+                    <thead class="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
+                        <tr>
+                            <th class="px-6 py-3">Date</th>
+                            <th class="px-6 py-3">Exam Name</th>
+                            <th class="px-4 py-3 text-center">Grade / Track</th>
+                            <th class="px-4 py-3 text-center">Overall Rank</th>
+                            <th class="px-6 py-3">Subject Percentages</th>
+                            <th class="px-4 py-3 text-center">Report Card (کارنامه)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for r in results %}
+                            <tr class="hover:bg-slate-50 transition">
+                                <td class="px-6 py-4 whitespace-nowrap text-xs font-semibold text-slate-700">{{ r.exam_date }}</td>
+                                <td class="px-6 py-4 font-semibold text-slate-900">{{ r.exam_name }}</td>
+                                <td class="px-4 py-4 text-center whitespace-nowrap text-xs text-slate-500">
+                                    Grade {{ r.grade or '—' }}{% if r.track %} &bull; {{ r.track.name }}{% endif %}
+                                </td>
+                                <td class="px-4 py-4 text-center font-bold text-slate-800">{{ r.overall_rank or '—' }}</td>
+                                <td class="px-6 py-4">
+                                    <div class="flex flex-wrap gap-1.5">
+                                        {% for sr in r.subject_results %}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800">
+                                                {{ sr.subject_name }}: <strong class="ml-1 text-indigo-700">{{ sr.percentage }}%</strong>
+                                            </span>
+                                        {% endfor %}
+                                    </div>
+                                    {% if r.notes %}
+                                        <p class="text-xs text-slate-400 mt-1 italic">{{ r.notes }}</p>
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-4 text-center whitespace-nowrap">
+                                    {% if r.report_card_file_path %}
+                                        <a href="/student/historical-exams/{{ r.id }}/download-report-card" target="_blank"
+                                           class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition">
+                                            دانلود کارنامه
+                                        </a>
+                                    {% else %}
+                                        <span class="text-slate-300 text-xs">—</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="p-12 text-center text-slate-500">
+                <p class="text-base font-semibold">No historical exam records found.</p>
+                <p class="text-sm mt-1">Your tutor can record your previous institute mock exams to track your long-term progress.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

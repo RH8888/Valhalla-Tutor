@@ -14,6 +14,21 @@ from app.models.exam import (
     ExamSubjectConfiguration,
     StudentExamResult,
     StudentExamSubjectResult,
+    ExternalExamAssignment,
+    ExamReportingGroup,
+    ExamReportingGroupSubject,
+    HistoricalExamResult,
+    HistoricalExamSubjectResult,
+)
+from app.models.practice_exam import (
+    PracticeExam,
+    PracticeExamBooklet,
+    PracticeExamReportingGroup,
+    PracticeExamQuestion,
+    PracticeExamAssignment,
+    StudentPracticeAttempt,
+    StudentPracticeBookletAttempt,
+    StudentPracticeAnswer,
 )
 
 __all__ = [
@@ -42,4 +57,17 @@ __all__ = [
     "ExamSubjectConfiguration",
     "StudentExamResult",
     "StudentExamSubjectResult",
+    "ExternalExamAssignment",
+    "ExamReportingGroup",
+    "ExamReportingGroupSubject",
+    "HistoricalExamResult",
+    "HistoricalExamSubjectResult",
+    "PracticeExam",
+    "PracticeExamBooklet",
+    "PracticeExamReportingGroup",
+    "PracticeExamQuestion",
+    "PracticeExamAssignment",
+    "StudentPracticeAttempt",
+    "StudentPracticeBookletAttempt",
+    "StudentPracticeAnswer",
 ]

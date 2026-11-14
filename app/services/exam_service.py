@@ -12,6 +12,9 @@ from app.models.exam import (
     ExamTrackConfiguration,
     StudentExamResult,
     StudentExamSubjectResult,
+    ExternalExamAssignment,
+    HistoricalExamResult,
+    HistoricalExamSubjectResult,
 )
 from app.models.subject import Subject
 from app.models.track import AcademicTrack
@@ -345,6 +348,8 @@ def submit_student_exam_result(
     subject_data: List[Dict[str, Any]],
     overall_rank: Optional[int] = None,
     notes: Optional[str] = None,
+    report_card_file_path: Optional[str] = None,
+    report_card_file_name: Optional[str] = None,
 ) -> StudentExamResult:
     if not student.academic_track_id:
         raise ExamValidationError("Student has no academic track assigned.")
@@ -421,6 +426,8 @@ def submit_student_exam_result(
         exam_session_id=session.id,
         overall_rank=clean_rank,
         notes=notes.strip() if notes and notes.strip() else None,
+        report_card_file_path=report_card_file_path,
+        report_card_file_name=report_card_file_name,
     )
     db.add(result)
     db.flush()
@@ -446,6 +453,8 @@ def update_student_exam_result(
     subject_data: List[Dict[str, Any]],
     overall_rank: Optional[int] = None,
     notes: Optional[str] = None,
+    report_card_file_path: Optional[str] = None,
+    report_card_file_name: Optional[str] = None,
 ) -> StudentExamResult:
     result = get_student_exam_result_by_id(db, result_id)
     if not result:
@@ -513,6 +522,9 @@ def update_student_exam_result(
 
     result.overall_rank = clean_rank
     result.notes = notes.strip() if notes and notes.strip() else None
+    if report_card_file_path:
+        result.report_card_file_path = report_card_file_path
+        result.report_card_file_name = report_card_file_name
 
     # Remove existing subject results and recreate
     for sr in list(result.subject_results):
@@ -626,6 +638,8 @@ def get_student_exam_analytics(db: Session, student_id: uuid.UUID) -> Dict[str, 
             "total_correct": total_correct,
             "total_incorrect": total_incorrect,
             "subjects": sub_details,
+            "has_report_card": bool(r.report_card_file_path),
+            "report_card_file_name": r.report_card_file_name,
         })
 
     # 2. Subject stats and improving/declining calculation
@@ -709,6 +723,8 @@ def get_tutor_session_analytics(db: Session, session_id: uuid.UUID) -> Dict[str,
             "total_correct": total_correct,
             "total_incorrect": total_incorrect,
             "subject_scores": sub_map,
+            "has_report_card": bool(r.report_card_file_path),
+            "report_card_file_name": r.report_card_file_name,
         })
 
     subject_averages = {
@@ -740,3 +756,166 @@ def get_tutor_student_analytics(db: Session, student_id: uuid.UUID) -> Dict[str,
         "student": student,
         "analytics": analytics,
     }
+
+
+def assign_external_exam_to_students(
+    db: Session,
+    exam_session_id: uuid.UUID,
+    student_ids: List[uuid.UUID],
+) -> None:
+    session = get_exam_session_by_id(db, exam_session_id)
+    if not session:
+        raise ExamSessionNotFoundError(f"Exam session with id {exam_session_id} not found.")
+
+    for sid in student_ids:
+        existing = db.query(ExternalExamAssignment).filter(
+            ExternalExamAssignment.exam_session_id == session.id,
+            ExternalExamAssignment.student_id == sid,
+        ).first()
+        if not existing:
+            assignment = ExternalExamAssignment(exam_session_id=session.id, student_id=sid)
+            db.add(assignment)
+    db.commit()
+
+
+def get_student_external_exams_in_date_range(
+    db: Session,
+    student: User,
+    start_date: date,
+    end_date: date,
+) -> Dict[date, List[ExamSession]]:
+    """
+    Find assigned scheduled external exams that fall within a date range (for 14-day study plan integration).
+    Returns mapping of date -> list of exam sessions.
+    """
+    if not student.academic_track_id:
+        return {}
+
+    query = (
+        db.query(ExamSession)
+        .options(
+            joinedload(ExamSession.exam),
+            joinedload(ExamSession.track_configs),
+        )
+        .filter(
+            ExamSession.date >= start_date,
+            ExamSession.date <= end_date,
+        )
+    )
+    sessions = query.all()
+    exams_by_date: Dict[date, List[ExamSession]] = {}
+
+    for s in sessions:
+        # Check track configuration or direct assignment
+        is_in_track = any(tc.track_id == student.academic_track_id for tc in s.track_configs)
+        has_direct_assignment = any(a.student_id == student.id for a in s.assignments)
+        if is_in_track or has_direct_assignment:
+            if s.date not in exams_by_date:
+                exams_by_date[s.date] = []
+            exams_by_date[s.date].append(s)
+
+    return exams_by_date
+
+
+def create_historical_exam_result(
+    db: Session,
+    student_id: uuid.UUID,
+    exam_name: str,
+    exam_date: date,
+    subject_scores: List[Dict[str, Any]],
+    grade: Optional[str] = None,
+    academic_track_id: Optional[uuid.UUID] = None,
+    overall_rank: Optional[int] = None,
+    notes: Optional[str] = None,
+    report_card_file_path: Optional[str] = None,
+    report_card_file_name: Optional[str] = None,
+) -> HistoricalExamResult:
+    clean_name = (exam_name or "").strip()
+    if not clean_name:
+        raise ExamValidationError("Historical exam name cannot be empty.")
+
+    student = db.query(User).filter(User.id == student_id, User.role == "STUDENT").first()
+    if not student:
+        raise ExamValidationError(f"Student with id {student_id} not found.")
+
+    if not subject_scores:
+        raise ExamValidationError("At least one subject percentage must be recorded.")
+
+    clean_rank = None
+    if overall_rank is not None:
+        try:
+            clean_rank = int(overall_rank)
+            if clean_rank <= 0:
+                raise ValueError()
+        except (ValueError, TypeError):
+            raise ExamValidationError("Overall rank must be a positive integer if provided.")
+
+    hist_result = HistoricalExamResult(
+        student_id=student.id,
+        exam_name=clean_name,
+        exam_date=exam_date,
+        grade=grade.strip() if grade else student.grade,
+        academic_track_id=academic_track_id or student.academic_track_id,
+        overall_rank=clean_rank,
+        notes=notes.strip() if notes and notes.strip() else None,
+        report_card_file_path=report_card_file_path,
+        report_card_file_name=report_card_file_name,
+    )
+    db.add(hist_result)
+    db.flush()
+
+    for item in subject_scores:
+        s_name = str(item.get("subject_name", "")).strip()
+        if not s_name:
+            continue
+        try:
+            pct = float(item.get("percentage", 0.0))
+        except (ValueError, TypeError):
+            raise ExamValidationError(f"Percentage for subject '{s_name}' must be a valid number.")
+
+        if pct < 0.0 or pct > 100.0:
+            raise ExamValidationError(f"Percentage for subject '{s_name}' must be between 0 and 100.")
+
+        sub_rec = HistoricalExamSubjectResult(
+            historical_exam_result_id=hist_result.id,
+            subject_name=s_name,
+            percentage=pct,
+        )
+        db.add(sub_rec)
+
+    db.commit()
+    db.refresh(hist_result)
+    return hist_result
+
+
+def list_historical_exam_results(
+    db: Session,
+    student_id: Optional[uuid.UUID] = None,
+) -> List[HistoricalExamResult]:
+    query = (
+        db.query(HistoricalExamResult)
+        .options(
+            joinedload(HistoricalExamResult.student),
+            joinedload(HistoricalExamResult.academic_track),
+            joinedload(HistoricalExamResult.subject_results),
+        )
+    )
+    if student_id:
+        query = query.filter(HistoricalExamResult.student_id == student_id)
+    return query.order_by(desc(HistoricalExamResult.exam_date)).all()
+
+
+def get_historical_exam_result_by_id(
+    db: Session,
+    result_id: uuid.UUID,
+) -> Optional[HistoricalExamResult]:
+    return (
+        db.query(HistoricalExamResult)
+        .options(
+            joinedload(HistoricalExamResult.student),
+            joinedload(HistoricalExamResult.academic_track),
+            joinedload(HistoricalExamResult.subject_results),
+        )
+        .filter(HistoricalExamResult.id == result_id)
+        .first()
+    )

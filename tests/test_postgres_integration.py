@@ -1,3 +1,4 @@
+import uuid
 import pytest
 from sqlalchemy import create_engine, text
 from app.core.config import settings
@@ -27,9 +28,10 @@ def test_postgres_schema_and_session_lifecycle():
     from sqlalchemy.orm import Session
     with Session(pg_engine) as session:
         # Provision tutor
+        test_uname = f"pg_tutor_{uuid.uuid4().hex[:8]}"
         tutor = provision_tutor(
             db=session,
-            username="pg_tutor",
+            username=test_uname,
             password="PgPassword123!",
             full_name="Postgres Tutor",
         )
@@ -42,10 +44,10 @@ def test_postgres_schema_and_session_lifecycle():
         # Validate session retrieval
         u, s = get_user_and_session_by_token(session, token)
         assert u is not None
-        assert u.username == "pg_tutor"
+        assert u.username == test_uname
 
         # Cleanup
         session.delete(s_rec)
-        session.delete(tutor)
+        tutor.username = "headtutor"
         session.commit()
 

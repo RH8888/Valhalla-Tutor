@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}{{ booklet.title }} - {{ attempt.practice_exam.title }} - Valhalla Tutor{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-indigo-600">
+                Booklet {{ booklet.order_index }} &bull; Questions {{ booklet.question_start }}–{{ booklet.question_end }}
+            </span>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-0.5">{{ booklet.title }}</h1>
+            <p class="text-xs text-slate-500 mt-1">{{ attempt.practice_exam.title }}</p>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <a href="/student/practice-exams/booklets/{{ booklet.id }}/download" target="_blank"
+               class="inline-flex items-center px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition shadow-sm">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                Download PDF Booklet
+            </a>
+
+            {% if attempt.is_timed and booklet.duration_minutes %}
+                <div id="timer_box" class="px-4 py-2 rounded-lg font-mono text-center font-bold text-sm {% if is_locked %}bg-red-100 text-red-800 border border-red-200{% else %}bg-slate-900 text-emerald-400{% endif %}">
+                    {% if is_locked %}
+                        <span>LOCKED</span>
+                    {% else %}
+                        <span class="text-xs text-slate-400 block -mb-1 font-sans">TIME LEFT</span>
+                        <span id="countdown_display">--:--</span>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if msg %}
+        <div class="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">{{ msg }}</div>
+    {% endif %}
+    {% if err %}
+        <div class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">{{ err }}</div>
+    {% endif %}
+
+    {% if is_locked %}
+        <div class="p-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm flex items-center justify-between">
+            <div>
+                <strong>Booklet Locked:</strong> Time has expired or answers for this booklet have been submitted. Answers cannot be modified.
+            </div>
+            <form method="POST" action="/student/practice-exams/attempts/{{ attempt.id }}/booklets/{{ booklet.id }}/submit">
+                <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                <button type="submit" class="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-semibold shadow-sm transition">
+                    Continue to Next Section &rarr;
+                </button>
+            </form>
+        </div>
+    {% endif %}
+    <!-- Multiple Choice Answer Sheet Form -->
+    <form id="runner_form" method="POST" action="/student/practice-exams/attempts/{{ attempt.id }}/booklets/{{ booklet.id }}/submit" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+        <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+            <h2 class="text-base font-bold text-slate-900">Answer Sheet (پاسخ‌برگ چهارگزینه‌ای)</h2>
+            <span class="text-xs text-slate-500">Each question has 4 options (1, 2, 3, 4). Negative marking is applied automatically.</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {% for q in questions %}
+                {% set selected_c = answers_map.get(q.question_number) %}
+                <div class="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50 flex items-center justify-between hover:bg-white transition">
+                    <div class="flex flex-col">
+                        <span class="text-xs font-bold text-slate-900">Q #{{ q.question_number }}</span>
+                        <span class="text-[10px] text-slate-500 truncate max-w-[100px]">{{ q.subject.name }}</span>
+                    </div>
+
+                    <div class="flex items-center space-x-1">
+                        {% for ch in [1, 2, 3, 4] %}
+                            <label class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border border-slate-300 {% if is_locked %}cursor-not-allowed opacity-60{% else %}cursor-pointer hover:border-indigo-400{% endif %} has-[:checked]:bg-indigo-600 has-[:checked]:text-white has-[:checked]:border-indigo-600 transition">
+                                <input type="radio" name="q_{{ q.question_number }}" value="{{ ch }}"
+                                       {% if selected_c == ch %}checked{% endif %}
+                                       {% if is_locked %}disabled{% endif %}
+                                       class="sr-only">
+                                {{ ch }}
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        {% if not is_locked %}
+            <div class="pt-4 border-t border-slate-200 flex items-center justify-between">
+                <button type="submit" formaction="/student/practice-exams/attempts/{{ attempt.id }}/booklets/{{ booklet.id }}/save"
+                        class="px-4 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition">
+                    💾 Save Progress
+                </button>
+                <button type="submit" onclick="return confirm('Warning: Once you submit this booklet, your answers will be PERMANENTLY LOCKED and cannot be edited. Are you sure you want to proceed?')"
+                        class="px-5 py-2 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition">
+                    Submit Booklet &amp; Proceed &rarr;
+                </button>
+            </div>
+        {% endif %}
+    </form>
+</div>
+{% if attempt.is_timed and booklet.duration_minutes and not is_locked %}
+<script>
+    let remaining = {{ remaining_seconds }};
+    const display = document.getElementById('countdown_display');
+
+    function updateTimer() {
+        if (remaining <= 0) {
+            display.innerText = "00:00";
+            alert("Time has expired for this booklet! The booklet is now locked.");
+            document.getElementById('runner_form').submit();
+            return;
+        }
+        let m = Math.floor(remaining / 60);
+        let s = remaining % 60;
+        display.innerText = (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s);
+        remaining--;
+        setTimeout(updateTimer, 1000);
+    }
+    updateTimer();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+{% block title %}{{ exam.title }} - Practice Exam - Valhalla Tutor{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <div class="border-b border-slate-200 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+            <a href="/tutor/practice-exams" class="text-sm text-slate-500 hover:text-slate-800 transition">&larr; Back to Practice Exams</a>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-1">{{ exam.title }}</h1>
+            <p class="text-sm text-slate-500">
+                Grade: <strong class="text-slate-700">{{ exam.grade }}</strong> &bull;
+                Track: <strong class="text-slate-700">{{ exam.track.name }}</strong> &bull;
+                Mode: <span class="font-semibold {% if exam.is_timed %}text-amber-600{% else %}text-slate-600{% endif %}">{% if exam.is_timed %}Timed Exam{% else %}Untimed{% endif %}</span>
+            </p>
+        </div>
+        <div class="flex items-center space-x-2">
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
+                {{ exam.attempts|length }} Submissions
+            </span>
+        </div>
+    </div>
+
+    {% if msg %}
+        <div class="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">{{ msg }}</div>
+    {% endif %}
+    {% if err %}
+        <div class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">{{ err }}</div>
+    {% endif %}
+
+    <!-- Grid: Booklets and Reporting Groups -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- PDF Booklets -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+            <h2 class="text-lg font-bold text-slate-900 flex items-center justify-between">
+                <span>PDF Booklets (دفترچه‌های سوال)</span>
+                <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{{ exam.booklets|length }} booklets</span>
+            </h2>
+
+            <div class="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
+                {% for b in exam.booklets %}
+                    <div class="p-3 bg-slate-50/50 flex items-center justify-between">
+                        <div>
+                            <p class="font-semibold text-slate-800 text-sm">#{{ b.order_index }}: {{ b.title }}</p>
+                            <p class="text-xs text-slate-500">Questions: {{ b.question_start }}–{{ b.question_end }} &bull; Duration: {{ b.duration_minutes or 'Untimed' }} min</p>
+                        </div>
+                        <a href="/tutor/practice-exams/{{ exam.id }}/download-booklet/{{ b.id }}" target="_blank"
+                           class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded text-indigo-700 bg-white border border-indigo-200 hover:bg-indigo-50 shadow-sm transition">
+                            Download PDF
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="p-4 text-center text-xs text-slate-500">No booklets uploaded yet.</div>
+                {% endfor %}
+            </div>
+
+            <!-- Upload Booklet Form -->
+            <form method="POST" action="/tutor/practice-exams/{{ exam.id }}/booklets" enctype="multipart/form-data" class="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
+                <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">+ Upload New Booklet PDF</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-medium text-slate-600">Booklet Title *</label>
+                        <input type="text" name="title" required placeholder="e.g. دفترچه عمومی یا دفترچه ۱" class="mt-0.5 block w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600">Start Question # *</label>
+                        <input type="number" name="question_start" min="1" required placeholder="1" class="mt-0.5 block w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600">End Question # *</label>
+                        <input type="number" name="question_end" min="1" required placeholder="60" class="mt-0.5 block w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600">Duration (Minutes)</label>
+                        <input type="number" name="duration_minutes" min="1" placeholder="60 (leave empty if untimed)" class="mt-0.5 block w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600">PDF File *</label>
+                        <input type="file" name="file" accept=".pdf" required class="mt-0.5 block w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-indigo-50 file:text-indigo-700">
+                    </div>
+                </div>
+                <button type="submit" class="w-full mt-2 px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded shadow-sm transition">Upload Booklet</button>
+            </form>
+        </div>
+        <!-- Reporting Groups & Assignments -->
+        <div class="space-y-6">
+            <!-- Reporting Groups -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+                <h2 class="text-lg font-bold text-slate-900 flex items-center justify-between">
+                    <span>Subject Reporting Groups (گروه‌های ترکیبی گزارش)</span>
+                    <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{{ exam.reporting_groups|length }} groups</span>
+                </h2>
+                <p class="text-xs text-slate-500">Combine multiple subjects (e.g. Geometry + Calculus + Stats &rarr; "Mathematics") into a single combined percentage report, or leave individual.</p>
+
+                <div class="flex flex-wrap gap-2">
+                    {% for g in exam.reporting_groups %}
+                        <span class="inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                            {{ g.title }}
+                        </span>
+                    {% else %}
+                        <span class="text-xs text-slate-400">No combined groups defined (subjects scored individually).</span>
+                    {% endfor %}
+                </div>
+
+                <form method="POST" action="/tutor/practice-exams/{{ exam.id }}/reporting-groups" class="flex gap-2 pt-2 border-t border-slate-100">
+                    <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                    <input type="text" name="title" required placeholder="New group title (e.g. ریاضیات کنکور)" class="flex-1 px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-indigo-500 focus:border-indigo-500">
+                    <button type="submit" class="px-3 py-1.5 text-xs font-semibold text-white bg-slate-800 hover:bg-slate-900 rounded shadow-sm transition">+ Add Group</button>
+                </form>
+            </div>
+
+            <!-- Student Assignment -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+                <h2 class="text-lg font-bold text-slate-900 flex items-center justify-between">
+                    <span>Student Assignment (تخصیص به دانش‌آموزان)</span>
+                    <span class="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded">{{ exam.assignments|length }} assigned</span>
+                </h2>
+                <p class="text-xs text-slate-500">By default eligible students in Grade {{ exam.grade }} &bull; {{ exam.track.name }} can take this exam. You can also assign it directly.</p>
+
+                <form method="POST" action="/tutor/practice-exams/{{ exam.id }}/assign" class="space-y-3">
+                    <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                    <div class="max-h-48 overflow-y-auto space-y-1.5 border border-slate-200 rounded p-2 bg-slate-50">
+                        {% for st in all_students %}
+                            {% set is_assigned = false %}
+                            {% for a in exam.assignments %}
+                                {% if a.student_id == st.id %}{% set is_assigned = true %}{% endif %}
+                            {% endfor %}
+                            <label class="flex items-center space-x-2 text-xs text-slate-700 hover:bg-white p-1 rounded cursor-pointer">
+                                <input type="checkbox" name="student_ids" value="{{ st.id }}" {% if is_assigned %}checked{% endif %} class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                                <span>{{ st.full_name }} (Grade {{ st.grade or '—' }} &bull; {{ st.academic_track.name if st.academic_track else 'No Track' }})</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                    <button type="submit" class="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded shadow-sm transition">Save Assignments</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- Question Answer Keys & Subject Mapping -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+            <div>
+                <h2 class="text-lg font-bold text-slate-900">Answer Keys &amp; Subject Mapping</h2>
+                <p class="text-xs text-slate-500">Configure correct choices (1-4), subject assignment, and optional combined reporting group.</p>
+            </div>
+            <span class="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded font-semibold">{{ exam.questions|length }} configured</span>
+        </div>
+
+        {% if exam.booklets %}
+            {% set max_q = 0 %}
+            {% for b in exam.booklets %}
+                {% if b.question_end > max_q %}{% set max_q = b.question_end %}{% endif %}
+            {% endfor %}
+            {% set q_map = {} %}
+            {% for q in exam.questions %}
+                {% set _ = q_map.update({q.question_number: q}) %}
+            {% endfor %}
+
+            <!-- Quick Configuration Helpers -->
+            <div class="bg-indigo-50/50 rounded-lg p-4 border border-indigo-100 space-y-3">
+                <h3 class="text-xs font-bold text-indigo-900 uppercase tracking-wider">⚡ Quick Configuration Tools (ابزارهای ورود سریع)</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Tool 1: Paste Answer Key -->
+                    <div class="space-y-1.5">
+                        <label class="block text-xs font-semibold text-slate-700">1. Paste Answer Key (چسباندن سریع کلید پاسخ‌ها):</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="quick_keys_input" placeholder="e.g. 1423124431... or 1,4,2,3..."
+                                   class="flex-1 px-2.5 py-1.5 border border-slate-300 rounded text-xs font-mono focus:ring-indigo-500 focus:border-indigo-500 bg-white">
+                            <button type="button" onclick="applyQuickKeys()" class="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded shadow-sm transition">
+                                Apply Keys
+                            </button>
+                        </div>
+                        <p class="text-[11px] text-slate-500">Paste numbers (1–4) or letters (A–D). Applies sequentially starting at Q#1.</p>
+                    </div>
+
+                    <!-- Tool 2: Bulk Assign Subject -->
+                    <div class="space-y-1.5">
+                        <label class="block text-xs font-semibold text-slate-700">2. Bulk Assign Subject (تخصیص درس به بازه سوال):</label>
+                        <div class="flex gap-2">
+                            <select id="bulk_subject_select" class="flex-1 px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-indigo-500 focus:border-indigo-500 bg-white">
+                                <option value="">Select Subject...</option>
+                                {% for s in exam.track.subjects %}
+                                    <option value="{{ s.id }}">{{ s.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <input type="number" id="bulk_from_q" value="1" min="1" max="{{ max_q }}" class="w-12 px-1.5 py-1.5 border border-slate-300 rounded text-xs text-center">
+                            <span class="text-xs text-slate-400 self-center">to</span>
+                            <input type="number" id="bulk_to_q" value="{{ max_q }}" min="1" max="{{ max_q }}" class="w-12 px-1.5 py-1.5 border border-slate-300 rounded text-xs text-center">
+                            <button type="button" onclick="applyBulkSubject()" class="px-3 py-1.5 text-xs font-semibold text-white bg-slate-800 hover:bg-slate-900 rounded shadow-sm transition">
+                                Set
+                            </button>
+                        </div>
+                        <p class="text-[11px] text-slate-500">Assigns chosen subject to questions within range.</p>
+                    </div>
+                </div>
+            </div>
+
+            <form method="POST" action="/tutor/practice-exams/{{ exam.id }}/questions" class="space-y-4">
+                <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                <div class="max-h-96 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-lg">
+                    {% for q_num in range(1, max_q + 1) %}
+                        {% set curr_q = q_map.get(q_num) %}
+                        <div class="p-2.5 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-50">
+                            <span class="text-xs font-bold text-slate-800 w-16">Q #{{ q_num }}</span>
+                            <div class="flex items-center gap-3 flex-1">
+                                <!-- Choice 1-4 -->
+                                <div class="flex items-center space-x-1">
+                                    <span class="text-xs text-slate-500 mr-1">Key:</span>
+                                    {% for ch in [1, 2, 3, 4] %}
+                                        <label class="q-choice-lbl-{{ q_num }} inline-flex items-center justify-center w-7 h-7 rounded border {% if curr_q and curr_q.correct_choice == ch %}bg-indigo-600 text-white border-indigo-600{% else %}border-slate-300 text-slate-700 hover:bg-indigo-50{% endif %} text-xs font-semibold cursor-pointer transition">
+                                            <input type="radio" name="q_{{ q_num }}_choice" value="{{ ch }}" onchange="highlightRow({{ q_num }})" {% if curr_q and curr_q.correct_choice == ch %}checked{% endif %} class="sr-only">
+                                            {{ ch }}
+                                        </label>
+                                    {% endfor %}
+                                </div>
+                                <!-- Subject -->
+                                <div class="flex-1">
+                                    <select name="q_{{ q_num }}_subject" class="block w-full px-2 py-1 text-xs border border-slate-300 rounded focus:ring-indigo-500 focus:border-indigo-500">
+                                        <option value="">Select Subject...</option>
+                                        {% for s in exam.track.subjects %}
+                                            <option value="{{ s.id }}" {% if curr_q and curr_q.subject_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <!-- Reporting Group (Optional) -->
+                                <div class="w-48">
+                                    <select name="q_{{ q_num }}_group" class="block w-full px-2 py-1 text-xs border border-slate-300 rounded focus:ring-indigo-500 focus:border-indigo-500">
+                                        <option value="">Individual Subject Score</option>
+                                        {% for g in exam.reporting_groups %}
+                                            <option value="{{ g.id }}" {% if curr_q and curr_q.reporting_group_id == g.id %}selected{% endif %}>Group: {{ g.title }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                <div class="flex items-center justify-between pt-2">
+                    <p class="text-xs text-slate-500">All questions configured here will be automatically graded using multiple-choice negative marking.</p>
+                    <button type="submit" class="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition">Save Question Keys &amp; Groups</button>
+                </div>
+            </form>
+
+            <script>
+            function highlightRow(qNum) {
+                const radios = document.querySelectorAll(`input[name="q_${qNum}_choice"]`);
+                radios.forEach(r => {
+                    const lbl = r.closest('label');
+                    if (r.checked) {
+                        lbl.className = "q-choice-lbl-" + qNum + " inline-flex items-center justify-center w-7 h-7 rounded border bg-indigo-600 text-white border-indigo-600 text-xs font-semibold cursor-pointer transition";
+                    } else {
+                        lbl.className = "q-choice-lbl-" + qNum + " inline-flex items-center justify-center w-7 h-7 rounded border border-slate-300 text-slate-700 hover:bg-indigo-50 text-xs font-semibold cursor-pointer transition";
+                    }
+                });
+            }
+
+            function applyQuickKeys() {
+                const raw = (document.getElementById('quick_keys_input').value || '').trim();
+                if (!raw) {
+                    alert('Please paste an answer key string first (e.g. 142312... or 1,4,2,3).');
+                    return;
+                }
+                const mapChar = {'1': '1', '2': '2', '3': '3', '4': '4', 'A': '1', 'B': '2', 'C': '3', 'D': '4', 'a': '1', 'b': '2', 'c': '3', 'd': '4', 'الف': '1', 'ب': '2', 'ج': '3', 'د': '4'};
+                const clean = [];
+                for (let i = 0; i < raw.length; i++) {
+                    const ch = raw[i];
+                    if (mapChar[ch]) clean.push(mapChar[ch]);
+                }
+                const maxQ = {{ max_q }};
+                let count = 0;
+                clean.forEach((choice, idx) => {
+                    const qNum = idx + 1;
+                    if (qNum <= maxQ) {
+                        const targetRadio = document.querySelector(`input[name="q_${qNum}_choice"][value="${choice}"]`);
+                        if (targetRadio) {
+                            targetRadio.checked = true;
+                            highlightRow(qNum);
+                            count++;
+                        }
+                    }
+                });
+                alert(`Successfully applied answer keys for ${count} questions!`);
+            }
+
+            function applyBulkSubject() {
+                const subjId = document.getElementById('bulk_subject_select').value;
+                if (!subjId) {
+                    alert('Please select a subject first from the dropdown.');
+                    return;
+                }
+                const fromQ = parseInt(document.getElementById('bulk_from_q').value) || 1;
+                const toQ = parseInt(document.getElementById('bulk_to_q').value) || {{ max_q }};
+                let count = 0;
+                for (let q = fromQ; q <= toQ; q++) {
+                    const sel = document.querySelector(`select[name="q_${q}_subject"]`);
+                    if (sel) {
+                        sel.value = subjId;
+                        count++;
+                    }
+                }
+                alert(`Applied subject to questions ${fromQ} through ${toQ} (${count} questions).`);
+            }
+            </script>
+        {% else %}
+            <p class="text-xs text-slate-500">Please upload at least one PDF booklet first to define question numbers.</p>
+        {% endif %}
+    </div>
+
+    <!-- Student Attempts Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200 bg-slate-50/50">
+            <h2 class="text-base font-bold text-slate-900">Student Attempts &amp; Submissions</h2>
+        </div>
+        {% if exam.attempts %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-600">
+                    <thead class="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
+                        <tr>
+                            <th class="px-6 py-3">Student</th>
+                            <th class="px-4 py-3 text-center">Status</th>
+                            <th class="px-6 py-3">Started</th>
+                            <th class="px-6 py-3">Completed</th>
+                            <th class="px-4 py-3 text-center">Score %</th>
+                            <th class="px-6 py-3 text-right">Detailed Results</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for att in exam.attempts %}
+                            <tr class="hover:bg-slate-50 transition">
+                                <td class="px-6 py-4 font-semibold text-slate-900 whitespace-nowrap">{{ att.student.full_name }}</td>
+                                <td class="px-4 py-4 text-center whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold {% if att.status == 'COMPLETED' %}bg-emerald-50 text-emerald-700{% else %}bg-amber-50 text-amber-700{% endif %}">
+                                        {{ att.status }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-xs text-slate-500 whitespace-nowrap">{{ att.started_at.strftime('%Y-%m-%d %H:%M') if att.started_at else '—' }}</td>
+                                <td class="px-6 py-4 text-xs text-slate-500 whitespace-nowrap">{{ att.completed_at.strftime('%Y-%m-%d %H:%M') if att.completed_at else 'In Progress' }}</td>
+                                <td class="px-4 py-4 text-center font-bold text-indigo-600 whitespace-nowrap">
+                                    {{ "%.1f"|format(att.overall_percentage) if att.overall_percentage is not none else '—' }}%
+                                </td>
+                                <td class="px-6 py-4 text-right whitespace-nowrap">
+                                    <a href="/tutor/practice-exams/attempts/{{ att.id }}" class="text-indigo-600 hover:text-indigo-900 font-medium text-xs bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-md transition">
+                                        View Results &rarr;
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="p-8 text-center text-xs text-slate-500">No student attempts recorded for this practice exam yet.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

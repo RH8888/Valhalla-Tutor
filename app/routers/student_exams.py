@@ -1,12 +1,19 @@
 import json
 import uuid
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, status
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_session, get_current_user, require_student, verify_csrf_token
+from app.core.storage import (
+    REPORT_CARD_ALLOWED_EXTENSIONS,
+    REPORT_CARD_ALLOWED_MIMES,
+    REPORT_CARD_MAX_SIZE_BYTES,
+    get_absolute_file_path,
+    save_uploaded_file,
+)
 from app.core.templates import templates
 from app.models.session import UserSession
 from app.models.user import User
@@ -138,6 +145,18 @@ async def post_submit_result(
                 "percentage": pct_val,
             })
 
+    report_card_file = form_data.get("report_card_file")
+    rc_path = None
+    rc_name = None
+    if isinstance(report_card_file, UploadFile) and report_card_file.filename:
+        rc_path, rc_name = save_uploaded_file(
+            file=report_card_file,
+            subfolder="report_cards",
+            allowed_exts=REPORT_CARD_ALLOWED_EXTENSIONS,
+            allowed_mimes=REPORT_CARD_ALLOWED_MIMES,
+            max_size=REPORT_CARD_MAX_SIZE_BYTES,
+        )
+
     try:
         rank_val = int(overall_rank_raw) if overall_rank_raw and str(overall_rank_raw).strip() else None
         submit_student_exam_result(
@@ -147,6 +166,8 @@ async def post_submit_result(
             subject_data=subject_data,
             overall_rank=rank_val,
             notes=str(notes) if notes else None,
+            report_card_file_path=rc_path,
+            report_card_file_name=rc_name,
         )
         return RedirectResponse(
             url="/student/exams?msg=Exam results submitted successfully",
@@ -245,6 +266,18 @@ async def post_edit_result(
                 "percentage": pct_val,
             })
 
+    report_card_file = form_data.get("report_card_file")
+    rc_path = None
+    rc_name = None
+    if isinstance(report_card_file, UploadFile) and report_card_file.filename:
+        rc_path, rc_name = save_uploaded_file(
+            file=report_card_file,
+            subfolder="report_cards",
+            allowed_exts=REPORT_CARD_ALLOWED_EXTENSIONS,
+            allowed_mimes=REPORT_CARD_ALLOWED_MIMES,
+            max_size=REPORT_CARD_MAX_SIZE_BYTES,
+        )
+
     try:
         rank_val = int(overall_rank_raw) if overall_rank_raw and str(overall_rank_raw).strip() else None
         update_student_exam_result(
@@ -254,6 +287,8 @@ async def post_edit_result(
             subject_data=subject_data,
             overall_rank=rank_val,
             notes=str(notes) if notes else None,
+            report_card_file_path=rc_path,
+            report_card_file_name=rc_name,
         )
         return RedirectResponse(
             url="/student/exams?msg=Exam results updated successfully",
@@ -295,4 +330,28 @@ def get_student_analytics_page(
             "current_user": current_user,
             "current_session": current_session,
         },
+    )
+
+
+@router.get("/results/{result_id}/report-card")
+def download_student_exam_report_card(
+    result_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = get_student_exam_result_by_id(db, result_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Result not found.")
+    if result.student_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Unauthorized access to this report card.")
+    if not result.report_card_file_path:
+        raise HTTPException(status_code=404, detail="No report card attachment uploaded.")
+
+    abs_path = get_absolute_file_path(result.report_card_file_path)
+    if not abs_path.exists():
+        raise HTTPException(status_code=404, detail="Report card file not found on disk.")
+
+    return FileResponse(
+        path=str(abs_path),
+        filename=result.report_card_file_name or "report_card.pdf",
     )

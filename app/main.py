@@ -9,10 +9,14 @@ from app.routers import (
     health,
     student,
     student_exams,
+    student_historical_exams,
+    student_practice_exams,
     tutor,
     tutor_books,
     tutor_exams,
+    tutor_historical_exams,
     tutor_plans,
+    tutor_practice_exams,
     tutor_subjects,
     tutor_tracks,
     tutor_videos,
@@ -30,6 +34,8 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(tutor.router)
 app.include_router(tutor_exams.router)
+app.include_router(tutor_practice_exams.router)
+app.include_router(tutor_historical_exams.router)
 app.include_router(tutor_plans.router)
 app.include_router(tutor_subjects.router)
 app.include_router(tutor_tracks.router)
@@ -37,6 +43,8 @@ app.include_router(tutor_videos.router)
 app.include_router(tutor_books.router)
 app.include_router(student.router)
 app.include_router(student_exams.router)
+app.include_router(student_practice_exams.router)
+app.include_router(student_historical_exams.router)
 
 # Mount static assets if the directory exists
 static_dir = os.path.join(os.path.dirname(__file__), "static")
