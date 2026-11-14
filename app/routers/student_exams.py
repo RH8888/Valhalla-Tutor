@@ -211,13 +211,6 @@ async def post_submit_result(
             },
             status_code=status.HTTP_400_BAD_REQUEST,
         )
-                "subjects": subjects,
-                "error": str(exc),
-                "current_user": current_user,
-                "current_session": current_session,
-            },
-            status_code=status.HTTP_400_BAD_REQUEST,
-        )
 
 
 @router.get("/results/{result_id}/edit", response_class=HTMLResponse)
@@ -247,6 +240,7 @@ def get_edit_result_form(
         context={
             "result": result,
             "session": result.exam_session,
+            "group_results": result.group_results,
             "subjects": subjects,
             "sub_res_map": sub_res_map,
             "error": None,
@@ -274,26 +268,41 @@ async def post_edit_result(
     overall_rank_raw = form_data.get("overall_rank")
     notes = form_data.get("notes")
 
+    # If result has group_results, parse group_data
+    group_data = []
+    if result.group_results:
+        for gr in result.group_results:
+            key = gr.reporting_group_id or gr.id
+            pct_val = form_data.get(f"group_{key}_percentage")
+            if pct_val is None:
+                pct_val = form_data.get(f"group_{gr.id}_percentage")
+            if pct_val is not None and str(pct_val).strip():
+                group_data.append({
+                    "reporting_group_id": gr.reporting_group_id,
+                    "group_title": gr.group_title,
+                    "percentage": float(pct_val),
+                    "included_subject_names": gr.included_subject_names,
+                })
+
     track_config = next(
         (tc for tc in result.exam_session.track_configs if tc.track_id == current_user.academic_track_id),
         None,
     )
-    if not track_config:
-        raise HTTPException(status_code=403, detail="Exam not available for your track.")
 
     subject_data = []
-    for sc in track_config.subject_configs:
-        sub_id = sc.subject_id
-        corr_val = form_data.get(f"correct_{sub_id}")
-        incorr_val = form_data.get(f"incorrect_{sub_id}")
-        pct_val = form_data.get(f"percentage_{sub_id}")
-        if corr_val is not None and pct_val is not None:
-            subject_data.append({
-                "subject_id": sub_id,
-                "correct_answers": corr_val,
-                "incorrect_answers": incorr_val or 0,
-                "percentage": pct_val,
-            })
+    if track_config and not group_data:
+        for sc in track_config.subject_configs:
+            sub_id = sc.subject_id
+            corr_val = form_data.get(f"correct_{sub_id}")
+            incorr_val = form_data.get(f"incorrect_{sub_id}")
+            pct_val = form_data.get(f"percentage_{sub_id}")
+            if corr_val is not None and pct_val is not None:
+                subject_data.append({
+                    "subject_id": sub_id,
+                    "correct_answers": corr_val,
+                    "incorrect_answers": incorr_val or 0,
+                    "percentage": pct_val,
+                })
 
     report_card_file = form_data.get("report_card_file")
     rc_path = None
@@ -313,7 +322,8 @@ async def post_edit_result(
             db,
             student=current_user,
             result_id=result_id,
-            subject_data=subject_data,
+            subject_data=subject_data if subject_data else None,
+            group_data=group_data if group_data else None,
             overall_rank=rank_val,
             notes=str(notes) if notes else None,
             report_card_file_path=rc_path,
@@ -325,13 +335,14 @@ async def post_edit_result(
         )
     except (ExamValidationError, ExamResultNotFoundError) as exc:
         sub_res_map = {sr.subject_id: sr for sr in result.subject_results}
-        subjects = [sc.subject for sc in track_config.subject_configs]
+        subjects = [sc.subject for sc in track_config.subject_configs] if track_config else []
         return templates.TemplateResponse(
             request=request,
             name="student/exams/edit.html",
             context={
                 "result": result,
                 "session": result.exam_session,
+                "group_results": result.group_results,
                 "subjects": subjects,
                 "sub_res_map": sub_res_map,
                 "error": str(exc),

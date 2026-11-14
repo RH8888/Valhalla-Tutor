@@ -24,8 +24,10 @@ from app.services.exam_service import (
     create_exam,
     create_exam_session,
     delete_exam_grade_track_config,
+    dismiss_series_incompatible_assignment,
     evaluate_students_eligibility,
     generate_series_sessions,
+    get_all_series_incompatible_students,
     get_exam_by_id,
     get_exam_grade_track_config,
     get_exam_session_by_id,
@@ -58,17 +60,55 @@ def get_tutor_exams(
 ):
     exams = list_exams(db, include_inactive=True)
     sessions = list_exam_sessions(db)
+    profile_alerts = get_all_series_incompatible_students(db)
     return templates.TemplateResponse(
         request=request,
         name="tutor/exams/list.html",
         context={
             "exams": exams,
             "sessions": sessions,
+            "profile_alerts": profile_alerts,
             "msg": msg,
             "err": err,
             "current_user": current_user,
             "current_session": current_session,
         },
+    )
+
+
+@router.get("/alerts/profile-changes", response_class=HTMLResponse)
+def get_profile_change_alerts_page(
+    request: Request,
+    msg: Optional[str] = None,
+    err: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_session: UserSession = Depends(get_current_session),
+):
+    alerts = get_all_series_incompatible_students(db)
+    return templates.TemplateResponse(
+        request=request,
+        name="tutor/exams/profile_alerts.html",
+        context={
+            "alerts": alerts,
+            "msg": msg,
+            "err": err,
+            "current_user": current_user,
+            "current_session": current_session,
+        },
+    )
+
+
+@router.post("/alerts/profile-changes/{assignment_id}/dismiss")
+def post_dismiss_profile_alert(
+    assignment_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    dismiss_series_incompatible_assignment(db, assignment_id)
+    return RedirectResponse(
+        url="/tutor/exams/alerts/profile-changes?msg=Incompatible series assignment dismissed. Historical results were preserved.",
+        status_code=status.HTTP_303_SEE_OTHER,
     )
 
 

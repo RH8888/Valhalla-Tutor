@@ -1472,6 +1472,68 @@ def check_student_series_eligibility(
     return incompatible
 
 
+def get_all_series_incompatible_students(db: Session) -> List[Dict[str, Any]]:
+    assignments = (
+        db.query(ExamSeriesAssignment)
+        .options(
+            joinedload(ExamSeriesAssignment.exam),
+            joinedload(ExamSeriesAssignment.student).joinedload(User.academic_track),
+        )
+        .all()
+    )
+    incompatible = []
+    for sa in assignments:
+        student = sa.student
+        if not student:
+            continue
+        config = get_student_series_grade_track_config(db, sa.exam_id, student)
+        if not config:
+            track_name = student.academic_track.name if student.academic_track else str(student.academic_track_id)
+            incompatible.append({
+                "assignment_id": str(sa.id),
+                "exam_id": str(sa.exam_id),
+                "exam_title": sa.exam.title if sa.exam else "Unknown Series",
+                "student_id": str(student.id),
+                "student_name": student.full_name or student.username,
+                "current_grade": student.grade,
+                "current_track": track_name,
+                "reason": f"Student '{student.full_name or student.username}' ({student.grade}, {track_name}) is no longer configured in series '{sa.exam.title if sa.exam else ''}'.",
+            })
+    return incompatible
+
+
+def dismiss_series_incompatible_assignment(db: Session, assignment_id: uuid.UUID) -> None:
+    sa = db.query(ExamSeriesAssignment).filter(ExamSeriesAssignment.id == assignment_id).first()
+    if not sa:
+        return
+    exam_id = sa.exam_id
+    student_id = sa.student_id
+
+    db.delete(sa)
+
+    sessions = db.query(ExamSession).filter(ExamSession.exam_id == exam_id).all()
+    session_ids = [s.id for s in sessions]
+
+    submitted_session_ids = {
+        sr.exam_session_id
+        for sr in db.query(StudentExamResult).filter(
+            StudentExamResult.student_id == student_id,
+            StudentExamResult.exam_session_id.in_(session_ids)
+        ).all()
+    }
+
+    if session_ids:
+        unsubmitted_assignments = db.query(ExternalExamAssignment).filter(
+            ExternalExamAssignment.student_id == student_id,
+            ExternalExamAssignment.exam_session_id.in_(session_ids),
+        ).all()
+        for u_ass in unsubmitted_assignments:
+            if u_ass.exam_session_id not in submitted_session_ids:
+                db.delete(u_ass)
+
+    db.commit()
+
+
 def get_student_external_exams_in_date_range(
     db: Session,
     student: User,
