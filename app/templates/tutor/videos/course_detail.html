@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}{{ course.name }} &mdash; Valhalla Tutor{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <div class="flex items-center space-x-2">
+                <span class="px-2.5 py-0.5 rounded text-xs font-semibold bg-indigo-100 text-indigo-800">{{ course.subject.name }}</span>
+                <span class="px-2.5 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">{{ course.grade }}</span>
+            </div>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-1">{{ course.name }}</h1>
+            <p class="text-sm text-slate-600 font-medium">Teacher: {{ course.teacher_name }}</p>
+        </div>
+        <a href="/tutor/videos" class="text-sm font-semibold text-slate-600 hover:text-slate-900">&larr; Back to Videos</a>
+    </div>
+
+    {% if message %}
+        <div class="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-800">
+            ✅ {{ message }}
+        </div>
+    {% endif %}
+    {% if error %}
+        <div class="p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+            ⚠️ {{ error }}
+        </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Chapters List -->
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h2 class="text-lg font-bold text-slate-900">Course Chapters ({{ course.chapters|length }})</h2>
+                <span class="text-xs font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100">
+                    🎬 Total Videos: {{ course.chapters|map(attribute='video_count')|sum }}
+                </span>
+            </div>
+
+            {% if course.chapters %}
+                <div class="divide-y divide-slate-100">
+                    {% for ch in course.chapters %}
+                        <div class="py-3 flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <span class="w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 text-slate-700 text-xs font-bold">
+                                    {{ ch.display_order }}
+                                </span>
+                                <div>
+                                    <p class="font-semibold text-slate-900 text-sm">{{ ch.name }}</p>
+                                    <span class="text-xs text-indigo-600 font-semibold">{{ ch.video_count }} available videos</span>
+                                    {% if ch.description %}
+                                        <p class="text-xs text-slate-500">{{ ch.description }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <form method="POST" action="/tutor/videos/chapters/{{ ch.id }}/delete" onsubmit="return confirm('Delete chapter {{ ch.name }}?')">
+                                    <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                                    <input type="hidden" name="course_id" value="{{ course.id }}">
+                                    <button type="submit" class="text-xs font-semibold text-red-600 hover:text-red-900 px-2 py-1 rounded border border-red-200 hover:bg-red-50">Delete</button>
+                                </form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-sm text-slate-400 italic">No chapters added to this course yet. Use the form to add chapters.</p>
+            {% endif %}
+
+            <!-- Add Chapter Form -->
+            <div class="pt-4 border-t border-slate-100">
+                <h3 class="text-sm font-bold text-slate-900 mb-3">+ Add Course Chapter</h3>
+                <form method="POST" action="/tutor/videos/courses/{{ course.id }}/chapters" class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                    <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                    <div class="sm:col-span-1">
+                        <label class="block text-xs font-semibold text-slate-600">Order</label>
+                        <input type="number" name="display_order" value="{{ (course.chapters|length) + 1 }}" min="1" required class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded text-sm text-center">
+                    </div>
+                    <div class="sm:col-span-5">
+                        <label class="block text-xs font-semibold text-slate-600">Chapter Name *</label>
+                        <input type="text" name="name" required placeholder="e.g. فصل ۱: تابع" class="mt-1 w-full px-3 py-1.5 border border-slate-300 rounded text-sm">
+                    </div>
+                    <div class="sm:col-span-3">
+                        <label class="block text-xs font-semibold text-slate-600">Video Count *</label>
+                        <input type="number" name="video_count" value="0" min="0" required class="mt-1 w-full px-3 py-1.5 border border-slate-300 rounded text-sm text-center">
+                    </div>
+                    <div class="sm:col-span-3 flex items-end">
+                        <button type="submit" class="w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-semibold transition">
+                            Add Chapter
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Edit Course Sidebar -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-fit space-y-4">
+            <h2 class="text-base font-bold text-slate-900">Edit Course Information</h2>
+            <form method="POST" action="/tutor/videos/courses/{{ course.id }}/edit" class="space-y-3">
+                <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700">Course Name</label>
+                    <input type="text" name="name" value="{{ course.name }}" required class="mt-1 w-full px-3 py-1.5 border border-slate-300 rounded text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700">Teacher Name</label>
+                    <input type="text" name="teacher_name" value="{{ course.teacher_name }}" required class="mt-1 w-full px-3 py-1.5 border border-slate-300 rounded text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700">Grade Level</label>
+                    <input type="text" name="grade" value="{{ course.grade }}" required class="mt-1 w-full px-3 py-1.5 border border-slate-300 rounded text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700">Description</label>
+                    <textarea name="description" rows="2" class="mt-1 w-full px-3 py-1.5 border border-slate-300 rounded text-sm">{{ course.description or '' }}</textarea>
+                </div>
+                <button type="submit" class="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white rounded text-xs font-semibold transition">
+                    Save Course Info
+                </button>
+            </form>
+
+            <div class="pt-4 border-t border-slate-100">
+                <form method="POST" action="/tutor/videos/courses/{{ course.id }}/delete" onsubmit="return confirm('Delete entire course {{ course.name }} and all its chapters?')">
+                    <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                    <button type="submit" class="w-full py-2 border border-red-300 text-red-600 hover:bg-red-50 rounded text-xs font-semibold transition">
+                        Delete Course
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

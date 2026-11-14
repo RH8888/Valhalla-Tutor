@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}My 14-Day Study Plan &mdash; Valhalla Tutor{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-[1440px] mx-auto pb-16">
+    <!-- Student Plan Header -->
+    <div
+        class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <div class="flex items-center space-x-3">
+                <h1 class="text-2xl font-black tracking-tight text-slate-900">
+                    {% if is_archived %}Archived Study Plan{% else %}My 14-Day Study Plan{% endif %}
+                </h1>
+                {% if is_archived %}
+                <span
+                    class="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                    Archived &bull; Read-Only
+                </span>
+                {% else %}
+                <span
+                    class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    Active Plan
+                </span>
+                {% endif %}
+            </div>
+            <p class="text-sm text-slate-500 mt-1">
+                <strong>{{ plan.title }}</strong> &bull; {{ plan.start_date.strftime('%a, %b %d') }} &mdash; {{
+                plan.end_date.strftime('%a, %b %d, %Y') }} (14 Days)
+            </p>
+        </div>
+
+        <div class="flex items-center space-x-4 flex-wrap gap-y-2">
+            <!-- Progress Counter -->
+            <div class="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-center">
+                <span class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Completed Tasks</span>
+                <span class="text-base font-black text-slate-900">{{ completed_count }} / {{ total_assignments_count
+                    }}</span>
+            </div>
+
+            <!-- Total Plan Duration -->
+            <div class="px-4 py-2 bg-indigo-50 border border-indigo-200 rounded-xl text-center">
+                <span class="block text-[11px] font-bold text-indigo-600 uppercase tracking-wider">Total Study
+                    Hours</span>
+                <span class="text-base font-black text-indigo-950">{{ plan_total_formatted }}</span>
+            </div>
+        </div>
+    </div>
+
+    {% if is_archived %}
+    <div
+        class="p-4 bg-slate-100 border border-slate-200 rounded-2xl flex items-center justify-between text-xs text-slate-700">
+        <div class="flex items-center space-x-2">
+            <span>🔒</span>
+            <span><strong>Read-Only Mode:</strong> This study plan is archived. Task assignments and completion records
+                are preserved for your review.</span>
+        </div>
+        <a href="/student/plans/history" class="text-indigo-600 font-bold hover:text-indigo-800">
+            &larr; Back to Plan History
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- 14-Day Student Timetable Grid -->
+    <div class="bg-white shadow-sm rounded-2xl border border-slate-200 overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200 text-left border-collapse">
+            <thead class="bg-slate-50 sticky top-0 z-10 shadow-xs">
+                <tr>
+                    <th scope="col"
+                        class="py-4 px-4 w-44 min-w-[176px] text-xs font-bold text-slate-700 uppercase tracking-wider border-r border-slate-200 bg-slate-100">
+                        Date &amp; Weekday
+                    </th>
+                    {% for subj in effective_subjects %}
+                    <th scope="col"
+                        class="py-4 px-4 min-w-[240px] text-xs font-bold text-slate-800 uppercase tracking-wider border-r border-slate-200 last:border-r-0">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm font-black text-slate-900">{{ subj.name }}</span>
+                            <span
+                                class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                                {{ subject_totals_formatted[subj.id] }}
+                            </span>
+                        </div>
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 bg-white">
+                {% for d in days %}
+                <tr class="hover:bg-slate-50/60 transition">
+                    <!-- Day / Date Column -->
+                    <td class="py-4 px-4 align-top border-r border-slate-200 bg-slate-50/50">
+                        <div class="font-extrabold text-sm text-slate-900">Day {{ loop.index }}</div>
+                        <div class="text-xs font-medium text-slate-600 mt-0.5">{{ d.strftime('%a, %b %d') }}</div>
+                        <div class="mt-2.5">
+                            <span
+                                class="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-bold {% if daily_totals[d] > 0 %}bg-indigo-100 text-indigo-800 border border-indigo-200{% else %}bg-slate-100 text-slate-400{% endif %}">
+                                ⏱️ {{ daily_totals_formatted[d] }}
+                            </span>
+                        </div>
+                    </td>
+
+                    <!-- Subject Cells -->
+                    {% for subj in effective_subjects %}
+                    {% set cell_tasks = assignments_by_cell.get((d, subj.id), []) %}
+                    <td class="p-3 align-top border-r border-slate-200 last:border-r-0 min-h-[100px]">
+                        <div class="space-y-2">
+                            {% for task in cell_tasks %}
+                            {% set assignment = task %}
+                            {% include "student/partials/task_card.html" %}
+                            {% else %}
+                            <div class="p-3 text-center text-xs text-slate-300 italic">
+                                No tasks
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

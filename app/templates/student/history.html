@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Completion History &mdash; Valhalla Tutor{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6 pb-16">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-black text-slate-900 tracking-tight">Task Completion History</h1>
+            <p class="text-xs text-slate-500 mt-1">Review all your completed study tasks and recorded timestamps.</p>
+        </div>
+        <a href="/student/dashboard" class="text-xs font-bold text-indigo-600 hover:text-indigo-800">
+            &larr; Back to Dashboard
+        </a>
+    </div>
+
+    <!-- Clarification Note regarding Recommended Duration vs Actual Completion -->
+    <div class="bg-indigo-50/70 border border-indigo-200/80 rounded-2xl p-4 flex items-start space-x-3 text-xs text-indigo-900">
+        <span class="text-base">💡</span>
+        <div>
+            <span class="font-bold">Understanding Your Study Metrics:</span>
+            <p class="mt-0.5 text-indigo-800 leading-relaxed">
+                <strong>Recommended duration</strong> reflects the target study effort assigned by your syllabus or estimated historical average. 
+                <strong>Completion timestamp</strong> records the exact date and time you marked the assignment complete. Recommended duration does not represent the actual elapsed minutes spent studying.
+            </p>
+        </div>
+    </div>
+
+    <!-- Completed Tasks List -->
+    <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h2 class="text-base font-black text-slate-900">Completed Assignments ({{ completed_tasks|length }})</h2>
+            <span class="text-xs text-slate-400">Sorted by completion date (newest first)</span>
+        </div>
+
+        {% if completed_tasks %}
+        <div class="divide-y divide-slate-100">
+            {% for task in completed_tasks %}
+            <div class="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/60 transition">
+                <div class="flex items-start space-x-3.5 flex-1 min-w-0">
+                    <span class="text-2xl shrink-0 mt-0.5">
+                        {% if task.task_type == 'VIDEO' %}🎥{% elif task.task_type == 'TEST' %}📝{% else %}📌{% endif %}
+                    </span>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center space-x-2 flex-wrap gap-y-1">
+                            <h3 class="font-bold text-sm text-slate-900 truncate">{{ task.title }}</h3>
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider
+                                {% if task.task_type == 'VIDEO' %}bg-blue-100 text-blue-800
+                                {% elif task.task_type == 'TEST' %}bg-amber-100 text-amber-800
+                                {% else %}bg-purple-100 text-purple-800{% endif %}">
+                                {{ task.task_type }}
+                            </span>
+                            <span class="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[11px] font-bold">
+                                {{ task.subject.name }}
+                            </span>
+                        </div>
+                        {% if task.description %}
+                        <p class="text-xs text-slate-500 mt-1 line-clamp-1">{{ task.description }}</p>
+                        {% endif %}
+                        <div class="flex items-center space-x-3 text-xs text-slate-500 mt-1.5 font-medium">
+                            <span class="text-indigo-700 font-bold">⏱️ Recommended: {{ task.recommended_duration_minutes }}m</span>
+                            <span>&bull;</span>
+                            <span>Scheduled: {{ task.scheduled_date.strftime('%a, %b %d') }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sm:text-right shrink-0 bg-slate-50 sm:bg-transparent p-2.5 sm:p-0 rounded-xl">
+                    <span class="text-[11px] font-bold text-emerald-700 block">✓ Completed On</span>
+                    <span class="text-xs font-black text-slate-800 block mt-0.5">
+                        {{ task.completed_at.strftime('%Y-%m-%d at %H:%M') if task.completed_at else 'Completed' }}
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="p-12 text-center text-slate-400 space-y-2">
+            <span class="text-3xl block">📖</span>
+            <p class="text-sm font-semibold text-slate-700">No completed tasks yet.</p>
+            <p class="text-xs text-slate-400">Once you mark assignments complete from your dashboard or study plan, they will appear here.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

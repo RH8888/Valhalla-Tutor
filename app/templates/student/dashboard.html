@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard &mdash; Valhalla Tutor{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-8 pb-16">
+    <!-- Header Greeting & Date -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-3xl font-black text-slate-900 tracking-tight">Welcome back, {{ student.full_name }}! 👋</h1>
+            <p class="text-sm font-semibold text-slate-500 mt-1">
+                Today is <span class="text-slate-800 font-bold">{{ data.today_weekday if data.has_plan else '' }}</span> &bull; 
+                <span>{{ data.today.strftime('%B %d, %Y') if data.has_plan else '' }}</span>
+            </p>
+        </div>
+        {% if data.has_plan %}
+        <div class="flex items-center space-x-3">
+            <a href="/student/plan" class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition">
+                📅 Full 14-Day Plan &rarr;
+            </a>
+            <a href="/student/plans/history" class="text-xs font-bold text-slate-600 hover:text-slate-900 px-3 py-2 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 transition">
+                Plan History
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if data.has_plan %}
+    <!-- Active Plan Banner & KPI Tiles -->
+    <div class="space-y-4">
+        <!-- Metrics Row -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Overall Plan Progress -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Plan Completion</span>
+                <span class="text-3xl font-black text-slate-900 block">{{ data.completion_percentage }}%</span>
+                <div class="w-full bg-slate-100 rounded-full h-2">
+                    <div class="bg-indigo-600 h-2 rounded-full transition-all" style="width: {{ data.completion_percentage }}%"></div>
+                </div>
+                <span class="text-[11px] text-slate-500 block pt-0.5">{{ data.completed_tasks }} of {{ data.total_tasks }} tasks completed</span>
+            </div>
+
+            <!-- Today's Study Time -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Today's Study Load</span>
+                <span class="text-xl font-black text-indigo-950 block mt-1">⏱️ {{ data.today_total_formatted }}</span>
+                <span class="text-[11px] text-slate-500 block">Recommended effort for today</span>
+            </div>
+
+            <!-- Tasks Remaining Today -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Remaining Today</span>
+                <span class="text-3xl font-black text-amber-600 block">{{ data.today_remaining_count }}</span>
+                <span class="text-[11px] text-slate-500 block">task{{ 's' if data.today_remaining_count != 1 else '' }} to finish</span>
+            </div>
+
+            <!-- Tasks Completed Today -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Finished Today</span>
+                <span class="text-3xl font-black text-emerald-600 block">{{ data.today_completed_count }}</span>
+                <span class="text-[11px] text-slate-500 block">task{{ 's' if data.today_completed_count != 1 else '' }} marked complete</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Today's Tasks Section (Grouped by Subject) -->
+    <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 sm:p-8 space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
+            <div>
+                <h2 class="text-xl font-black text-slate-900 tracking-tight">Today's Study Checklist</h2>
+                <p class="text-xs text-slate-500 mt-0.5">Tasks assigned for {{ data.today.strftime('%A, %B %d') }} &bull; Grouped by subject</p>
+            </div>
+            <span class="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-bold self-start sm:self-auto">
+                {{ data.today_tasks|length }} task{{ 's' if data.today_tasks|length != 1 else '' }} total
+            </span>
+        </div>
+
+        {% if data.today_tasks %}
+            {% for subj in data.effective_subjects %}
+                {% set subj_tasks = data.today_tasks_by_subject.get(subj.id, []) %}
+                {% if subj_tasks %}
+                <div class="space-y-3">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 border border-slate-200">
+                            {{ subj.name }}
+                        </span>
+                        <span class="text-xs text-slate-400 font-semibold">({{ subj_tasks|length }} task{{ 's' if subj_tasks|length != 1 else '' }})</span>
+                    </div>
+                    <div class="space-y-2.5 pl-1">
+                        {% for task in subj_tasks %}
+                            {% set assignment = task %}
+                            {% include "student/partials/dashboard_task_item.html" %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            <div class="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                <span class="text-3xl block">🎉</span>
+                <h4 class="text-sm font-bold text-slate-900">No Tasks Scheduled for Today!</h4>
+                <p class="text-xs text-slate-500 max-w-sm mx-auto">You're completely clear for today. Review upcoming days or preview your 14-day timetable.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Upcoming Days Preview -->
+    {% include "student/partials/dashboard_upcoming.html" %}
+
+    {% else %}
+    <!-- Empty State: No Published Plan Available -->
+    <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-12 text-center max-w-xl mx-auto space-y-4">
+        <div class="w-16 h-16 bg-indigo-50 border border-indigo-100 rounded-full flex items-center justify-center mx-auto text-3xl">
+            📚
+        </div>
+        <h2 class="text-xl font-black text-slate-900">No Active Study Plan Available</h2>
+        <p class="text-sm text-slate-500 leading-relaxed">
+            Your tutor has not published an active 14-day study plan yet. Once published, your daily schedule and recommended study workload will appear right here.
+        </p>
+        <div class="pt-4 flex items-center justify-center space-x-4">
+            <a href="/student/curriculum" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition">
+                View My Curriculum &rarr;
+            </a>
+            <a href="/student/plans/history" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                Past Plans
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+

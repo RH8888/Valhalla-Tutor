@@ -1,0 +1,60 @@
+<div id="dash-task-item-{{ assignment.id }}" class="p-4 rounded-2xl border transition shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3
+    {% if assignment.is_completed %}
+        bg-emerald-50/80 border-emerald-200
+    {% elif assignment.task_type == 'VIDEO' %}
+        bg-blue-50/60 border-blue-200 hover:border-blue-300
+    {% elif assignment.task_type == 'TEST' %}
+        bg-amber-50/60 border-amber-200 hover:border-amber-300
+    {% else %}
+        bg-purple-50/60 border-purple-200 hover:border-purple-300
+    {% endif %}">
+
+    <div class="flex items-start space-x-3 flex-1 min-w-0">
+        <span class="text-xl">
+            {% if assignment.task_type == 'VIDEO' %}🎥{% elif assignment.task_type == 'TEST' %}📝{% else %}📌{% endif %}
+        </span>
+        <div class="min-w-0 flex-1">
+            <div class="flex items-center space-x-2">
+                <h4 class="font-bold text-sm text-slate-900 truncate {% if assignment.is_completed %}line-through text-slate-500{% endif %}">
+                    {{ assignment.title }}
+                </h4>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider
+                    {% if assignment.task_type == 'VIDEO' %}bg-blue-100 text-blue-800
+                    {% elif assignment.task_type == 'TEST' %}bg-amber-100 text-amber-800
+                    {% else %}bg-purple-100 text-purple-800{% endif %}">
+                    {{ assignment.task_type }}
+                </span>
+            </div>
+            {% if assignment.description %}
+            <p class="text-xs text-slate-600 mt-1 line-clamp-1">{{ assignment.description }}</p>
+            {% endif %}
+            <div class="flex items-center space-x-3 text-xs text-slate-500 mt-1.5 font-medium">
+                <span>⏱️ Recommended: {{ assignment.recommended_duration_minutes }} minutes</span>
+                {% if assignment.is_completed and assignment.completed_at %}
+                <span>&bull;</span>
+                <span class="text-emerald-700 font-bold">✓ Completed at {{ assignment.completed_at.strftime('%H:%M') }}</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Action / Status -->
+    <div class="shrink-0 flex items-center">
+        {% if assignment.is_completed %}
+            <span class="inline-flex items-center space-x-1 px-3 py-1.5 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold border border-emerald-200">
+                <span>✓</span>
+                <span>Completed</span>
+            </span>
+        {% else %}
+            <button type="button"
+                hx-post="/student/assignments/{{ assignment.id }}/complete?view=dashboard"
+                hx-target="#dash-task-item-{{ assignment.id }}"
+                hx-swap="outerHTML"
+                class="min-h-[40px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center space-x-1.5">
+                <span>✓</span>
+                <span>Complete Task</span>
+            </button>
+        {% endif %}
+    </div>
+</div>
+

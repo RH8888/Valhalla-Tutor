@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Study Plan History &mdash; Valhalla Tutor{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6 pb-16">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-black text-slate-900 tracking-tight">Study Plan History</h1>
+            <p class="text-xs text-slate-500 mt-1">Review all your previous and archived 14-day study plans.</p>
+        </div>
+        <a href="/student/dashboard" class="text-xs font-bold text-indigo-600 hover:text-indigo-800">
+            &larr; Back to Dashboard
+        </a>
+    </div>
+
+    {% if plans_data %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {% for p in plans_data %}
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4 hover:border-slate-300 transition">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <h3 class="text-base font-black text-slate-900">{{ p.plan.title }}</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        {{ p.plan.start_date.strftime('%b %d') }} &mdash; {{ p.plan.end_date.strftime('%b %d, %Y') }} (14 Days)
+                    </p>
+                </div>
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider
+                    {% if p.plan.status == 'PUBLISHED' or p.plan.status.value == 'PUBLISHED' %}bg-emerald-100 text-emerald-800 border border-emerald-200
+                    {% elif p.plan.status == 'ARCHIVED' or p.plan.status.value == 'ARCHIVED' %}bg-slate-100 text-slate-700 border border-slate-200
+                    {% else %}bg-amber-100 text-amber-800 border border-amber-200{% endif %}">
+                    {{ p.plan.status }}
+                </span>
+            </div>
+
+            <!-- Metrics -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between text-xs">
+                    <span class="font-bold text-slate-700">Completion</span>
+                    <span class="font-black text-indigo-700">{{ p.completion_percentage }}%</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-2">
+                    <div class="bg-indigo-600 h-2 rounded-full" style="width: {{ p.completion_percentage }}%"></div>
+                </div>
+                <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                    <span>{{ p.completed_tasks }} / {{ p.total_tasks }} tasks finished</span>
+                    <span>⏱️ Total: {{ p.total_formatted }}</span>
+                </div>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+                <span class="text-[11px] text-slate-400">Read-only historical review</span>
+                <a href="/student/plans/{{ p.plan.id }}" class="inline-flex items-center px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 transition">
+                    Open Plan &rarr;
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center space-y-3">
+        <div class="text-3xl">📭</div>
+        <h3 class="text-base font-bold text-slate-900">No Study Plans Found</h3>
+        <p class="text-xs text-slate-500 max-w-sm mx-auto">You do not have any past or archived study plans yet.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

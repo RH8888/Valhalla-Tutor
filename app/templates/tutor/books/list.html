@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Test Books &mdash; Valhalla Tutor{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+        <div>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900">Test Books & Chapters</h1>
+            <p class="text-sm text-slate-500 mt-1">Manage test resources organized by Subject &rarr; Book &rarr; Chapter with test counts.</p>
+        </div>
+        <a href="/tutor/books/create{% if selected_subject_id %}?subject_id={{ selected_subject_id }}{% endif %}" class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-sm transition">
+            + New Test Book
+        </a>
+    </div>
+
+    {% if message %}
+        <div class="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-800">
+            ✅ {{ message }}
+        </div>
+    {% endif %}
+    {% if error %}
+        <div class="p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+            ⚠️ {{ error }}
+        </div>
+    {% endif %}
+
+    <!-- Subject Filters -->
+    <div class="flex items-center space-x-2 overflow-x-auto pb-2">
+        <a href="/tutor/books" class="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap {% if not selected_subject_id %}bg-indigo-600 text-white{% else %}bg-white border border-slate-200 text-slate-700 hover:bg-slate-50{% endif %}">
+            All Subjects
+        </a>
+        {% for s in subjects %}
+            <a href="/tutor/books?subject_id={{ s.id }}" class="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap {% if selected_subject_id == s.id %}bg-indigo-600 text-white{% else %}bg-white border border-slate-200 text-slate-700 hover:bg-slate-50{% endif %}">
+                {{ s.name }}
+            </a>
+        {% endfor %}
+    </div>
+
+    <!-- Books List Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for b in books %}
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between space-y-4">
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">
+                            {{ b.subject.name }}
+                        </span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
+                            {{ b.grade }}
+                        </span>
+                    </div>
+                    <h2 class="text-base font-bold text-slate-900">{{ b.title }}</h2>
+                    {% if b.description %}
+                        <p class="text-xs text-slate-500 line-clamp-2">{{ b.description }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                    <span class="text-slate-600 font-semibold">
+                        📑 {{ b.chapters|length }} chapters &bull; ✏️ {{ b.chapters|map(attribute='test_count')|sum }} tests
+                    </span>
+                    <a href="/tutor/books/{{ b.id }}" class="font-semibold text-indigo-600 hover:text-indigo-900">Manage &rarr;</a>
+                </div>
+            </div>
+        {% else %}
+            <div class="col-span-full p-12 text-center bg-white rounded-xl border border-slate-200 text-slate-400">
+                <p class="text-base font-semibold">No test books registered yet.</p>
+                <p class="text-xs mt-1">Register test books and log chapter test counts for study planning.</p>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+

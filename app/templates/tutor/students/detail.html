@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}{{ student.full_name }} &mdash; Valhalla Tutor{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900">{{ student.full_name }}</h1>
+            <p class="text-sm text-slate-500 mt-1">@{{ student.username }} &bull; Member since {{ student.created_at.strftime('%Y-%m-%d') }}</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <a href="/tutor/students/{{ student.id }}/plans" class="inline-flex items-center px-3.5 py-1.5 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition">
+                📅 14-Day Study Plans &rarr;
+            </a>
+            <a href="/tutor/students" class="text-sm font-semibold text-slate-600 hover:text-slate-900">&larr; Back to Directory</a>
+        </div>
+    </div>
+
+    {% if message %}
+        <div class="p-4 rounded-lg bg-green-50 border border-green-200 text-sm text-green-800">
+            ✅ {{ message }}
+        </div>
+    {% endif %}
+    {% if error %}
+        <div class="p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+            ⚠️ {{ error }}
+        </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Profile Card -->
+        <div class="md:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+            <h2 class="text-lg font-bold text-slate-900">Student Profile</h2>
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div>
+                    <dt class="font-medium text-slate-500">Username</dt>
+                    <dd class="mt-1 text-slate-900 font-semibold">{{ student.username }}</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-slate-500">Email</dt>
+                    <dd class="mt-1 text-slate-900 font-semibold">{{ student.email or 'None specified' }}</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-slate-500">Timezone</dt>
+                    <dd class="mt-1 text-slate-900 font-semibold">{{ student.timezone }}</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-slate-500">Account Status</dt>
+                    <dd class="mt-1">
+                        {% if student.is_active %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">Active</span>
+                        {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800">Inactive</span>
+                        {% endif %}
+                    </dd>
+                </div>
+            </dl>
+
+            <div class="pt-4 border-t border-slate-100">
+                <form method="POST" action="/tutor/students/{{ student.id }}/toggle-status">
+                    <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                    {% if student.is_active %}
+                        <button type="submit" onclick="return confirm('Deactivating this student will immediately revoke all their active sessions. Proceed?')"
+                            class="px-4 py-2 border border-red-300 text-red-700 hover:bg-red-50 text-sm font-semibold rounded-lg transition">
+                            Deactivate Student Account
+                        </button>
+                    {% else %}
+                        <button type="submit"
+                            class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-sm transition">
+                            Activate Student Account
+                        </button>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+
+        <!-- Password Reset Card -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+            <h2 class="text-lg font-bold text-slate-900">Reset Password</h2>
+            <p class="text-xs text-slate-500">Assign a new password. Existing active sessions will be revoked.</p>
+
+            <form method="POST" action="/tutor/students/{{ student.id }}/reset-password" class="space-y-4">
+                <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                <div>
+                    <label for="new_password" class="block text-xs font-semibold text-slate-700">New Password</label>
+                    <input type="password" id="new_password" name="new_password" required
+                        class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <button type="submit"
+                    class="w-full py-2 px-4 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-sm font-semibold shadow-sm transition">
+                    Update Password
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Student Study Plan & Progress Monitoring Section -->
+    {% include "tutor/students/partials/monitoring_section.html" %}
+
+    <!-- Academic Track & Subject Customization Section -->
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-4">
+            <div>
+                <h2 class="text-lg font-bold text-slate-900">Academic Curriculum & Subjects</h2>
+                <p class="text-xs text-slate-500 mt-0.5">Assign an academic track or customize individual curriculum subjects.</p>
+            </div>
+            <div class="flex items-center space-x-2">
+                {% if student.is_subjects_customized %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                        ⚡ Individually Customized
+                    </span>
+                    <form method="POST" action="/tutor/students/{{ student.id }}/reset-subjects" class="inline">
+                        <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                        <button type="submit" onclick="return confirm('Revert subjects to default track configuration?')"
+                            class="px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-slate-900 border border-slate-300 rounded hover:bg-slate-50 transition">
+                            Reset to Track
+                        </button>
+                    </form>
+                {% elif student.academic_track %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+                        📖 Default Track Subjects
+                    </span>
+                {% else %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                        No Track Assigned
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Track Assignment Form -->
+        <form method="POST" action="/tutor/students/{{ student.id }}/assign-track" class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+            <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+            <div class="sm:col-span-2">
+                <label for="track_id" class="block text-xs font-semibold text-slate-700">Assigned Academic Track</label>
+                <select id="track_id" name="track_id" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    <option value="">-- No Track Assigned --</option>
+                    {% for t in tracks %}
+                        <option value="{{ t.id }}" {% if student.academic_track_id == t.id %}selected{% endif %}>
+                            {{ t.name }} {% if t.is_default %}(Default){% endif %} &mdash; {{ t.subjects|length }} subjects
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <button type="submit" class="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-sm transition">
+                    Save Track
+                </button>
+            </div>
+        </form>
+
+        <!-- Current Effective Subjects -->
+        <div>
+            <h3 class="text-sm font-bold text-slate-800 mb-2">Active Subjects for this Student ({{ effective_subjects|length }})</h3>
+            {% if effective_subjects %}
+                <div class="flex flex-wrap gap-2">
+                    {% for sub in effective_subjects %}
+                        <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium {% if student.is_subjects_customized %}bg-amber-50 text-amber-900 border border-amber-200{% else %}bg-indigo-50 text-indigo-900 border border-indigo-200{% endif %}">
+                            {{ sub.name }}
+                        </span>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-sm text-slate-400 italic">No active subjects assigned yet.</p>
+            {% endif %}
+        </div>
+
+        <!-- Individual Subject Customization Form -->
+        <div class="pt-4 border-t border-slate-100">
+            <details class="group" {% if student.is_subjects_customized %}open{% endif %}>
+                <summary class="cursor-pointer text-sm font-semibold text-indigo-600 hover:text-indigo-800 select-none flex items-center justify-between">
+                    <span>⚙️ Customize Individual Student Subjects</span>
+                    <span class="text-xs text-slate-400 group-open:rotate-180 transition">&darr;</span>
+                </summary>
+                <form method="POST" action="/tutor/students/{{ student.id }}/customize-subjects" class="mt-4 space-y-4">
+                    <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                    <p class="text-xs text-slate-500">Select the custom subjects for this student. This customization will isolate this student from future track changes.</p>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {% for s in all_subjects %}
+                            <label class="flex items-center space-x-2 p-2 border rounded-lg hover:bg-slate-50 cursor-pointer text-sm">
+                                <input type="checkbox" name="subject_ids" value="{{ s.id }}"
+                                    {% if (student.is_subjects_customized and s.id in custom_subject_ids) or (not student.is_subjects_customized and s in effective_subjects) %}checked{% endif %}
+                                    class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                                <span class="text-slate-800">{{ s.name }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit" class="py-2 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold shadow-sm transition">
+                            Save Customized Subjects
+                        </button>
+                    </div>
+                </form>
+            </details>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,95 @@
+<div class="space-y-6">
+    <!-- Section Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-xl font-black text-slate-900 tracking-tight">Study Plan & Progress Monitoring</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Track workload adherence, daily completion rates, and individual subject breakdown.</p>
+        </div>
+        <a href="/tutor/students/{{ student.id }}/plans" class="text-xs font-bold text-indigo-600 hover:text-indigo-800">
+            View All Plans &rarr;
+        </a>
+    </div>
+
+    {% if monitoring and monitoring.active_plan_data %}
+    {% set pdata = monitoring.active_plan_data %}
+    <!-- Active Plan Overview Card -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
+            <div>
+                <div class="flex items-center space-x-2">
+                    <h3 class="text-lg font-black text-slate-900">{{ pdata.plan.title }}</h3>
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        Active Published Plan
+                    </span>
+                </div>
+                <p class="text-xs text-slate-500 mt-1">
+                    {{ pdata.plan.start_date.strftime('%a, %b %d') }} &mdash; {{ pdata.plan.end_date.strftime('%a, %b %d, %Y') }} (14 Days)
+                </p>
+            </div>
+            <a href="/tutor/plans/{{ pdata.plan.id }}" class="inline-flex items-center px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl border border-indigo-200 transition">
+                Open Planner Grid &rarr;
+            </a>
+        </div>
+
+        <!-- Schedule Status Banner -->
+        {% if pdata.is_behind %}
+        <div class="p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-start space-x-3">
+            <span class="text-lg">⚠️</span>
+            <div>
+                <div class="text-sm font-bold text-rose-900">Behind Planned Workload</div>
+                <p class="text-xs text-rose-700 mt-0.5">
+                    Student has completed <strong>{{ pdata.completed_so_far }}</strong> of <strong>{{ pdata.expected_so_far }}</strong> tasks scheduled through today (behind by <strong>{{ pdata.behind_count }}</strong> task{{ 's' if pdata.behind_count > 1 else '' }}).
+                </p>
+            </div>
+        </div>
+        {% else %}
+        <div class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center space-x-2.5">
+            <span class="text-emerald-700 font-bold">✓</span>
+            <span class="text-xs font-bold text-emerald-900">On Track &mdash; Student is keeping up with their scheduled workload.</span>
+        </div>
+        {% endif %}
+
+        <!-- Metric Tiles -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Completion</span>
+                <span class="text-2xl font-black text-slate-900 mt-1 block">{{ pdata.completion_percentage }}%</span>
+                <div class="w-full bg-slate-200 rounded-full h-1.5 mt-2">
+                    <div class="bg-indigo-600 h-1.5 rounded-full" style="width: {{ pdata.completion_percentage }}%"></div>
+                </div>
+            </div>
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Completed Tasks</span>
+                <span class="text-2xl font-black text-emerald-700 mt-1 block">{{ pdata.completed_tasks }}</span>
+                <span class="text-[11px] text-slate-500 mt-1 block">of {{ pdata.total_tasks }} total</span>
+            </div>
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Pending Tasks</span>
+                <span class="text-2xl font-black text-amber-700 mt-1 block">{{ pdata.pending_tasks }}</span>
+                <span class="text-[11px] text-slate-500 mt-1 block">remaining</span>
+            </div>
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Pace Status</span>
+                <span class="text-base font-black {% if pdata.is_behind %}text-rose-600{% else %}text-emerald-700{% endif %} mt-2 block">
+                    {% if pdata.is_behind %}Behind ({{ pdata.behind_count }}){% else %}On Schedule{% endif %}
+                </span>
+            </div>
+        </div>
+
+        {% include "tutor/students/partials/monitoring_breakdown.html" %}
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center space-y-3">
+        <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-xl text-slate-400">📅</div>
+        <h3 class="text-base font-bold text-slate-900">No Active Published Plan</h3>
+        <p class="text-xs text-slate-500 max-w-sm mx-auto">This student does not currently have an active published 14-day study plan.</p>
+        <a href="/tutor/students/{{ student.id }}/plans" class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition">
+            Create or Publish Study Plan &rarr;
+        </a>
+    </div>
+    {% endif %}
+
+    {% include "tutor/students/partials/monitoring_history.html" %}
+</div>
+

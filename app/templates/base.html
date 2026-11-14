@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Valhalla Tutor{% endblock %}</title>
+    <meta name="csrf-token" content="{{ current_session.csrf_token if current_session else '' }}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.addEventListener('htmx:configRequest', (evt) => {
+                const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                if (token) {
+                    evt.detail.headers['X-CSRF-Token'] = token;
+                }
+            });
+        });
+    </script>
+</head>
+<body class="h-full flex flex-col text-slate-800 antialiased font-sans">
+    <nav class="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm">
+        <div class="flex items-center space-x-6">
+            <a href="/" class="text-xl font-bold tracking-tight text-indigo-700 flex items-center space-x-2">
+                <span>⚔️</span>
+                <span>Valhalla Tutor</span>
+            </a>
+            {% if current_user and current_user.role == "TUTOR" %}
+                <a href="/tutor/students" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Students</a>
+                <a href="/tutor/tracks" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Academic Tracks</a>
+                <a href="/tutor/subjects" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Subjects</a>
+                <a href="/tutor/videos" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Videos</a>
+                <a href="/tutor/books" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Books</a>
+            {% elif current_user and current_user.role == "STUDENT" %}
+                <a href="/student/dashboard" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Dashboard</a>
+                <a href="/student/plan" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Study Plan</a>
+                <a href="/student/plans/history" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Plan History</a>
+                <a href="/student/history" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Completion History</a>
+                <a href="/student/curriculum" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">My Curriculum</a>
+            {% endif %}
+        </div>
+        <div class="flex items-center space-x-4">
+            {% if current_user %}
+                <span class="text-sm font-medium text-slate-700">{{ current_user.full_name }}</span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {% if current_user.role == 'TUTOR' %}bg-indigo-100 text-indigo-800{% else %}bg-emerald-100 text-emerald-800{% endif %}">
+                    {{ current_user.role }}
+                </span>
+                <form action="/auth/logout" method="POST" class="inline">
+                    <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                    <button type="submit" class="text-sm text-red-600 hover:text-red-700 font-medium px-3 py-1 rounded border border-red-200 hover:bg-red-50 transition">
+                        Logout
+                    </button>
+                </form>
+            {% else %}
+                <a href="/auth/login" class="text-sm font-medium text-indigo-600 hover:text-indigo-700">Login</a>
+            {% endif %}
+        </div>
+    </nav>
+    <main class="flex-1 max-w-7xl w-full mx-auto p-6">
+        {% block content %}{% endblock %}
+    </main>
+    <footer class="bg-white border-t border-slate-200 py-3 text-center text-xs text-slate-500">
+        Valhalla Tutor &copy; 2026 &mdash; Academic Planner
+    </footer>
+</body>
+</html>
+

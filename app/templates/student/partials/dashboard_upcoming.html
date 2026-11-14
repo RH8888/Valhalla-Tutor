@@ -1,0 +1,41 @@
+<!-- Upcoming Days & Workload Preview -->
+<div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div>
+            <h3 class="text-base font-black text-slate-900">Upcoming Days &amp; Workload</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Preview your schedule and prepare in advance</p>
+        </div>
+        <a href="/student/plan" class="text-xs font-bold text-indigo-600 hover:text-indigo-800">
+            Open Full 14-Day Timetable &rarr;
+        </a>
+    </div>
+
+    {% if data.upcoming_days %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {% for uday in data.upcoming_days[:6] %}
+        <div class="p-3.5 bg-slate-50/80 hover:bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2 transition">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-xs font-black text-slate-900 block">{{ uday.weekday }}</span>
+                    <span class="text-[11px] text-slate-500">{{ uday.date.strftime('%b %d') }}</span>
+                </div>
+                <span class="px-2 py-0.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700">
+                    ⏱️ {{ uday.formatted_duration }}
+                </span>
+            </div>
+            <div class="flex items-center justify-between text-xs text-slate-600 pt-1 border-t border-slate-200/40">
+                <span>{{ uday.total_tasks }} task{{ 's' if uday.total_tasks != 1 else '' }} assigned</span>
+                {% if uday.completed_tasks > 0 %}
+                <span class="text-emerald-700 font-bold">✓ {{ uday.completed_tasks }} done</span>
+                {% else %}
+                <span class="text-slate-400">Scheduled</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-xs text-slate-400 italic text-center py-4">No upcoming days remaining in this 14-day study sprint.</p>
+    {% endif %}
+</div>
+

@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+.env
+.env.local
+*.log
+.pytest_cache/
+backups/
+!backups/.gitkeep
+postgres_data/
+

@@ -1,0 +1,52 @@
+<div id="task-card-{{ assignment.id }}" class="p-3.5 rounded-2xl border transition shadow-xs select-none
+    {% if assignment.is_completed %}
+        bg-emerald-50/80 border-emerald-200
+    {% elif assignment.task_type == 'VIDEO' %}
+        bg-blue-50/70 border-blue-200 hover:border-blue-300
+    {% elif assignment.task_type == 'TEST' %}
+        bg-amber-50/70 border-amber-200 hover:border-amber-300
+    {% else %}
+        bg-purple-50/70 border-purple-200 hover:border-purple-300
+    {% endif %}">
+
+    <div class="flex items-start justify-between gap-2">
+        <div class="flex items-center space-x-1.5 flex-1 min-w-0">
+            <span class="text-sm">
+                {% if assignment.task_type == 'VIDEO' %}🎥{% elif assignment.task_type == 'TEST' %}📝{% else %}📌{% endif %}
+            </span>
+            <h4 class="font-bold text-xs text-slate-900 leading-tight truncate {% if assignment.is_completed %}line-through text-slate-500{% endif %}" title="{{ assignment.title }}">
+                {{ assignment.title }}
+            </h4>
+        </div>
+        <span class="text-[11px] font-bold text-slate-700 whitespace-nowrap bg-white/70 px-2 py-0.5 rounded-md border border-slate-200/50">
+            ⏱️ {{ assignment.recommended_duration_minutes }}m
+        </span>
+    </div>
+
+    {% if assignment.description %}
+    <p class="text-[11px] text-slate-600 mt-1.5 line-clamp-2">{{ assignment.description }}</p>
+    {% endif %}
+
+    <div class="mt-3 pt-2.5 border-t border-slate-200/60 flex items-center justify-between">
+        {% if assignment.is_completed %}
+            <div class="flex items-center space-x-1 text-xs font-bold text-emerald-700">
+                <span>✓</span>
+                <span>Completed {% if assignment.completed_at %}({{ assignment.completed_at.strftime('%H:%M') }}){% endif %}</span>
+            </div>
+            <span class="text-[10px] font-semibold text-emerald-600 bg-emerald-100/70 px-2 py-0.5 rounded-full">Done</span>
+        {% elif is_archived or (assignment.study_plan and assignment.study_plan.status.value == 'ARCHIVED') %}
+            <span class="text-[11px] font-medium text-slate-400 italic">Archived (Read-Only)</span>
+            <span class="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Pending</span>
+        {% else %}
+            <span class="text-[11px] font-medium text-slate-500">Pending</span>
+            <button type="button"
+                hx-post="/student/assignments/{{ assignment.id }}/complete"
+                hx-target="#task-card-{{ assignment.id }}"
+                hx-swap="outerHTML"
+                class="min-h-[36px] px-3 py-1.5 bg-white hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-300 hover:border-transparent rounded-xl text-xs font-bold shadow-2xs transition flex items-center space-x-1 active:scale-95">
+                <span>✓ Mark Complete</span>
+            </button>
+        {% endif %}
+    </div>
+</div>
+
