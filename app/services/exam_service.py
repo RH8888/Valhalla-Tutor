@@ -303,18 +303,27 @@ def configure_exam_grade_track(
 
     track_subject_ids = {s.id for s in track.subjects}
 
+    filtered_groups_data = []
     for grp in reporting_groups_data:
         grp_title = (grp.get("title") or "").strip()
         if not grp_title:
             raise ExamValidationError("Reporting group title cannot be empty.")
-        s_ids = list(dict.fromkeys(grp.get("subject_ids") or []))
-        for sid in s_ids:
+        raw_s_ids = list(dict.fromkeys(grp.get("subject_ids") or []))
+        valid_s_ids = []
+        for sid in raw_s_ids:
             if isinstance(sid, str):
                 sid = uuid.UUID(sid)
-            if sid not in track_subject_ids:
-                sub = get_subject_by_id(db, sid)
-                sub_name = sub.name if sub else str(sid)
-                raise ExamValidationError(f"Subject '{sub_name}' does not belong to track '{track.name}'.")
+            if sid in track_subject_ids:
+                valid_s_ids.append(sid)
+        if valid_s_ids:
+            filtered_groups_data.append({
+                "title": grp_title,
+                "order_index": grp.get("order_index", len(filtered_groups_data)),
+                "subject_ids": valid_s_ids,
+            })
+
+    if not filtered_groups_data:
+        raise ExamValidationError(f"At least one valid subject for track '{track.name}' must be selected.")
 
     config = db.query(ExamGradeTrackConfig).filter(
         ExamGradeTrackConfig.exam_id == exam.id,
@@ -335,10 +344,10 @@ def configure_exam_grade_track(
             db.delete(rg)
         db.flush()
 
-    for idx, grp in enumerate(reporting_groups_data):
+    for idx, grp in enumerate(filtered_groups_data):
         grp_title = (grp.get("title") or "").strip()
         order_idx = int(grp.get("order_index", idx))
-        s_ids = [uuid.UUID(str(sid)) for sid in (grp.get("subject_ids") or [])]
+        s_ids = grp.get("subject_ids") or []
         subjects = [s for s in track.subjects if s.id in s_ids]
 
         rep_group = ExamReportingGroup(

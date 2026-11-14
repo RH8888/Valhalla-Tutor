@@ -66,16 +66,18 @@
         </div>
 
         <script>
-            document.getElementById('track_id').addEventListener('change', function() {
-                var selectedTrackId = this.value;
+            function updateActiveTrack() {
+                var selectedTrackId = document.getElementById('track_id').value;
                 document.querySelectorAll('.track-subjects-block').forEach(function(el) {
-                    el.style.display = 'none';
+                    var isCurrent = (el.id === 'track-block-' + selectedTrackId);
+                    el.style.display = isCurrent ? 'block' : 'none';
+                    el.querySelectorAll('input').forEach(function(inp) {
+                        inp.disabled = !isCurrent;
+                    });
                 });
-                var activeBlock = document.getElementById('track-block-' + selectedTrackId);
-                if (activeBlock) {
-                    activeBlock.style.display = 'block';
-                }
-            });
+            }
+            document.getElementById('track_id').addEventListener('change', updateActiveTrack);
+            updateActiveTrack();
         </script>
 
         <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">

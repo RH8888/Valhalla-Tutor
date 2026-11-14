@@ -11,7 +11,7 @@ from app.core.dependencies import get_current_session, get_current_user, require
 from app.core.templates import templates
 from app.models.session import UserSession
 from app.models.user import User
-from app.services.academic_service import list_tracks
+from app.services.academic_service import get_track_by_id, list_tracks
 from app.services.exam_service import (
     ExamNotFoundError,
     ExamSessionNotFoundError,
@@ -325,8 +325,16 @@ async def post_configure_grade_track(
         raise HTTPException(status_code=400, detail="Grade and track are required.")
 
     track_id = uuid.UUID(str(track_id_raw))
+    track = get_track_by_id(db, track_id)
+    if not track:
+        raise HTTPException(status_code=404, detail="Academic track not found")
+
+    track_sub_ids = {s.id for s in track.subjects}
     selected_subject_ids_raw = form_data.getlist("selected_subjects")
-    selected_subject_ids = [uuid.UUID(str(sid)) for sid in selected_subject_ids_raw if sid]
+    selected_subject_ids = [
+        uuid.UUID(str(sid)) for sid in selected_subject_ids_raw
+        if sid and uuid.UUID(str(sid)) in track_sub_ids
+    ]
 
     groups_map: Dict[str, List[uuid.UUID]] = {}
     for sid in selected_subject_ids:
