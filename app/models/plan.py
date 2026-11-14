@@ -95,6 +95,7 @@ class PlanAssignment(Base):
     __tablename__ = "plan_assignments"
     __table_args__ = (
         CheckConstraint("recommended_duration_minutes >= 0", name="ck_plan_assignments_duration_non_negative"),
+        CheckConstraint("actual_duration_minutes IS NULL OR actual_duration_minutes > 0", name="ck_plan_assignments_actual_duration_positive"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -203,6 +204,10 @@ class PlanAssignment(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+    actual_duration_minutes: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -233,6 +238,8 @@ class PlanAssignment(Base):
 class CompletionAuditAction(str, enum.Enum):
     COMPLETED = "COMPLETED"
     RESET = "RESET"
+    STUDENT_UNDO = "STUDENT_UNDO"
+    TUTOR_RESET = "TUTOR_RESET"
 
 
 class CompletionAuditLog(Base):
@@ -268,6 +275,10 @@ class CompletionAuditLog(Base):
     )
     recorded_completed_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),
+        nullable=True,
+    )
+    actual_duration_minutes: Mapped[Optional[int]] = mapped_column(
+        Integer,
         nullable=True,
     )
     note: Mapped[Optional[str]] = mapped_column(

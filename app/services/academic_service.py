@@ -3,11 +3,13 @@ from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.subject import Subject
+from app.models.subject import Subject, SubjectGrade
 from app.models.track import AcademicTrack, track_subjects, student_custom_subjects
 from app.models.course import Course
 from app.models.book import Book
 from app.models.user import User
+
+SUPPORTED_GRADES = ["10", "11", "12"]
 
 
 class SubjectAlreadyExistsError(Exception):
@@ -50,24 +52,43 @@ def list_subjects(db: Session) -> List[Subject]:
     return db.query(Subject).order_by(Subject.name).all()
 
 
-def create_subject(db: Session, name: str, description: Optional[str] = None) -> Subject:
+def create_subject(
+    db: Session,
+    name: str,
+    description: Optional[str] = None,
+    grades: Optional[List[str]] = None,
+) -> Subject:
     clean_name = name.strip()
     if not clean_name:
         raise ValueError("Subject name cannot be empty.")
     if get_subject_by_name(db, clean_name):
         raise SubjectAlreadyExistsError(f"Subject '{clean_name}' already exists.")
 
+    selected_grades = grades if grades is not None else list(SUPPORTED_GRADES)
+    clean_grades = sorted(set(str(x).strip() for x in selected_grades if str(x).strip()))
+    if not clean_grades:
+        raise ValueError("At least one grade must be configured for the subject.")
+
     subject = Subject(
         name=clean_name,
         description=description.strip() if description else None,
     )
+    for g in clean_grades:
+        subject.grades_rel.append(SubjectGrade(subject_id=subject.id, grade=g))
+
     db.add(subject)
     db.commit()
     db.refresh(subject)
     return subject
 
 
-def update_subject(db: Session, subject_id: uuid.UUID, name: str, description: Optional[str] = None) -> Subject:
+def update_subject(
+    db: Session,
+    subject_id: uuid.UUID,
+    name: str,
+    description: Optional[str] = None,
+    grades: Optional[List[str]] = None,
+) -> Subject:
     subject = get_subject_by_id(db, subject_id)
     if not subject:
         raise SubjectNotFoundError(f"Subject with id {subject_id} not found.")
@@ -82,6 +103,15 @@ def update_subject(db: Session, subject_id: uuid.UUID, name: str, description: O
 
     subject.name = clean_name
     subject.description = description.strip() if description else None
+
+    if grades is not None:
+        clean_grades = sorted(set(str(x).strip() for x in grades if str(x).strip()))
+        if not clean_grades:
+            raise ValueError("At least one grade must be configured for the subject.")
+        subject.grades_rel.clear()
+        for g in clean_grades:
+            subject.grades_rel.append(SubjectGrade(subject_id=subject.id, grade=g))
+
     db.commit()
     db.refresh(subject)
     return subject
@@ -128,7 +158,13 @@ def seed_default_academic_data(db: Session) -> None:
         sub = get_subject_by_name(db, name)
         if not sub:
             sub = Subject(name=name)
+            for g in SUPPORTED_GRADES:
+                sub.grades_rel.append(SubjectGrade(subject_id=sub.id, grade=g))
             db.add(sub)
+            db.flush()
+        elif not sub.grades_rel:
+            for g in SUPPORTED_GRADES:
+                sub.grades_rel.append(SubjectGrade(subject_id=sub.id, grade=g))
             db.flush()
         subjects_by_name[name] = sub
 

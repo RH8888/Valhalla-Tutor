@@ -41,10 +41,12 @@ def create_student(
     password: str,
     email: Optional[str] = None,
     timezone: str = "Asia/Tehran",
+    grade: Optional[str] = None,
 ) -> User:
     """Create a new student account with Argon2id hashed password."""
     clean_username = username.strip().lower()
     clean_email = email.strip().lower() if email and email.strip() else None
+    clean_grade = str(grade).strip() if grade else None
 
     # Check for duplicate username
     if db.query(User).filter(User.username == clean_username).first():
@@ -62,8 +64,22 @@ def create_student(
         full_name=full_name.strip(),
         timezone=timezone,
         is_active=True,
+        grade=clean_grade,
     )
     db.add(student)
+    db.commit()
+    db.refresh(student)
+    return student
+
+
+def update_student_grade(db: Session, student_id: uuid.UUID, grade: str) -> User:
+    student = get_student_by_id(db, student_id)
+    if not student:
+        raise UserNotFoundError("Student not found.")
+    clean_grade = str(grade).strip()
+    if clean_grade not in ["10", "11", "12"]:
+        raise ValueError(f"Invalid grade '{clean_grade}'. Supported grades: 10, 11, 12.")
+    student.grade = clean_grade
     db.commit()
     db.refresh(student)
     return student

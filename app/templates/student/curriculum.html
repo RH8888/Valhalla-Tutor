@@ -23,7 +23,12 @@
                     <p class="text-xs text-slate-600 mt-1">{{ track.description }}</p>
                 {% endif %}
             </div>
-            <div>
+            <div class="flex items-center space-x-2">
+                {% if student.grade %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                        Grade {{ student.grade }}
+                    </span>
+                {% endif %}
                 {% if is_customized %}
                     <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
                         ⚡ Individually Customized Curriculum
@@ -66,7 +71,7 @@
                                     {% endfor %}
                                 </ul>
                             {% else %}
-                                <p class="text-xs text-slate-400 italic">No video courses listed for this subject.</p>
+                                <p class="text-xs text-slate-400 italic">No video courses available for {% if student.grade %}Grade {{ student.grade }}{% else %}your curriculum{% endif %}.</p>
                             {% endif %}
                         </div>
 
@@ -86,7 +91,7 @@
                                     {% endfor %}
                                 </ul>
                             {% else %}
-                                <p class="text-xs text-slate-400 italic">No test books listed for this subject.</p>
+                                <p class="text-xs text-slate-400 italic">No test books available for {% if student.grade %}Grade {{ student.grade }}{% else %}your curriculum{% endif %}.</p>
                             {% endif %}
                         </div>
                     </div>

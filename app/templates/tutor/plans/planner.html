@@ -12,6 +12,11 @@
                 <span class="text-slate-300">/</span>
                 <h1 class="text-2xl font-black tracking-tight text-slate-900">{{ student.full_name }}</h1>
                 <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">@{{ student.username }}</span>
+                {% if student.grade %}
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">Grade {{ student.grade }}</span>
+                {% else %}
+                    <a href="/tutor/students/{{ student.id }}" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200" title="Click to assign student grade in profile">⚠️ Assign Grade</a>
+                {% endif %}
                 {% if plan.status == "PUBLISHED" %}
                     <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                         ● Active Published Plan

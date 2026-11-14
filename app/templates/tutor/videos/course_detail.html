@@ -107,8 +107,12 @@
                     <input type="text" name="teacher_name" value="{{ course.teacher_name }}" required class="mt-1 w-full px-3 py-1.5 border border-slate-300 rounded text-sm">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700">Grade Level</label>
-                    <input type="text" name="grade" value="{{ course.grade }}" required class="mt-1 w-full px-3 py-1.5 border border-slate-300 rounded text-sm">
+                    <label class="block text-xs font-semibold text-slate-700">Academic Grade</label>
+                    <select name="grade" required class="mt-1 w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white">
+                        {% for g in course.subject.grades|default(['10', '11', '12']) %}
+                        <option value="{{ g }}" {% if course.grade == g %}selected{% endif %}>Grade {{ g }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-700">Description</label>

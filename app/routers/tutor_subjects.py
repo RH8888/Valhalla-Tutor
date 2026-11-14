@@ -1,5 +1,5 @@
 import uuid
-from typing import Optional
+from typing import List, Optional
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -47,6 +47,7 @@ def get_subjects_list(
         name="tutor/subjects/list.html",
         context={
             "subjects": subjects,
+            "supported_grades": ["10", "11", "12"],
             "message": msg,
             "error": err,
             "current_user": current_user,
@@ -60,12 +61,13 @@ def post_create_subject(
     request: Request,
     name: str = Form(...),
     description: Optional[str] = Form(None),
+    grades: List[str] = Form(default=[]),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
     try:
-        sub = create_subject(db, name=name, description=description)
+        sub = create_subject(db, name=name, description=description, grades=grades or None)
         return RedirectResponse(
             url=f"/tutor/subjects?msg=Subject '{sub.name}' created successfully",
             status_code=status.HTTP_303_SEE_OTHER,
@@ -77,6 +79,7 @@ def post_create_subject(
             name="tutor/subjects/list.html",
             context={
                 "subjects": subjects,
+                "supported_grades": ["10", "11", "12"],
                 "error": str(exc),
                 "name": name,
                 "description": description,
@@ -104,6 +107,7 @@ def get_edit_subject_page(
         name="tutor/subjects/edit.html",
         context={
             "subject": sub,
+            "supported_grades": ["10", "11", "12"],
             "current_user": current_user,
             "current_session": current_session,
         },
@@ -116,12 +120,13 @@ def post_edit_subject(
     subject_id: uuid.UUID,
     name: str = Form(...),
     description: Optional[str] = Form(None),
+    grades: List[str] = Form(default=[]),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
     try:
-        sub = update_subject(db, subject_id=subject_id, name=name, description=description)
+        sub = update_subject(db, subject_id=subject_id, name=name, description=description, grades=grades or None)
         return RedirectResponse(
             url=f"/tutor/subjects?msg=Subject '{sub.name}' updated successfully",
             status_code=status.HTTP_303_SEE_OTHER,
@@ -133,6 +138,7 @@ def post_edit_subject(
             name="tutor/subjects/edit.html",
             context={
                 "subject": sub,
+                "supported_grades": ["10", "11", "12"],
                 "error": str(exc),
                 "current_user": current_user,
                 "current_session": current_session,

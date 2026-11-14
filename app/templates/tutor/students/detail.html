@@ -55,9 +55,35 @@
                         {% endif %}
                     </dd>
                 </div>
+                <div>
+                    <dt class="font-medium text-slate-500">Academic Grade</dt>
+                    <dd class="mt-1">
+                        {% if student.grade %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black bg-indigo-100 text-indigo-800 border border-indigo-200">
+                                Grade {{ student.grade }}
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                Not assigned
+                            </span>
+                        {% endif %}
+                    </dd>
+                </div>
             </dl>
 
-            <div class="pt-4 border-t border-slate-100">
+            <div class="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <form method="POST" action="/tutor/students/{{ student.id }}/grade" class="flex items-center space-x-2">
+                    <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                    <label for="student-grade-select" class="text-xs font-bold text-slate-700">Grade:</label>
+                    <select name="grade" id="student-grade-select" required class="text-xs font-bold border border-slate-300 rounded-lg px-2.5 py-1.5 focus:ring-indigo-500 bg-white">
+                        <option value="10" {% if student.grade == '10' %}selected{% endif %}>Grade 10</option>
+                        <option value="11" {% if student.grade == '11' %}selected{% endif %}>Grade 11</option>
+                        <option value="12" {% if student.grade == '12' %}selected{% endif %}>Grade 12</option>
+                    </select>
+                    <button type="submit" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-xs transition">
+                        Update Grade
+                    </button>
+                </form>
                 <form method="POST" action="/tutor/students/{{ student.id }}/toggle-status">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                     {% if student.is_active %}

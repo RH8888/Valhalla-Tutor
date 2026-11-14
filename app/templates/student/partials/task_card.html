@@ -29,24 +29,72 @@
 
     <div class="mt-3 pt-2.5 border-t border-slate-200/60 flex items-center justify-between">
         {% if assignment.is_completed %}
-            <div class="flex items-center space-x-1 text-xs font-bold text-emerald-700">
-                <span>✓</span>
-                <span>Completed {% if assignment.completed_at %}({{ assignment.completed_at.strftime('%H:%M') }}){% endif %}</span>
+            <div class="flex flex-col">
+                <div class="flex items-center space-x-1 text-xs font-bold text-emerald-700">
+                    <span>✓</span>
+                    <span>Completed {% if assignment.completed_at %}({{ assignment.completed_at.strftime('%H:%M') }}){% endif %}</span>
+                </div>
+                {% if assignment.actual_duration_minutes %}
+                <span class="text-[10px] font-semibold text-emerald-800 mt-0.5">Reported study time: {{ assignment.actual_duration_minutes }}m</span>
+                {% endif %}
             </div>
+            {% if not is_archived and not (assignment.study_plan and assignment.study_plan.status.value == 'ARCHIVED') %}
+            <button type="button"
+                hx-post="/student/assignments/{{ assignment.id }}/undo"
+                hx-target="#task-card-{{ assignment.id }}"
+                hx-swap="outerHTML"
+                class="min-h-[30px] px-2.5 py-1 text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg transition active:scale-95">
+                ↺ Undo
+            </button>
+            {% else %}
             <span class="text-[10px] font-semibold text-emerald-600 bg-emerald-100/70 px-2 py-0.5 rounded-full">Done</span>
+            {% endif %}
         {% elif is_archived or (assignment.study_plan and assignment.study_plan.status.value == 'ARCHIVED') %}
             <span class="text-[11px] font-medium text-slate-400 italic">Archived (Read-Only)</span>
             <span class="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Pending</span>
         {% else %}
             <span class="text-[11px] font-medium text-slate-500">Pending</span>
-            <button type="button"
-                hx-post="/student/assignments/{{ assignment.id }}/complete"
-                hx-target="#task-card-{{ assignment.id }}"
-                hx-swap="outerHTML"
+            <button type="button" id="complete-btn-{{ assignment.id }}"
+                onclick="this.classList.add('hidden'); document.getElementById('complete-form-{{ assignment.id }}').classList.remove('hidden');"
                 class="min-h-[36px] px-3 py-1.5 bg-white hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-300 hover:border-transparent rounded-xl text-xs font-bold shadow-2xs transition flex items-center space-x-1 active:scale-95">
                 <span>✓ Mark Complete</span>
             </button>
         {% endif %}
     </div>
+
+    <!-- Quick study time entry form for iPad & desktop -->
+    {% if not assignment.is_completed and not is_archived and not (assignment.study_plan and assignment.study_plan.status.value == 'ARCHIVED') %}
+    <div id="complete-form-{{ assignment.id }}" class="hidden mt-2 pt-2 border-t border-slate-200/80 bg-white/60 p-2.5 rounded-xl">
+        <form hx-post="/student/assignments/{{ assignment.id }}/complete"
+            hx-target="#task-card-{{ assignment.id }}"
+            hx-swap="outerHTML"
+            class="space-y-2">
+            <label class="block text-[11px] font-bold text-slate-800">Actual study time (minutes):</label>
+            <div class="flex items-center space-x-1.5">
+                <input type="number" name="actual_duration_minutes" min="1" required
+                    value="{{ assignment.recommended_duration_minutes or 30 }}"
+                    id="input-dur-{{ assignment.id }}"
+                    class="w-20 px-2 py-1 text-xs font-bold border border-emerald-400 rounded-lg text-slate-900 bg-white focus:ring-emerald-500">
+                <button type="submit"
+                    class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition active:scale-95">
+                    Save
+                </button>
+                <button type="button"
+                    onclick="document.getElementById('complete-form-{{ assignment.id }}').classList.add('hidden'); document.getElementById('complete-btn-{{ assignment.id }}').classList.remove('hidden');"
+                    class="px-2 py-1 text-slate-500 hover:text-slate-800 text-xs font-medium">
+                    Cancel
+                </button>
+            </div>
+            <div class="flex items-center space-x-1 pt-0.5">
+                <span class="text-[10px] text-slate-500 mr-1">Quick:</span>
+                <button type="button" onclick="document.getElementById('input-dur-{{ assignment.id }}').value='15'" class="text-[10px] px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-bold">15m</button>
+                <button type="button" onclick="document.getElementById('input-dur-{{ assignment.id }}').value='30'" class="text-[10px] px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-bold">30m</button>
+                <button type="button" onclick="document.getElementById('input-dur-{{ assignment.id }}').value='45'" class="text-[10px] px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-bold">45m</button>
+                <button type="button" onclick="document.getElementById('input-dur-{{ assignment.id }}').value='60'" class="text-[10px] px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-bold">60m</button>
+                <button type="button" onclick="document.getElementById('input-dur-{{ assignment.id }}').value='90'" class="text-[10px] px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-bold">90m</button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
 </div>
 

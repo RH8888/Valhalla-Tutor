@@ -36,6 +36,7 @@ from app.services.user_service import (
     list_students,
     reset_student_password,
     set_student_active_status,
+    update_student_grade,
 )
 
 router = APIRouter(
@@ -75,6 +76,7 @@ def get_create_student_page(
         name="tutor/students/create.html",
         context={
             "error": None,
+            "supported_grades": ["10", "11", "12"],
             "current_user": current_user,
             "current_session": current_session,
         },
@@ -87,12 +89,32 @@ def post_create_student(
     full_name: str = Form(...),
     username: str = Form(...),
     password: str = Form(...),
+    grade: str = Form(...),
     email: Optional[str] = Form(None),
     timezone: str = Form("Asia/Tehran"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
+    clean_grade = grade.strip()
+    if clean_grade not in ["10", "11", "12"]:
+        return templates.TemplateResponse(
+            request=request,
+            name="tutor/students/create.html",
+            context={
+                "error": "A valid academic grade (10, 11, or 12) is required.",
+                "full_name": full_name,
+                "username": username,
+                "email": email,
+                "grade": grade,
+                "timezone": timezone,
+                "supported_grades": ["10", "11", "12"],
+                "current_user": current_user,
+                "current_session": current_session,
+            },
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
     try:
         student = create_student(
             db=db,
@@ -101,6 +123,7 @@ def post_create_student(
             password=password,
             email=email,
             timezone=timezone,
+            grade=clean_grade,
         )
         return RedirectResponse(
             url=f"/tutor/students/{student.id}?msg=Student account created",
@@ -115,7 +138,9 @@ def post_create_student(
                 "full_name": full_name,
                 "username": username,
                 "email": email,
+                "grade": grade,
                 "timezone": timezone,
+                "supported_grades": ["10", "11", "12"],
                 "current_user": current_user,
                 "current_session": current_session,
             },
@@ -153,12 +178,32 @@ def get_student_detail(
             "effective_subjects": effective_subjects,
             "custom_subject_ids": custom_subject_ids,
             "monitoring": monitoring_data,
+            "supported_grades": ["10", "11", "12"],
             "message": msg,
             "error": err,
             "current_user": current_user,
             "current_session": current_session,
         },
     )
+
+
+@router.post("/students/{student_id}/grade")
+def post_update_student_grade(
+    student_id: uuid.UUID,
+    grade: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        update_student_grade(db, student_id=student_id, grade=grade)
+        return RedirectResponse(
+            url=f"/tutor/students/{student_id}?msg=Academic grade updated to Grade {grade.strip()}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except Exception as exc:
+        return RedirectResponse(
+            url=f"/tutor/students/{student_id}?err={str(exc)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
 
 
 @router.post("/students/{student_id}/assign-track")

@@ -25,8 +25,12 @@
                             {{ task.subject.name }}
                         </span>
                     </div>
-                    <div class="flex items-center space-x-3 text-[11px] text-slate-500 mt-1">
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 mt-1">
                         <span>⏱️ Rec: {{ task.recommended_duration_minutes }}m</span>
+                        {% if task.actual_duration_minutes %}
+                        <span>&bull;</span>
+                        <span class="text-indigo-700 font-bold">Reported: {{ task.actual_duration_minutes }}m</span>
+                        {% endif %}
                         <span>&bull;</span>
                         <span class="text-emerald-700 font-semibold">Completed: {{ task.completed_at.strftime('%Y-%m-%d %H:%M') if task.completed_at else 'Done' }}</span>
                     </div>

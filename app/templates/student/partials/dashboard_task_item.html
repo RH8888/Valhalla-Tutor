@@ -28,11 +28,13 @@
             {% if assignment.description %}
             <p class="text-xs text-slate-600 mt-1 line-clamp-1">{{ assignment.description }}</p>
             {% endif %}
-            <div class="flex items-center space-x-3 text-xs text-slate-500 mt-1.5 font-medium">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 mt-1.5 font-medium">
                 <span>⏱️ Recommended: {{ assignment.recommended_duration_minutes }} minutes</span>
+                {% if assignment.is_completed and assignment.actual_duration_minutes %}
+                <span class="text-emerald-800 font-bold bg-emerald-100/60 px-2 py-0.5 rounded-md">Reported: {{ assignment.actual_duration_minutes }} min</span>
+                {% endif %}
                 {% if assignment.is_completed and assignment.completed_at %}
-                <span>&bull;</span>
-                <span class="text-emerald-700 font-bold">✓ Completed at {{ assignment.completed_at.strftime('%H:%M') }}</span>
+                <span class="text-emerald-700 font-bold">✓ {{ assignment.completed_at.strftime('%H:%M') }}</span>
                 {% endif %}
             </div>
         </div>
@@ -41,19 +43,59 @@
     <!-- Action / Status -->
     <div class="shrink-0 flex items-center">
         {% if assignment.is_completed %}
-            <span class="inline-flex items-center space-x-1 px-3 py-1.5 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold border border-emerald-200">
-                <span>✓</span>
-                <span>Completed</span>
-            </span>
+            <div class="flex items-center space-x-2">
+                <span class="inline-flex items-center space-x-1 px-3 py-1.5 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold border border-emerald-200">
+                    <span>✓</span>
+                    <span>Completed</span>
+                </span>
+                <button type="button"
+                    hx-post="/student/assignments/{{ assignment.id }}/undo?view=dashboard"
+                    hx-target="#dash-task-item-{{ assignment.id }}"
+                    hx-swap="outerHTML"
+                    class="px-2.5 py-1.5 bg-white hover:bg-amber-50 text-amber-800 border border-amber-300 rounded-xl text-xs font-bold transition active:scale-95">
+                    ↺ Undo
+                </button>
+            </div>
         {% else %}
-            <button type="button"
-                hx-post="/student/assignments/{{ assignment.id }}/complete?view=dashboard"
-                hx-target="#dash-task-item-{{ assignment.id }}"
-                hx-swap="outerHTML"
-                class="min-h-[40px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center space-x-1.5">
-                <span>✓</span>
-                <span>Complete Task</span>
-            </button>
+            <div class="flex flex-col items-end space-y-2">
+                <div id="dash-form-{{ assignment.id }}" class="hidden bg-white p-2.5 rounded-xl border border-emerald-300 shadow-xs">
+                    <form hx-post="/student/assignments/{{ assignment.id }}/complete?view=dashboard"
+                        hx-target="#dash-task-item-{{ assignment.id }}"
+                        hx-swap="outerHTML"
+                        class="flex flex-col gap-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-xs font-bold text-slate-700">Actual mins:</span>
+                            <input type="number" name="actual_duration_minutes" min="1" required
+                                value="{{ assignment.recommended_duration_minutes or 30 }}"
+                                id="dash-dur-{{ assignment.id }}"
+                                class="w-20 px-2.5 py-1 text-xs font-bold border border-slate-300 rounded-lg text-slate-900 focus:ring-emerald-500">
+                            <button type="submit"
+                                class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition active:scale-95">
+                                Save
+                            </button>
+                            <button type="button"
+                                onclick="document.getElementById('dash-form-{{ assignment.id }}').classList.add('hidden'); document.getElementById('dash-btn-{{ assignment.id }}').classList.remove('hidden');"
+                                class="text-xs text-slate-500 hover:text-slate-800 px-1 py-1">
+                                Cancel
+                            </button>
+                        </div>
+                        <div class="flex items-center space-x-1">
+                            <span class="text-[10px] text-slate-400">Quick:</span>
+                            <button type="button" onclick="document.getElementById('dash-dur-{{ assignment.id }}').value='15'" class="text-[10px] px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-bold">15m</button>
+                            <button type="button" onclick="document.getElementById('dash-dur-{{ assignment.id }}').value='30'" class="text-[10px] px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-bold">30m</button>
+                            <button type="button" onclick="document.getElementById('dash-dur-{{ assignment.id }}').value='45'" class="text-[10px] px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-bold">45m</button>
+                            <button type="button" onclick="document.getElementById('dash-dur-{{ assignment.id }}').value='60'" class="text-[10px] px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-bold">60m</button>
+                            <button type="button" onclick="document.getElementById('dash-dur-{{ assignment.id }}').value='90'" class="text-[10px] px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-bold">90m</button>
+                        </div>
+                    </form>
+                </div>
+                <button type="button" id="dash-btn-{{ assignment.id }}"
+                    onclick="this.classList.add('hidden'); document.getElementById('dash-form-{{ assignment.id }}').classList.remove('hidden');"
+                    class="min-h-[40px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center space-x-1.5">
+                    <span>✓</span>
+                    <span>Complete Task</span>
+                </button>
+            </div>
         {% endif %}
     </div>
 </div>

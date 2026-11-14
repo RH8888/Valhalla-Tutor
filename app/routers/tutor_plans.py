@@ -170,23 +170,39 @@ def get_resources_for_subject(
     subject_id: uuid.UUID,
     db: Session = Depends(get_db),
 ):
-    """Return JSON or HTML snippet of courses and books for a subject."""
-    courses = list_courses(db, subject_id=subject_id)
-    books = list_books(db, subject_id=subject_id)
+    """Return JSON or HTML snippet of courses and books for a subject filtered by student grade."""
+    plan = get_study_plan(db, plan_id)
+    student = plan.student if plan else None
+    student_grade = student.grade if student else None
 
-    course_options = "".join([f'<option value="{c.id}">{c.teacher_name} - {c.name}</option>' for c in courses])
-    book_options = "".join([f'<option value="{b.id}">{b.title} (Grade {b.grade})</option>' for b in books])
+    courses = list_courses(db, subject_id=subject_id, grade=student_grade) if student_grade else []
+    books = list_books(db, subject_id=subject_id, grade=student_grade) if student_grade else []
+
+    if not student_grade:
+        msg = '<option value="">-- Student has no grade assigned (Assign grade in profile) --</option>'
+        return HTMLResponse(
+            f"""
+            <div id="course-options-container" hx-swap-oob="innerHTML:#course-select">{msg}</div>
+            <div id="book-options-container" hx-swap-oob="innerHTML:#book-select">{msg}</div>
+            """
+        )
+
+    if courses:
+        course_options = "".join([f'<option value="{c.id}">{c.teacher_name} - {c.name}</option>' for c in courses])
+        course_select = f'<option value="">-- Select Course / Teacher --</option>{course_options}'
+    else:
+        course_select = f'<option value="">-- No courses available for Grade {student_grade} --</option>'
+
+    if books:
+        book_options = "".join([f'<option value="{b.id}">{b.title} (Grade {b.grade})</option>' for b in books])
+        book_select = f'<option value="">-- Select Book --</option>{book_options}'
+    else:
+        book_select = f'<option value="">-- No books available for Grade {student_grade} --</option>'
 
     return HTMLResponse(
         f"""
-        <div id="course-options-container" hx-swap-oob="innerHTML:#course-select">
-            <option value="">-- Select Course / Teacher --</option>
-            {course_options}
-        </div>
-        <div id="book-options-container" hx-swap-oob="innerHTML:#book-select">
-            <option value="">-- Select Book --</option>
-            {book_options}
-        </div>
+        <div id="course-options-container" hx-swap-oob="innerHTML:#course-select">{course_select}</div>
+        <div id="book-options-container" hx-swap-oob="innerHTML:#book-select">{book_select}</div>
         """
     )
 

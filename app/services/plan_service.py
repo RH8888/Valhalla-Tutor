@@ -11,6 +11,8 @@ from app.models.course import Course, CourseChapter
 from app.models.plan import CompletionAuditAction, CompletionAuditLog, PlanAssignment, PlanStatus, StudyPlan, TaskType
 from app.models.subject import Subject
 from app.models.user import User
+from app.services.academic_service import get_student_effective_subjects
+from app.services.resource_service import normalize_grade
 
 
 class PlanNotFoundError(Exception):
@@ -391,6 +393,12 @@ def create_assignment(
     if not subject:
         raise PlanValidationError(f"Subject with id {subject_id} not found.")
 
+    student = plan.student
+    if student:
+        effective_subjects = get_student_effective_subjects(student)
+        if effective_subjects and subject_id not in {s.id for s in effective_subjects}:
+            raise PlanValidationError(f"Subject '{subject.name}' is not assigned to student '{student.full_name}'.")
+
     course_snapshot = None
     course_chapter_snapshot = None
     book_snapshot = None
@@ -404,6 +412,13 @@ def create_assignment(
         chapter = db.query(CourseChapter).filter(CourseChapter.id == course_chapter_id).first()
         if not course or not chapter:
             raise PlanValidationError("Selected course or chapter not found.")
+
+        if course.subject_id != subject_id:
+            raise PlanValidationError(f"Course '{course.name}' does not belong to subject '{subject.name}'.")
+
+        if student and student.grade:
+            if normalize_grade(course.grade) != normalize_grade(student.grade):
+                raise PlanValidationError(f"Course '{course.name}' (Grade {course.grade}) does not match student's grade ({student.grade}).")
 
         course_snapshot = f"{course.teacher_name} - {course.name}"
         course_chapter_snapshot = chapter.name
@@ -429,6 +444,13 @@ def create_assignment(
         bchapter = db.query(BookChapter).filter(BookChapter.id == book_chapter_id).first()
         if not book or not bchapter:
             raise PlanValidationError("Selected book or chapter not found.")
+
+        if book.subject_id != subject_id:
+            raise PlanValidationError(f"Book '{book.title}' does not belong to subject '{subject.name}'.")
+
+        if student and student.grade:
+            if normalize_grade(book.grade) != normalize_grade(student.grade):
+                raise PlanValidationError(f"Book '{book.title}' (Grade {book.grade}) does not match student's grade ({student.grade}).")
 
         if test_start_num is None or test_end_num is None:
             raise PlanValidationError("Starting and ending test numbers are required.")
@@ -598,6 +620,7 @@ def complete_assignment(
     db: Session,
     assignment_id: uuid.UUID,
     student_id: uuid.UUID,
+    actual_duration_minutes: Optional[int] = None,
     performed_by_id: Optional[uuid.UUID] = None,
 ) -> PlanAssignment:
     """Mark an assignment completed with fresh server timestamp and audit record."""
@@ -611,8 +634,16 @@ def complete_assignment(
     if assignment.study_plan and assignment.study_plan.status == PlanStatus.ARCHIVED:
         raise PlanValidationError("Cannot complete assignments in an archived plan.")
 
+    if actual_duration_minutes is not None:
+        if actual_duration_minutes <= 0:
+            raise PlanValidationError("Actual duration must be a positive number of minutes.")
+        final_actual = actual_duration_minutes
+    else:
+        final_actual = assignment.recommended_duration_minutes if assignment.recommended_duration_minutes > 0 else 30
+
     assignment.is_completed = True
     assignment.completed_at = now_utc()
+    assignment.actual_duration_minutes = final_actual
 
     audit = CompletionAuditLog(
         assignment_id=assignment.id,
@@ -620,6 +651,48 @@ def complete_assignment(
         performed_by_id=performed_by_id or student_id,
         action=CompletionAuditAction.COMPLETED,
         recorded_completed_at=assignment.completed_at,
+        actual_duration_minutes=final_actual,
+    )
+    db.add(audit)
+    db.commit()
+    db.refresh(assignment)
+    return assignment
+
+
+def undo_assignment_completion(
+    db: Session,
+    assignment_id: uuid.UUID,
+    student_id: uuid.UUID,
+) -> PlanAssignment:
+    """Return a completed assignment to pending state and log audit entry."""
+    assignment = get_assignment(db, assignment_id)
+    if not assignment:
+        raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
+
+    if assignment.student_id != student_id:
+        raise PlanValidationError("Unauthorized: assignment does not belong to this student.")
+
+    if not assignment.is_completed:
+        raise PlanValidationError("Assignment is not marked as completed.")
+
+    if assignment.study_plan and assignment.study_plan.status == PlanStatus.ARCHIVED:
+        raise PlanValidationError("Cannot undo assignments in an archived plan.")
+
+    prev_completed_at = assignment.completed_at
+    prev_actual = assignment.actual_duration_minutes
+
+    assignment.is_completed = False
+    assignment.completed_at = None
+    assignment.actual_duration_minutes = None
+
+    audit = CompletionAuditLog(
+        assignment_id=assignment.id,
+        student_id=student_id,
+        performed_by_id=student_id,
+        action=CompletionAuditAction.STUDENT_UNDO,
+        recorded_completed_at=prev_completed_at,
+        actual_duration_minutes=prev_actual,
+        note="Completion undone by student",
     )
     db.add(audit)
     db.commit()
@@ -639,8 +712,10 @@ def reset_assignment_completion(
         raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
 
     prev_completed_at = assignment.completed_at
+    prev_actual = assignment.actual_duration_minutes
     assignment.is_completed = False
     assignment.completed_at = None
+    assignment.actual_duration_minutes = None
 
     audit = CompletionAuditLog(
         assignment_id=assignment.id,
@@ -648,6 +723,7 @@ def reset_assignment_completion(
         performed_by_id=tutor_id,
         action=CompletionAuditAction.RESET,
         recorded_completed_at=prev_completed_at,
+        actual_duration_minutes=prev_actual,
         note=note or "Reset by tutor",
     )
     db.add(audit)

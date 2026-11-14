@@ -47,6 +47,18 @@
             </div>
 
             <div>
+                <label for="grade" class="block text-sm font-semibold text-slate-700">Academic Grade <span class="text-red-500">*</span></label>
+                <select id="grade" name="grade" required
+                    class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white">
+                    <option value="">-- Select Academic Grade --</option>
+                    <option value="10" {% if grade == '10' %}selected{% endif %}>Grade 10</option>
+                    <option value="11" {% if grade == '11' %}selected{% endif %}>Grade 11</option>
+                    <option value="12" {% if grade == '12' %}selected{% endif %}>Grade 12</option>
+                </select>
+                <p class="text-xs text-slate-500 mt-1">Used to filter courses, books, and study plan assignments.</p>
+            </div>
+
+            <div>
                 <label for="timezone" class="block text-sm font-semibold text-slate-700">Timezone</label>
                 <input type="text" id="timezone" name="timezone" value="{{ timezone or 'Asia/Tehran' }}"
                     class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">

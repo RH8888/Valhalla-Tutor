@@ -1,14 +1,14 @@
 import uuid
 from datetime import date, timedelta
-from typing import Dict, List, Tuple
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from typing import Dict, List, Optional, Tuple
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_session, get_current_user, require_student, verify_csrf_token
 from app.core.templates import templates
-from app.models.plan import PlanAssignment
+from app.models.plan import PlanAssignment, PlanStatus
 from app.models.session import UserSession
 from app.models.user import User
 from app.services.academic_service import get_student_effective_subjects
@@ -16,6 +16,7 @@ from app.services.plan_service import (
     AssignmentNotFoundError,
     calculate_plan_totals,
     complete_assignment,
+    undo_assignment_completion,
     format_duration_minutes,
     get_active_student_plan,
     get_assignment,
@@ -78,8 +79,8 @@ def get_student_curriculum(
     courses_by_subject = {}
     books_by_subject = {}
     for sub in effective_subjects:
-        courses_by_subject[sub.id] = list_courses(db, subject_id=sub.id)
-        books_by_subject[sub.id] = list_books(db, subject_id=sub.id)
+        courses_by_subject[sub.id] = list_courses(db, subject_id=sub.id, grade=current_user.grade) if current_user.grade else []
+        books_by_subject[sub.id] = list_books(db, subject_id=sub.id, grade=current_user.grade) if current_user.grade else []
 
     return templates.TemplateResponse(
         request=request,
@@ -277,18 +278,40 @@ def get_student_history(
 def post_complete_assignment(
     assignment_id: uuid.UUID,
     request: Request,
+    actual_duration_minutes: Optional[int] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
+    assignment_obj = get_assignment(db, assignment_id)
+    if not assignment_obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
+
+    if assignment_obj.student_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized: assignment does not belong to this student.")
+
+    if not assignment_obj.study_plan or assignment_obj.study_plan.status != PlanStatus.PUBLISHED:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Can only complete assignments in an active published plan.")
+
+    if actual_duration_minutes is not None:
+        if actual_duration_minutes <= 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A positive actual duration in minutes is required.")
+        final_actual = actual_duration_minutes
+    else:
+        final_actual = assignment_obj.recommended_duration_minutes if assignment_obj.recommended_duration_minutes > 0 else 30
+
     try:
-        assignment = complete_assignment(db, assignment_id, current_user.id)
+        assignment = complete_assignment(
+            db=db,
+            assignment_id=assignment_id,
+            student_id=current_user.id,
+            actual_duration_minutes=final_actual,
+        )
     except AssignmentNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
     except PlanValidationError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
 
-    # If request is HTMX, return updated task card snippet
     if request.headers.get("HX-Request"):
         view_type = request.query_params.get("view")
         template_name = "student/partials/dashboard_task_item.html" if view_type == "dashboard" else "student/partials/task_card.html"
@@ -303,4 +326,49 @@ def post_complete_assignment(
         )
 
     return HTMLResponse('<div class="text-xs text-emerald-600 font-semibold">Completed!</div>')
+
+
+@router.post("/assignments/{assignment_id}/undo", response_class=HTMLResponse)
+def post_undo_assignment(
+    assignment_id: uuid.UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_session: UserSession = Depends(get_current_session),
+):
+    assignment_obj = get_assignment(db, assignment_id)
+    if not assignment_obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
+
+    if assignment_obj.student_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized: assignment does not belong to this student.")
+
+    if not assignment_obj.study_plan or assignment_obj.study_plan.status != PlanStatus.PUBLISHED:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Can only undo assignments in an active published plan.")
+
+    try:
+        assignment = undo_assignment_completion(
+            db=db,
+            assignment_id=assignment_id,
+            student_id=current_user.id,
+        )
+    except AssignmentNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
+    except PlanValidationError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+
+    if request.headers.get("HX-Request"):
+        view_type = request.query_params.get("view")
+        template_name = "student/partials/dashboard_task_item.html" if view_type == "dashboard" else "student/partials/task_card.html"
+        return templates.TemplateResponse(
+            request=request,
+            name=template_name,
+            context={
+                "assignment": assignment,
+                "current_user": current_user,
+                "current_session": current_session,
+            },
+        )
+
+    return HTMLResponse('<div class="text-xs text-slate-600 font-semibold">Pending</div>')
 

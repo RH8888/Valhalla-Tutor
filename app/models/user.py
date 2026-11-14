@@ -73,6 +73,11 @@ class User(Base):
         nullable=False,
         default=False,
     )
+    grade: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True,
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

@@ -23,10 +23,39 @@ class BookChapterNotFoundError(Exception):
     pass
 
 
-def list_courses(db: Session, subject_id: Optional[uuid.UUID] = None) -> List[Course]:
+GRADE_NORMALIZATION = {
+    "10": "10", "11": "11", "12": "12",
+    "دهم": "10", "یازدهم": "11", "دوازدهم": "12",
+}
+
+
+def normalize_grade(grade: Optional[str]) -> Optional[str]:
+    if not grade:
+        return None
+    g = grade.strip()
+    return GRADE_NORMALIZATION.get(g, g)
+
+
+def get_grade_variants(grade: str) -> List[str]:
+    norm = normalize_grade(grade)
+    variants = [norm] if norm else []
+    for k, v in GRADE_NORMALIZATION.items():
+        if v == norm and k not in variants:
+            variants.append(k)
+    return variants
+
+
+def list_courses(
+    db: Session,
+    subject_id: Optional[uuid.UUID] = None,
+    grade: Optional[str] = None,
+) -> List[Course]:
     query = db.query(Course)
     if subject_id:
         query = query.filter(Course.subject_id == subject_id)
+    if grade:
+        variants = get_grade_variants(grade)
+        query = query.filter(Course.grade.in_(variants))
     return query.order_by(Course.teacher_name, Course.name).all()
 
 
@@ -48,9 +77,16 @@ def create_course(
 
     clean_teacher = teacher_name.strip()
     clean_name = name.strip()
-    clean_grade = grade.strip()
+    clean_grade = normalize_grade(grade.strip())
     if not clean_teacher or not clean_name or not clean_grade:
         raise ValueError("Teacher name, course name, and grade are required.")
+
+    if subject.grades_rel:
+        supported = [normalize_grade(sg.grade) for sg in subject.grades_rel]
+        if clean_grade not in supported:
+            raise ValueError(
+                f"Grade '{clean_grade}' is not supported by subject '{subject.name}'. Supported grades: {', '.join(subject.grades)}."
+            )
 
     course = Course(
         subject_id=subject_id,
@@ -79,9 +115,17 @@ def update_course(
 
     clean_teacher = teacher_name.strip()
     clean_name = name.strip()
-    clean_grade = grade.strip()
+    clean_grade = normalize_grade(grade.strip())
     if not clean_teacher or not clean_name or not clean_grade:
         raise ValueError("Teacher name, course name, and grade are required.")
+
+    subject = course.subject
+    if subject and subject.grades_rel:
+        supported = [normalize_grade(sg.grade) for sg in subject.grades_rel]
+        if clean_grade not in supported:
+            raise ValueError(
+                f"Grade '{clean_grade}' is not supported by subject '{subject.name}'. Supported grades: {', '.join(subject.grades)}."
+            )
 
     course.teacher_name = clean_teacher
     course.name = clean_name
@@ -171,10 +215,17 @@ def delete_course_chapter(db: Session, chapter_id: uuid.UUID) -> None:
     db.commit()
 
 
-def list_books(db: Session, subject_id: Optional[uuid.UUID] = None) -> List[Book]:
+def list_books(
+    db: Session,
+    subject_id: Optional[uuid.UUID] = None,
+    grade: Optional[str] = None,
+) -> List[Book]:
     query = db.query(Book)
     if subject_id:
         query = query.filter(Book.subject_id == subject_id)
+    if grade:
+        variants = get_grade_variants(grade)
+        query = query.filter(Book.grade.in_(variants))
     return query.order_by(Book.title).all()
 
 
@@ -194,9 +245,16 @@ def create_book(
         raise ValueError(f"Subject with id {subject_id} does not exist.")
 
     clean_title = title.strip()
-    clean_grade = grade.strip()
+    clean_grade = normalize_grade(grade.strip())
     if not clean_title or not clean_grade:
         raise ValueError("Book title and grade are required.")
+
+    if subject.grades_rel:
+        supported = [normalize_grade(sg.grade) for sg in subject.grades_rel]
+        if clean_grade not in supported:
+            raise ValueError(
+                f"Grade '{clean_grade}' is not supported by subject '{subject.name}'. Supported grades: {', '.join(subject.grades)}."
+            )
 
     book = Book(
         subject_id=subject_id,
@@ -222,9 +280,17 @@ def update_book(
         raise BookNotFoundError(f"Book with id {book_id} not found.")
 
     clean_title = title.strip()
-    clean_grade = grade.strip()
+    clean_grade = normalize_grade(grade.strip())
     if not clean_title or not clean_grade:
         raise ValueError("Book title and grade are required.")
+
+    subject = book.subject
+    if subject and subject.grades_rel:
+        supported = [normalize_grade(sg.grade) for sg in subject.grades_rel]
+        if clean_grade not in supported:
+            raise ValueError(
+                f"Grade '{clean_grade}' is not supported by subject '{subject.name}'. Supported grades: {', '.join(subject.grades)}."
+            )
 
     book.title = clean_title
     book.grade = clean_grade

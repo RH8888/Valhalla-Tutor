@@ -57,8 +57,12 @@
                         {% if task.description %}
                         <p class="text-xs text-slate-500 mt-1 line-clamp-1">{{ task.description }}</p>
                         {% endif %}
-                        <div class="flex items-center space-x-3 text-xs text-slate-500 mt-1.5 font-medium">
+                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 mt-1.5 font-medium">
                             <span class="text-indigo-700 font-bold">⏱️ Recommended: {{ task.recommended_duration_minutes }}m</span>
+                            {% if task.actual_duration_minutes %}
+                            <span>&bull;</span>
+                            <span class="text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Reported study time: {{ task.actual_duration_minutes }}m</span>
+                            {% endif %}
                             <span>&bull;</span>
                             <span>Scheduled: {{ task.scheduled_date.strftime('%a, %b %d') }}</span>
                         </div>

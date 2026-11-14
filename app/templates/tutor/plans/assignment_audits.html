@@ -8,10 +8,12 @@
         <div>
             <h1 class="text-2xl font-black text-slate-900 tracking-tight">Assignment Audit Trail</h1>
             <p class="text-sm text-slate-500 mt-1">
-                <strong>{{ assignment.title }}</strong> &bull; {{ assignment.subject.name }} &bull; {{ assignment.scheduled_date.strftime('%a, %b %d, %Y') }}
+                <strong>{{ assignment.title }}</strong> &bull; {{ assignment.subject.name }} &bull; {{
+                assignment.scheduled_date.strftime('%a, %b %d, %Y') }}
             </p>
         </div>
-        <a href="/tutor/students/{{ assignment.student_id }}" class="text-sm font-bold text-indigo-600 hover:text-indigo-800">
+        <a href="/tutor/students/{{ assignment.student_id }}"
+            class="text-sm font-bold text-indigo-600 hover:text-indigo-800">
             &larr; Back to Student Detail
         </a>
     </div>
@@ -28,21 +30,33 @@
             <div class="p-4 flex items-start justify-between gap-4">
                 <div class="flex items-start space-x-3">
                     <span class="text-lg">
-                        {% if a.action == 'COMPLETED' %}✅{% else %}🔄{% endif %}
+                        {% if a.action == 'COMPLETED' %}✅{% elif a.action == 'STUDENT_UNDO' %}↺{% else %}🔄{% endif %}
                     </span>
                     <div>
                         <div class="flex items-center space-x-2">
-                            <span class="font-bold text-xs px-2 py-0.5 rounded-full {% if a.action == 'COMPLETED' %}bg-emerald-100 text-emerald-800{% else %}bg-amber-100 text-amber-800{% endif %}">
-                                {{ a.action }}
+                            <span class="font-bold text-xs px-2 py-0.5 rounded-full 
+                                {% if a.action == 'COMPLETED' %}bg-emerald-100 text-emerald-800
+                                {% elif a.action == 'STUDENT_UNDO' %}bg-amber-100 text-amber-800
+                                {% else %}bg-slate-100 text-slate-800{% endif %}">
+                                {% if a.action == 'COMPLETED' %}Student Completed
+                                {% elif a.action == 'STUDENT_UNDO' %}Student Undo
+                                {% else %}Tutor Reset{% endif %}
                             </span>
-                            <span class="text-xs font-semibold text-slate-700">by {{ a.performed_by.full_name }} (@{{ a.performed_by.username }})</span>
+                            <span class="text-xs font-semibold text-slate-700">by {{ a.performed_by.full_name }} (@{{
+                                a.performed_by.username }})</span>
                         </div>
+                        {% if a.actual_duration_minutes %}
+                        <p class="text-[11px] text-indigo-700 font-bold mt-1">
+                            Reported study duration: {{ a.actual_duration_minutes }} minutes
+                        </p>
+                        {% endif %}
                         {% if a.note %}
                         <p class="text-xs text-slate-600 mt-1 italic font-medium">"{{ a.note }}"</p>
                         {% endif %}
                         {% if a.recorded_completed_at %}
                         <p class="text-[11px] text-slate-500 mt-0.5">
-                            Recorded completion timestamp: {{ a.recorded_completed_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}
+                            Recorded completion timestamp: {{ a.recorded_completed_at.strftime('%Y-%m-%d %H:%M:%S UTC')
+                            }}
                         </p>
                         {% endif %}
                     </div>
@@ -61,4 +75,3 @@
     </div>
 </div>
 {% endblock %}
-

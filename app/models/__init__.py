@@ -2,7 +2,7 @@
 from app.models.base import Base
 from app.models.user import User, UserRole
 from app.models.session import UserSession
-from app.models.subject import Subject
+from app.models.subject import Subject, SubjectGrade
 from app.models.track import AcademicTrack, track_subjects, student_custom_subjects
 from app.models.course import Course, CourseChapter
 from app.models.book import Book, BookChapter
@@ -14,6 +14,7 @@ __all__ = [
     "UserRole",
     "UserSession",
     "Subject",
+    "SubjectGrade",
     "AcademicTrack",
     "track_subjects",
     "student_custom_subjects",
