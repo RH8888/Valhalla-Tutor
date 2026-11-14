@@ -1,0 +1,12 @@
+{% if not conversations %}
+<div class="p-8 text-center text-slate-400">
+    <div class="text-3xl mb-1">📭</div>
+    <p class="text-sm font-medium text-slate-600">No conversations</p>
+    <p class="text-xs text-slate-400 mt-1">Start a conversation with a student using the button above.</p>
+</div>
+{% else %}
+    {% for item in conversations %}
+        {% include "tutor/messages/partials/conversation_item.html" %}
+    {% endfor %}
+{% endif %}
+

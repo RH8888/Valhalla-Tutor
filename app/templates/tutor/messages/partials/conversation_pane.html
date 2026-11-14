@@ -1,0 +1,94 @@
+<div class="h-full flex flex-col bg-white">
+    <!-- Header -->
+    <div class="px-6 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                {{ student.full_name[:2].upper() }}
+            </div>
+            <div>
+                <div class="flex items-center space-x-2">
+                    <h2 class="text-base font-semibold text-slate-900">{{ student.full_name }}</h2>
+                    {% if student.grade %}
+                    <span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-200 text-slate-700">{{ student.grade }}</span>
+                    {% endif %}
+                </div>
+                <p class="text-xs text-slate-500">@{{ student.username }} &bull; {{ student.email or 'No email' }}</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-3">
+            <a href="/tutor/students/{{ student.id }}" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium hover:underline">
+                View Profile &rarr;
+            </a>
+        </div>
+    </div>
+
+    <!-- Messages Container -->
+    <div id="messages-container" class="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50/50 space-y-2">
+        <div id="older-messages-slot">
+            {% if has_older and messages %}
+            <div class="text-center py-2" id="load-older-wrapper">
+                <button hx-get="/tutor/messages/{{ conversation.id }}/older?before={{ messages[0].created_at.isoformat() }}"
+                        hx-target="#older-messages-slot"
+                        hx-swap="outerHTML"
+                        class="text-xs font-medium text-indigo-600 hover:text-indigo-800 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-2xs hover:bg-slate-50 transition">
+                    &uarr; Load older messages
+                </button>
+            </div>
+            {% endif %}
+        </div>
+
+        <div id="messages-list">
+            {% if not messages %}
+            <div id="empty-state" class="text-center py-16 text-slate-400">
+                <div class="text-4xl mb-2">💬</div>
+                <p class="font-medium text-slate-600">No messages yet with {{ student.full_name }}</p>
+                <p class="text-xs mt-1">Send a message below to start the conversation.</p>
+            </div>
+            {% else %}
+                {% for msg in messages %}
+                    {% include "messaging/message_bubble.html" %}
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Poller for incoming messages from this student -->
+    <div hx-get="/tutor/messages/{{ conversation.id }}/poll"
+         hx-trigger="every 4s"
+         hx-vals="js:{after: getLastMessageTime()}"
+         hx-target="#messages-list"
+         hx-swap="beforeend"
+         hx-on::after-request="if(event.detail.successful && event.detail.xhr.responseText.trim()) { removeEmptyState(); scrollToBottom(); }"
+         class="hidden">
+    </div>
+
+    <!-- Message Input Bar -->
+    <div class="p-3 sm:p-4 bg-white border-t border-slate-200 shrink-0">
+        <form id="tutor-chat-form"
+              hx-post="/tutor/messages/{{ conversation.id }}/send"
+              hx-target="#messages-list"
+              hx-swap="beforeend"
+              hx-on::after-request="if(event.detail.successful) { this.reset(); removeEmptyState(); scrollToBottom(); }"
+              class="flex items-end space-x-2">
+            <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+            <div class="flex-1 relative">
+                <textarea id="message-content"
+                          name="content"
+                          rows="2"
+                          maxlength="5000"
+                          required
+                          placeholder="Reply to {{ student.full_name }}... (Enter to send, Shift+Enter for newline)"
+                          class="w-full resize-none rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm p-2.5 outline-none border transition"></textarea>
+            </div>
+            <button type="submit"
+                    class="h-10 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm flex items-center justify-center shadow-xs transition hover:cursor-pointer disabled:opacity-50">
+                <span>Send</span>
+                <svg class="w-4 h-4 ml-1.5 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+            </button>
+        </form>
+        <p class="text-[11px] text-slate-400 mt-1 pl-1 hidden sm:block">Press Enter to send, Shift+Enter for new line. Max 5,000 characters.</p>
+    </div>
+</div>
+

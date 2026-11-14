@@ -30,6 +30,11 @@
             {% if current_user and current_user.role == "TUTOR" %}
             <a href="/tutor/students"
                 class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Students</a>
+            <a href="/tutor/messages"
+                class="inline-flex items-center text-sm font-medium text-slate-600 hover:text-indigo-600 transition">
+                <span>Messages</span>
+                <span id="tutor-unread-badge" hx-get="/tutor/messages/unread-count" hx-trigger="load, every 15s" hx-swap="outerHTML"></span>
+            </a>
             <a href="/tutor/exams" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">External
                 Exams</a>
             <a href="/tutor/practice-exams"
@@ -46,6 +51,11 @@
             {% elif current_user and current_user.role == "STUDENT" %}
             <a href="/student/dashboard"
                 class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Dashboard</a>
+            <a href="/student/chat"
+                class="inline-flex items-center text-sm font-medium text-slate-600 hover:text-indigo-600 transition">
+                <span>Chat</span>
+                <span id="student-unread-badge" hx-get="/student/chat/unread-count" hx-trigger="load, every 15s" hx-swap="outerHTML"></span>
+            </a>
             <a href="/student/exams"
                 class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">External Exams</a>
             <a href="/student/practice-exams"

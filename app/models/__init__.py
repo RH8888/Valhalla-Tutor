@@ -30,6 +30,10 @@ from app.models.practice_exam import (
     StudentPracticeBookletAttempt,
     StudentPracticeAnswer,
 )
+from app.models.message import (
+    Conversation,
+    Message,
+)
 
 __all__ = [
     "Base",
@@ -70,4 +74,6 @@ __all__ = [
     "StudentPracticeAttempt",
     "StudentPracticeBookletAttempt",
     "StudentPracticeAnswer",
+    "Conversation",
+    "Message",
 ]

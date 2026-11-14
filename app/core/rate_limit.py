@@ -44,6 +44,7 @@ class LoginRateLimiter:
 
 
 login_limiter = LoginRateLimiter(max_requests=5, window_seconds=60)
+message_limiter = LoginRateLimiter(max_requests=30, window_seconds=60)
 
 
 def enforce_login_rate_limit(request: Request) -> None:
@@ -56,4 +57,17 @@ def enforce_login_rate_limit(request: Request) -> None:
             detail=f"Too many login attempts. Please try again in {retry_after} seconds.",
             headers={"Retry-After": str(retry_after)},
         )
+
+
+def enforce_message_rate_limit(key: str) -> None:
+    """Raises 429 if message rate limit is exceeded for a user key."""
+    allowed, retry_after = message_limiter.check_allowed(key)
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Message rate limit exceeded. Please wait {retry_after} seconds before sending another message.",
+            headers={"Retry-After": str(retry_after)},
+        )
+    message_limiter.record_attempt(key)
+
 
