@@ -15,6 +15,89 @@
         </a>
     </div>
 
+    <!-- Upcoming Meetings Section -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <span class="text-lg">🗓️</span>
+                <h2 class="text-base font-bold text-slate-900">Upcoming Meetings</h2>
+            </div>
+            <a href="/tutor/calendar" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition">
+                View Full Calendar &rarr;
+            </a>
+        </div>
+
+        {% if meeting_dashboard and (meeting_dashboard.today_meetings or meeting_dashboard.next_upcoming) %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <!-- Today's Meetings -->
+                <div class="space-y-2">
+                    <span class="font-bold text-slate-600 block uppercase tracking-wider text-[11px]">Today</span>
+                    {% if meeting_dashboard.today_meetings %}
+                        <div class="space-y-1.5">
+                            {% for m in meeting_dashboard.today_meetings %}
+                                <a href="/tutor/calendar?date={{ m.start_time.strftime('%Y-%m-%d') }}"
+                                   class="p-2.5 rounded-lg border border-slate-200 bg-slate-50/60 hover:bg-indigo-50/50 hover:border-indigo-200 transition flex items-center justify-between">
+                                    <div>
+                                        <div class="font-bold text-slate-900">{{ m.student.full_name }}</div>
+                                        <div class="text-[11px] text-slate-500 flex items-center space-x-2 mt-0.5">
+                                            <span class="font-semibold text-indigo-700">{{ m.start_time.strftime('%H:%M') }} UTC</span>
+                                            <span>&bull;</span>
+                                            <span>{{ m.duration_minutes }}m</span>
+                                            <span>&bull;</span>
+                                            <span>{% if m.meeting_type == 'ONLINE' %}🌐 Online{% else %}📍 Offline{% endif %}</span>
+                                        </div>
+                                    </div>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {% if m.status == 'SCHEDULED' %}bg-indigo-100 text-indigo-800{% elif m.status == 'COMPLETED' %}bg-emerald-100 text-emerald-800{% elif m.status == 'STUDENT_ABSENT' %}bg-amber-100 text-amber-800{% else %}bg-slate-200 text-slate-600{% endif %}">
+                                        {{ m.status.replace('_', ' ') }}
+                                    </span>
+                                </a>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="p-4 rounded-lg bg-slate-50 text-slate-400 italic text-center">No meetings scheduled for today.</div>
+                    {% endif %}
+                </div>
+
+                <!-- Next Upcoming -->
+                <div class="space-y-2">
+                    <span class="font-bold text-slate-600 block uppercase tracking-wider text-[11px]">Next Upcoming</span>
+                    {% if meeting_dashboard.next_upcoming %}
+                        <div class="space-y-1.5">
+                            {% for m in meeting_dashboard.next_upcoming %}
+                                <a href="/tutor/calendar?date={{ m.start_time.strftime('%Y-%m-%d') }}"
+                                   class="p-2.5 rounded-lg border border-slate-200 bg-slate-50/60 hover:bg-indigo-50/50 hover:border-indigo-200 transition flex items-center justify-between">
+                                    <div>
+                                        <div class="font-bold text-slate-900">{{ m.student.full_name }}</div>
+                                        <div class="text-[11px] text-slate-500 flex items-center space-x-2 mt-0.5">
+                                            <span class="font-semibold text-indigo-700">{{ m.start_time.strftime('%b %d, %H:%M') }} UTC</span>
+                                            <span>&bull;</span>
+                                            <span>{{ m.duration_minutes }}m</span>
+                                            <span>&bull;</span>
+                                            <span>{% if m.meeting_type == 'ONLINE' %}🌐 Online{% else %}📍 Offline{% endif %}</span>
+                                        </div>
+                                    </div>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800">
+                                        {{ m.status.replace('_', ' ') }}
+                                    </span>
+                                </a>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="p-4 rounded-lg bg-slate-50 text-slate-400 italic text-center">No further upcoming meetings.</div>
+                    {% endif %}
+                </div>
+            </div>
+        {% else %}
+            <div class="text-center py-6 bg-slate-50/60 rounded-lg border border-dashed border-slate-200">
+                <span class="text-xl">📅</span>
+                <p class="text-xs font-semibold text-slate-700 mt-1">No upcoming meetings scheduled</p>
+                <a href="/tutor/calendar" class="inline-block mt-2 text-xs font-bold text-indigo-600 hover:text-indigo-800 underline">
+                    Open Calendar to schedule appointments &rarr;
+                </a>
+            </div>
+        {% endif %}
+    </div>
+
     <div class="bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden">
         <table class="min-w-full divide-y divide-slate-200">
             <thead class="bg-slate-50">

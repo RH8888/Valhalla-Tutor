@@ -13,6 +13,9 @@
             <a href="/tutor/messages?student_id={{ student.id }}" class="inline-flex items-center px-3.5 py-1.5 border border-indigo-200 rounded-lg shadow-2xs text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition">
                 💬 Message Student
             </a>
+            <a href="/tutor/calendar" class="inline-flex items-center px-3.5 py-1.5 border border-indigo-200 rounded-lg shadow-2xs text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition">
+                🗓️ Meetings Calendar
+            </a>
             <a href="/tutor/exams/students/{{ student.id }}" class="inline-flex items-center px-3.5 py-1.5 border border-purple-200 rounded-lg shadow-2xs text-sm font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 transition">
                 📊 Exam Analytics &rarr;
             </a>
@@ -227,6 +230,78 @@
             </details>
         </div>
     </div>
+
+    <!-- Meetings Section -->
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-6">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+                <h2 class="text-lg font-bold text-slate-900">Meetings & Appointments</h2>
+                <p class="text-xs text-slate-500 mt-0.5">Scheduled sessions, history, and attendance records for {{ student.full_name }}.</p>
+            </div>
+            <button type="button"
+                    hx-get="/tutor/meetings/new?student_id={{ student.id }}"
+                    hx-target="#student-modal-container"
+                    class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition">
+                + Schedule Meeting
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+            <!-- Upcoming Meetings -->
+            <div class="space-y-3">
+                <span class="font-bold text-slate-700 block uppercase tracking-wider text-[11px]">Upcoming Meetings ({{ student_upcoming_meetings|length }})</span>
+                {% if student_upcoming_meetings %}
+                    <div class="space-y-2">
+                        {% for m in student_upcoming_meetings %}
+                            <div class="p-3 rounded-lg border border-slate-200 bg-slate-50/60 flex items-center justify-between">
+                                <div>
+                                    <div class="font-bold text-slate-900">{{ m.start_time.strftime('%Y-%m-%d %H:%M UTC') }}</div>
+                                    <div class="text-[11px] text-slate-500 mt-0.5 flex items-center space-x-2">
+                                        <span>{{ m.duration_minutes }} min</span>
+                                        <span>&bull;</span>
+                                        <span>{% if m.meeting_type == 'ONLINE' %}🌐 Online{% else %}📍 Offline{% endif %}</span>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800">
+                                    {{ m.status.replace('_', ' ') }}
+                                </span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="p-4 rounded-lg bg-slate-50 text-slate-400 italic text-center">No upcoming meetings scheduled.</div>
+                {% endif %}
+            </div>
+
+            <!-- Previous Meetings -->
+            <div class="space-y-3">
+                <span class="font-bold text-slate-700 block uppercase tracking-wider text-[11px]">Previous Meetings ({{ student_previous_meetings|length }})</span>
+                {% if student_previous_meetings %}
+                    <div class="space-y-2 max-h-60 overflow-y-auto">
+                        {% for m in student_previous_meetings %}
+                            <div class="p-3 rounded-lg border border-slate-200 bg-white flex items-center justify-between">
+                                <div>
+                                    <div class="font-bold text-slate-800">{{ m.start_time.strftime('%Y-%m-%d %H:%M UTC') }}</div>
+                                    <div class="text-[11px] text-slate-500 mt-0.5 flex items-center space-x-2">
+                                        <span>{{ m.duration_minutes }} min</span>
+                                        <span>&bull;</span>
+                                        <span>{% if m.meeting_type == 'ONLINE' %}🌐 Online{% else %}📍 Offline{% endif %}</span>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {% if m.status == 'COMPLETED' %}bg-emerald-100 text-emerald-800{% elif m.status == 'STUDENT_ABSENT' %}bg-amber-100 text-amber-800{% elif m.status == 'CANCELLED' %}bg-slate-200 text-slate-600 line-through{% else %}bg-slate-100 text-slate-700{% endif %}">
+                                    {{ m.status.replace('_', ' ') }}
+                                </span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="p-4 rounded-lg bg-slate-50 text-slate-400 italic text-center">No previous meetings recorded.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div id="student-modal-container"></div>
 </div>
 {% endblock %}
 

@@ -30,6 +30,8 @@
             {% if current_user and current_user.role == "TUTOR" %}
             <a href="/tutor/students"
                 class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Students</a>
+            <a href="/tutor/calendar"
+                class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Calendar</a>
             <a href="/tutor/messages"
                 class="inline-flex items-center text-sm font-medium text-slate-600 hover:text-indigo-600 transition">
                 <span>Messages</span>
@@ -73,6 +75,9 @@
             {% endif %}
         </div>
         <div class="flex items-center space-x-4">
+            {% if current_user and current_user.role == "TUTOR" %}
+            <div id="tutor-reminders-container" hx-get="/tutor/reminders/unread" hx-trigger="load" hx-swap="innerHTML"></div>
+            {% endif %}
             {% if current_user %}
             <span class="text-sm font-medium text-slate-700">{{ current_user.full_name }}</span>
             <span

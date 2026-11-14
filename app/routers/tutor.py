@@ -28,6 +28,10 @@ from app.services.plan_service import (
     get_student_monitoring_data,
     reset_assignment_completion,
 )
+from app.services.meeting_service import (
+    get_dashboard_meetings,
+    list_student_meetings,
+)
 from app.services.user_service import (
     UserAlreadyExistsError,
     UserNotFoundError,
@@ -54,11 +58,13 @@ def get_students_list(
     current_session: UserSession = Depends(get_current_session),
 ):
     students = list_students(db, include_inactive=True)
+    meeting_dashboard = get_dashboard_meetings(db, current_user)
     return templates.TemplateResponse(
         request=request,
         name="tutor/students/list.html",
         context={
             "students": students,
+            "meeting_dashboard": meeting_dashboard,
             "current_user": current_user,
             "current_session": current_session,
         },
@@ -167,6 +173,7 @@ def get_student_detail(
     effective_subjects = get_student_effective_subjects(student)
     custom_subject_ids = {s.id for s in student.custom_subjects}
     monitoring_data = get_student_monitoring_data(db, student_id)
+    student_upcoming, student_previous = list_student_meetings(db, student_id, tutor_id=current_user.id)
 
     return templates.TemplateResponse(
         request=request,
@@ -178,6 +185,8 @@ def get_student_detail(
             "effective_subjects": effective_subjects,
             "custom_subject_ids": custom_subject_ids,
             "monitoring": monitoring_data,
+            "student_upcoming_meetings": student_upcoming,
+            "student_previous_meetings": student_previous,
             "supported_grades": ["10", "11", "12"],
             "message": msg,
             "error": err,

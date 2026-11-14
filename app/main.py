@@ -12,6 +12,7 @@ from app.routers import (
     student_historical_exams,
     student_practice_exams,
     tutor,
+    tutor_calendar,
     tutor_books,
     tutor_exams,
     tutor_historical_exams,
@@ -35,6 +36,7 @@ app = FastAPI(
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(tutor.router)
+app.include_router(tutor_calendar.router)
 app.include_router(tutor_exams.router)
 app.include_router(tutor_practice_exams.router)
 app.include_router(tutor_historical_exams.router)

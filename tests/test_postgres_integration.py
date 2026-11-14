@@ -51,3 +51,68 @@ def test_postgres_schema_and_session_lifecycle():
         tutor.username = "headtutor"
         session.commit()
 
+
+
+@pytest.mark.skipif(not is_postgres_available(), reason="PostgreSQL service not reachable; run docker compose up db to execute PostgreSQL integration tests.")
+def test_postgres_meeting_and_reminders_lifecycle():
+    """Verify meeting models, history, and reminders against live PostgreSQL 16."""
+    from datetime import date, time
+    from sqlalchemy.orm import Session
+    from app.models.meeting import MeetingType, MeetingStatus, TutorMeeting
+    from app.services.meeting_service import (
+        create_meeting,
+        reschedule_meeting,
+        update_meeting_status,
+        get_due_reminders,
+        dismiss_reminder,
+    )
+    from app.services.user_service import create_student
+
+    pg_engine = create_engine(settings.sync_database_url)
+    with Session(pg_engine) as session:
+        tutor = provision_tutor(
+            db=session,
+            username=f"tutor_{uuid.uuid4().hex[:6]}",
+            password="PgPassword123!",
+            full_name="Postgres Meeting Tutor",
+        )
+        student = create_student(
+            db=session,
+            username=f"stu_{uuid.uuid4().hex[:6]}",
+            full_name="Postgres Student",
+            password="StuPassword123!",
+        )
+
+        # 1. Create meeting with reminder on PostgreSQL
+        meeting = create_meeting(
+            db=session,
+            tutor=tutor,
+            student_id=student.id,
+            meeting_date=date(2026, 12, 1),
+            start_time_obj=time(14, 0),
+            duration_minutes=60,
+            meeting_type=MeetingType.ONLINE,
+            meeting_url="https://meet.pg.local/123",
+            reminder_minutes=30,
+        )
+        assert meeting.id is not None
+        assert meeting.status == MeetingStatus.SCHEDULED
+
+        # 2. Reschedule meeting
+        updated = reschedule_meeting(
+            db=session,
+            meeting_id=meeting.id,
+            tutor=tutor,
+            new_date=date(2026, 12, 1),
+            new_time_obj=time(16, 0),
+            new_duration_minutes=90,
+            reason="Postgres reschedule test",
+        )
+        assert updated.duration_minutes == 90
+        assert len(updated.reschedule_history) == 1
+
+        # 3. Clean up
+        session.delete(meeting)
+        session.delete(student)
+        session.delete(tutor)
+        session.commit()

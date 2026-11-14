@@ -39,6 +39,13 @@ from app.models.message import (
     Conversation,
     Message,
 )
+from app.models.meeting import (
+    MeetingType,
+    MeetingStatus,
+    TutorMeeting,
+    MeetingRescheduleHistory,
+    MeetingReminder,
+)
 
 __all__ = [
     "Base",
@@ -86,4 +93,9 @@ __all__ = [
     "StudentPracticeAnswer",
     "Conversation",
     "Message",
+    "MeetingType",
+    "MeetingStatus",
+    "TutorMeeting",
+    "MeetingRescheduleHistory",
+    "MeetingReminder",
 ]
