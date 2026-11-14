@@ -27,12 +27,14 @@
             </a>
             {% if current_user and current_user.role == "TUTOR" %}
                 <a href="/tutor/students" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Students</a>
+                <a href="/tutor/exams" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Exams</a>
                 <a href="/tutor/tracks" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Academic Tracks</a>
                 <a href="/tutor/subjects" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Subjects</a>
                 <a href="/tutor/videos" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Videos</a>
                 <a href="/tutor/books" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Books</a>
             {% elif current_user and current_user.role == "STUDENT" %}
                 <a href="/student/dashboard" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Dashboard</a>
+                <a href="/student/exams" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Exams</a>
                 <a href="/student/plan" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Study Plan</a>
                 <a href="/student/plans/history" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Plan History</a>
                 <a href="/student/history" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Completion History</a>

@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Exam Management - Valhalla Tutor{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
+        <div>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900">Exam Management & Sessions</h1>
+            <p class="text-sm text-slate-500 mt-1">Manage reusable exam definitions and schedule dated occurrences with track-specific subject configurations.</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <a href="/tutor/exams/create" class="inline-flex items-center px-4 py-2 border border-slate-300 rounded-lg shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 transition">
+                + New Exam Name
+            </a>
+            <a href="/tutor/exams/sessions/create" class="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition">
+                🗓️ Schedule Exam Session
+            </a>
+        </div>
+    </div>
+
+    {% if msg %}
+        <div class="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">{{ msg }}</div>
+    {% endif %}
+    {% if err %}
+        <div class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">{{ err }}</div>
+    {% endif %}
+
+    <!-- Exam Sessions Section -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
+            <h2 class="text-lg font-semibold text-slate-900">Scheduled Exam Sessions</h2>
+            <span class="text-xs text-slate-500">{{ sessions|length }} sessions scheduled</span>
+        </div>
+        {% if sessions %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-600">
+                    <thead class="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
+                        <tr>
+                            <th class="px-6 py-3">Date</th>
+                            <th class="px-6 py-3">Exam Name</th>
+                            <th class="px-6 py-3">Session Title</th>
+                            <th class="px-6 py-3">Participating Tracks</th>
+                            <th class="px-6 py-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for s in sessions %}
+                            <tr class="hover:bg-slate-50/80 transition">
+                                <td class="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">{{ s.date }}</td>
+                                <td class="px-6 py-4 font-semibold text-indigo-600">{{ s.exam.title }}</td>
+                                <td class="px-6 py-4 text-slate-500">{{ s.title or '—' }}</td>
+                                <td class="px-6 py-4">
+                                    <div class="flex flex-wrap gap-1">
+                                        {% for tc in s.track_configs %}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
+                                                {{ tc.track.name }}
+                                            </span>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-right whitespace-nowrap">
+                                    <a href="/tutor/exams/sessions/{{ s.id }}" class="text-indigo-600 hover:text-indigo-900 font-medium text-xs bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-md transition">
+                                        View Details & Results &rarr;
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="p-8 text-center text-slate-500 text-sm">
+                No exam sessions scheduled yet. Click <strong>Schedule Exam Session</strong> above.
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Reusable Exam Definitions Section -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
+            <h2 class="text-lg font-semibold text-slate-900">Reusable Exam Definitions</h2>
+            <span class="text-xs text-slate-500">{{ exams|length }} definitions</span>
+        </div>
+        <div class="divide-y divide-slate-100">
+            {% for e in exams %}
+                <div class="px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="font-semibold text-slate-900">{{ e.title }}</span>
+                            {% if e.is_active %}
+                                <span class="px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">Active</span>
+                            {% else %}
+                                <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-600">Archived</span>
+                            {% endif %}
+                        </div>
+                        {% if e.description %}
+                            <p class="text-xs text-slate-500 mt-1">{{ e.description }}</p>
+                        {% endif %}
+                    </div>
+                    <a href="/tutor/exams/{{ e.id }}/edit" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">
+                        Edit / Archive
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+

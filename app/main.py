@@ -4,7 +4,19 @@ from fastapi.staticfiles import StaticFiles
 import os
 
 from app.core.config import settings
-from app.routers import auth, health, student, tutor, tutor_books, tutor_plans, tutor_subjects, tutor_tracks, tutor_videos
+from app.routers import (
+    auth,
+    health,
+    student,
+    student_exams,
+    tutor,
+    tutor_books,
+    tutor_exams,
+    tutor_plans,
+    tutor_subjects,
+    tutor_tracks,
+    tutor_videos,
+)
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -17,12 +29,14 @@ app = FastAPI(
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(tutor.router)
+app.include_router(tutor_exams.router)
 app.include_router(tutor_plans.router)
 app.include_router(tutor_subjects.router)
 app.include_router(tutor_tracks.router)
 app.include_router(tutor_videos.router)
 app.include_router(tutor_books.router)
 app.include_router(student.router)
+app.include_router(student_exams.router)
 
 # Mount static assets if the directory exists
 static_dir = os.path.join(os.path.dirname(__file__), "static")

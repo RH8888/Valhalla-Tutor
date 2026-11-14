@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Exam Session Details - Valhalla Tutor{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <div class="border-b border-slate-200 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+            <a href="/tutor/exams" class="text-sm text-slate-500 hover:text-slate-800 transition">&larr; Back to Exams</a>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-1">{{ session.exam.title }}</h1>
+            <p class="text-sm text-slate-500">Date: <span class="font-semibold text-slate-700">{{ session.date }}</span> {% if session.title %} &bull; {{ session.title }}{% endif %}</p>
+        </div>
+        <div class="flex items-center space-x-2">
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
+                {{ analytics.participant_count }} Student Submissions
+            </span>
+        </div>
+    </div>
+
+    {% if msg %}
+        <div class="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">{{ msg }}</div>
+    {% endif %}
+
+    <!-- Participating Tracks & Configured Subjects -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for tc in session.track_configs %}
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <span class="font-bold text-slate-800">{{ tc.track.name }}</span>
+                    <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{{ tc.subject_configs|length }} subjects</span>
+                </div>
+                <div class="flex flex-wrap gap-1.5">
+                    {% for sc in tc.subject_configs %}
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700">
+                            {{ sc.subject.name }}
+                        </span>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- Student Performance & Results Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
+            <h2 class="text-lg font-semibold text-slate-900">Student Results & Submissions</h2>
+            {% if analytics.subject_averages %}
+                <div class="text-xs text-slate-500 hidden sm:block">
+                    Averages across students:
+                    {% for s_name, s_avg in analytics.subject_averages.items() %}
+                        <span class="font-medium text-slate-700 ml-2">{{ s_name }}: {{ s_avg }}%</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        {% if analytics.students %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-600">
+                    <thead class="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
+                        <tr>
+                            <th class="px-6 py-3">Student</th>
+                            <th class="px-4 py-3 text-center">Rank</th>
+                            <th class="px-4 py-3 text-center">Correct / Incorrect</th>
+                            <th class="px-4 py-3 text-center">Average %</th>
+                            {% for sub_name in analytics.all_subjects %}
+                                <th class="px-4 py-3 text-center">{{ sub_name }}</th>
+                            {% endfor %}
+                            <th class="px-6 py-3 text-right">Monitoring</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for row in analytics.students %}
+                            <tr class="hover:bg-slate-50 transition">
+                                <td class="px-6 py-4 font-semibold text-slate-900 whitespace-nowrap">{{ row.student_name }}</td>
+                                <td class="px-4 py-4 text-center">{{ row.overall_rank or '—' }}</td>
+                                <td class="px-4 py-4 text-center whitespace-nowrap">
+                                    <span class="text-emerald-600 font-semibold">{{ row.total_correct }}</span> / <span class="text-red-500 font-semibold">{{ row.total_incorrect }}</span>
+                                </td>
+                                <td class="px-4 py-4 text-center font-bold text-indigo-600 whitespace-nowrap">{{ row.average_percentage }}%</td>
+                                {% for sub_name in analytics.all_subjects %}
+                                    <td class="px-4 py-4 text-center whitespace-nowrap">
+                                        {% if sub_name in row.subject_scores %}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold {% if row.subject_scores[sub_name].percentage >= 70 %}bg-emerald-50 text-emerald-700{% elif row.subject_scores[sub_name].percentage >= 50 %}bg-amber-50 text-amber-700{% else %}bg-red-50 text-red-700{% endif %}">
+                                                {{ row.subject_scores[sub_name].percentage }}%
+                                            </span>
+                                        {% else %}
+                                            <span class="text-slate-300 text-xs">—</span>
+                                        {% endif %}
+                                    </td>
+                                {% endfor %}
+                                <td class="px-6 py-4 text-right whitespace-nowrap">
+                                    <a href="/tutor/exams/students/{{ row.student_id }}" class="text-indigo-600 hover:text-indigo-900 font-medium text-xs bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-md transition">
+                                        Performance Trends &rarr;
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="p-8 text-center text-slate-500 text-sm">
+                No students have submitted results for this exam session yet.
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

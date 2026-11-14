@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Submit Exam Results - Valhalla Tutor{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <div class="border-b border-slate-200 pb-4">
+        <a href="/student/exams" class="text-sm text-slate-500 hover:text-slate-800 transition">&larr; Back to Exams</a>
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-2">Submit Exam Results</h1>
+        <p class="text-sm text-slate-500 mt-1">
+            Exam: <strong class="text-slate-800">{{ session.exam.title }}</strong> &bull; Date: {{ session.date }}
+        </p>
+    </div>
+
+    {% if error %}
+        <div class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" action="/student/exams/{{ session.id }}/submit" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+        <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4 border-b border-slate-200">
+            <div>
+                <label for="overall_rank" class="block text-sm font-semibold text-slate-700">Overall Rank (Optional)</label>
+                <input type="number" id="overall_rank" name="overall_rank" min="1" placeholder="e.g. 150"
+                       class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            </div>
+            <div>
+                <label for="notes" class="block text-sm font-semibold text-slate-700">Notes / Impressions (Optional)</label>
+                <input type="text" id="notes" name="notes" placeholder="e.g. زمان‌بندی فیزیک کم آمد"
+                       class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <h3 class="text-base font-bold text-slate-900">Subject Scores</h3>
+            <p class="text-xs text-slate-500">Enter your correct answers, incorrect answers, and the exact percentage achieved for each subject.</p>
+
+            <div class="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
+                {% for sub in subjects %}
+                    <div class="p-4 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div class="font-semibold text-slate-800 text-sm sm:w-1/3">
+                            {{ sub.name }}
+                        </div>
+                        <div class="grid grid-cols-3 gap-3 sm:w-2/3">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">Correct</label>
+                                <input type="number" name="correct_{{ sub.id }}" min="0" value="0" required
+                                       class="block w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-sm text-center focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">Incorrect</label>
+                                <input type="number" name="incorrect_{{ sub.id }}" min="0" value="0" required
+                                       class="block w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-sm text-center focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">Percentage %</label>
+                                <input type="number" step="0.01" min="0" max="100" name="percentage_{{ sub.id }}" value="0.0" required
+                                       class="block w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-sm text-center font-bold text-indigo-700 focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
+            <a href="/student/exams" class="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition">Cancel</a>
+            <button type="submit" class="px-5 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition">Submit Exam Results</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+

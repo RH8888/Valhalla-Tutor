@@ -7,6 +7,14 @@ from app.models.track import AcademicTrack, track_subjects, student_custom_subje
 from app.models.course import Course, CourseChapter
 from app.models.book import Book, BookChapter
 from app.models.plan import StudyPlan, PlanAssignment, PlanStatus, TaskType, CompletionAuditLog, CompletionAuditAction
+from app.models.exam import (
+    Exam,
+    ExamSession,
+    ExamTrackConfiguration,
+    ExamSubjectConfiguration,
+    StudentExamResult,
+    StudentExamSubjectResult,
+)
 
 __all__ = [
     "Base",
@@ -28,4 +36,10 @@ __all__ = [
     "TaskType",
     "CompletionAuditLog",
     "CompletionAuditAction",
+    "Exam",
+    "ExamSession",
+    "ExamTrackConfiguration",
+    "ExamSubjectConfiguration",
+    "StudentExamResult",
+    "StudentExamSubjectResult",
 ]

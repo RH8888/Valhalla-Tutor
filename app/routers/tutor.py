@@ -89,14 +89,14 @@ def post_create_student(
     full_name: str = Form(...),
     username: str = Form(...),
     password: str = Form(...),
-    grade: str = Form(...),
+    grade: Optional[str] = Form("12"),
     email: Optional[str] = Form(None),
     timezone: str = Form("Asia/Tehran"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
-    clean_grade = grade.strip()
+    clean_grade = (grade or "12").strip()
     if clean_grade not in ["10", "11", "12"]:
         return templates.TemplateResponse(
             request=request,
