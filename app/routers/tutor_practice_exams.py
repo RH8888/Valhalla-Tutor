@@ -149,11 +149,16 @@ def get_practice_exam_detail(
         if s.grade == exam.grade and s.academic_track_id == exam.academic_track_id
     ]
 
+    max_q = max((b.question_end for b in exam.booklets), default=0)
+    q_map = {q.question_number: q for q in exam.questions}
+
     return templates.TemplateResponse(
         request=request,
         name="tutor/practice_exams/detail.html",
         context={
             "exam": exam,
+            "max_q": max_q,
+            "q_map": q_map,
             "eligible_students": eligible_students,
             "all_students": all_students,
             "msg": msg,

@@ -146,15 +146,9 @@
             <span class="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded font-semibold">{{ exam.questions|length }} configured</span>
         </div>
 
-        {% if exam.booklets %}
-            {% set max_q = 0 %}
-            {% for b in exam.booklets %}
-                {% if b.question_end > max_q %}{% set max_q = b.question_end %}{% endif %}
-            {% endfor %}
-            {% set q_map = {} %}
-            {% for q in exam.questions %}
-                {% set _ = q_map.update({q.question_number: q}) %}
-            {% endfor %}
+        {% set effective_max_q = max_q if (max_q is defined and max_q > 0) else (exam.booklets|map(attribute='question_end')|max if exam.booklets else 0) %}
+        {% if exam.booklets and effective_max_q > 0 %}
+            {% set q_map = q_map if q_map is defined else {} %}
 
             <!-- Quick Configuration Helpers -->
             <div class="bg-indigo-50/50 rounded-lg p-4 border border-indigo-100 space-y-3">
@@ -183,9 +177,9 @@
                                     <option value="{{ s.id }}">{{ s.name }}</option>
                                 {% endfor %}
                             </select>
-                            <input type="number" id="bulk_from_q" value="1" min="1" max="{{ max_q }}" class="w-12 px-1.5 py-1.5 border border-slate-300 rounded text-xs text-center">
+                            <input type="number" id="bulk_from_q" value="1" min="1" max="{{ effective_max_q }}" class="w-12 px-1.5 py-1.5 border border-slate-300 rounded text-xs text-center">
                             <span class="text-xs text-slate-400 self-center">to</span>
-                            <input type="number" id="bulk_to_q" value="{{ max_q }}" min="1" max="{{ max_q }}" class="w-12 px-1.5 py-1.5 border border-slate-300 rounded text-xs text-center">
+                            <input type="number" id="bulk_to_q" value="{{ effective_max_q }}" min="1" max="{{ effective_max_q }}" class="w-12 px-1.5 py-1.5 border border-slate-300 rounded text-xs text-center">
                             <button type="button" onclick="applyBulkSubject()" class="px-3 py-1.5 text-xs font-semibold text-white bg-slate-800 hover:bg-slate-900 rounded shadow-sm transition">
                                 Set
                             </button>
@@ -198,7 +192,7 @@
             <form method="POST" action="/tutor/practice-exams/{{ exam.id }}/questions" class="space-y-4">
                 <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                 <div class="max-h-96 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-lg">
-                    {% for q_num in range(1, max_q + 1) %}
+                    {% for q_num in range(1, effective_max_q + 1) %}
                         {% set curr_q = q_map.get(q_num) %}
                         <div class="p-2.5 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-50">
                             <span class="text-xs font-bold text-slate-800 w-16">Q #{{ q_num }}</span>
@@ -266,7 +260,7 @@
                     const ch = raw[i];
                     if (mapChar[ch]) clean.push(mapChar[ch]);
                 }
-                const maxQ = {{ max_q }};
+                const maxQ = {{ effective_max_q }};
                 let count = 0;
                 clean.forEach((choice, idx) => {
                     const qNum = idx + 1;
@@ -289,7 +283,7 @@
                     return;
                 }
                 const fromQ = parseInt(document.getElementById('bulk_from_q').value) || 1;
-                const toQ = parseInt(document.getElementById('bulk_to_q').value) || {{ max_q }};
+                const toQ = parseInt(document.getElementById('bulk_to_q').value) || {{ effective_max_q }};
                 let count = 0;
                 for (let q = fromQ; q <= toQ; q++) {
                     const sel = document.querySelector(`select[name="q_${q}_subject"]`);
