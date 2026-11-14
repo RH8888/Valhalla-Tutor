@@ -105,8 +105,8 @@ def estimate_test_duration(
             PlanAssignment.test_count > 0,
             PlanAssignment.recommended_duration_minutes > 0,
         )
+        .group_by(StudyPlan.id, StudyPlan.end_date, PlanAssignment.study_plan_id)
         .order_by(desc(StudyPlan.end_date))
-        .distinct()
         .limit(3)
         .subquery()
     )
@@ -197,8 +197,8 @@ def estimate_video_duration(
             PlanAssignment.video_count > 0,
             PlanAssignment.recommended_duration_minutes > 0,
         )
+        .group_by(StudyPlan.id, StudyPlan.end_date, PlanAssignment.study_plan_id)
         .order_by(desc(StudyPlan.end_date))
-        .distinct()
         .limit(3)
         .subquery()
     )

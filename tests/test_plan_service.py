@@ -323,3 +323,47 @@ def test_historical_rolling_average_last_3_plans(db_session: Session, tutor_user
     assert est.average_unit_minutes == 2.0
     assert est.suggested_duration_minutes == 30
     assert est.plans_count == 3
+
+
+def test_video_historical_rolling_average_last_3_plans(db_session: Session, tutor_user: User):
+    student = User(username="st_video_roll", full_name="Student Video Rolling", hashed_password="pw", role=UserRole.STUDENT)
+    subject = Subject(name="Physics")
+    db_session.add_all([student, subject])
+    db_session.commit()
+
+    course = Course(subject_id=subject.id, teacher_name="Prof. Bohr", name="Quantum Physics", grade="12")
+    db_session.add(course)
+    db_session.commit()
+
+    cchapter = CourseChapter(course_id=course.id, name="Wave Mechanics", video_count=50, display_order=1)
+    db_session.add(cchapter)
+    db_session.commit()
+
+    # Plan 1 (oldest): 2 videos, 100 minutes (50 min/vid) -> excluded by rolling 3
+    p1 = create_study_plan(db_session, student.id, tutor_user.id, date(2026, 7, 1))
+    a1 = create_assignment(db_session, p1.id, date(2026, 7, 1), subject.id, TaskType.VIDEO, 100, course_id=course.id, course_chapter_id=cchapter.id, video_start_num=1, video_end_num=2)
+    complete_assignment(db_session, a1.id, student.id)
+
+    # Plan 2: 2 videos, 20 minutes (10 min/vid)
+    p2 = create_study_plan(db_session, student.id, tutor_user.id, date(2026, 8, 1))
+    a2 = create_assignment(db_session, p2.id, date(2026, 8, 1), subject.id, TaskType.VIDEO, 20, course_id=course.id, course_chapter_id=cchapter.id, video_start_num=3, video_end_num=4)
+    complete_assignment(db_session, a2.id, student.id)
+
+    # Plan 3: 2 videos, 20 minutes (10 min/vid)
+    p3 = create_study_plan(db_session, student.id, tutor_user.id, date(2026, 9, 1))
+    a3 = create_assignment(db_session, p3.id, date(2026, 9, 1), subject.id, TaskType.VIDEO, 20, course_id=course.id, course_chapter_id=cchapter.id, video_start_num=5, video_end_num=6)
+    complete_assignment(db_session, a3.id, student.id)
+
+    # Plan 4 (newest): 2 videos, 20 minutes (10 min/vid)
+    p4 = create_study_plan(db_session, student.id, tutor_user.id, date(2026, 10, 1))
+    a4 = create_assignment(db_session, p4.id, date(2026, 10, 1), subject.id, TaskType.VIDEO, 20, course_id=course.id, course_chapter_id=cchapter.id, video_start_num=7, video_end_num=8)
+    complete_assignment(db_session, a4.id, student.id)
+
+    # Total over P2, P3, P4 = 6 videos, 60 mins -> 10.0 min/video.
+    # For 5 videos: 5 * 10 = 50 minutes.
+    est = estimate_video_duration(db_session, student.id, course.id, video_count=5)
+    assert est.is_historical is True
+    assert est.average_unit_minutes == 10.0
+    assert est.suggested_duration_minutes == 50
+    assert est.plans_count == 3
+
