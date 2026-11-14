@@ -34,6 +34,8 @@ services:
     environment:
       - POSTGRES_SERVER=db
       - POSTGRES_PORT=5432
+    volumes:
+      - ./uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy
