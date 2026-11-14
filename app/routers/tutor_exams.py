@@ -20,24 +20,44 @@ from app.services.exam_service import (
     add_manual_replacement_session,
     archive_exam,
     assign_exam_series_to_students,
+    bulk_add_manual_sessions,
+    bulk_assign_occurrences_to_students,
+    bulk_cancel_exam_sessions,
+    bulk_remove_students_from_future_occurrences,
+    bulk_restore_exam_sessions,
+    bulk_skip_exam_sessions,
+    cancel_exam_session,
+    compare_students_on_session,
     configure_exam_grade_track,
     create_exam,
     create_exam_session,
     delete_exam_grade_track_config,
+    delete_exam_session,
     dismiss_series_incompatible_assignment,
     evaluate_students_eligibility,
+    extend_exam_recurrence,
     generate_series_sessions,
     get_all_series_incompatible_students,
+    get_bulk_series_submission_overview,
     get_exam_by_id,
     get_exam_grade_track_config,
+    get_exam_series_analytics,
     get_exam_session_by_id,
+    get_student_comprehensive_analytics,
+    get_student_exam_result_by_id,
     get_tutor_session_analytics,
     get_tutor_student_analytics,
+    list_exam_audit_logs,
     list_exam_grade_track_configs,
     list_exam_sessions,
     list_exams,
+    mark_exam_result_reviewed,
+    reopen_exam_result,
+    restore_archived_exam_series,
     restore_exam_session,
+    safe_delete_exam_series,
     skip_exam_session,
+    tutor_correct_exam_result,
     update_exam,
     update_future_recurrence,
 )
@@ -711,4 +731,327 @@ def download_tutor_exam_report_card(
     return FileResponse(
         path=str(abs_path),
         filename=result.report_card_file_name or "report_card.pdf",
+    )
+
+
+@router.post("/results/{result_id}/review")
+def post_review_result(
+    result_id: uuid.UUID,
+    notes: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        res = mark_exam_result_reviewed(db, result_id, actor_id=current_user.id, notes=notes)
+        return RedirectResponse(
+            url=f"/tutor/exams/sessions/{res.exam_session_id}?msg=Result marked as reviewed",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except ExamResultNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.post("/results/{result_id}/reopen")
+def post_reopen_result(
+    result_id: uuid.UUID,
+    reason: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        res = reopen_exam_result(db, result_id, actor_id=current_user.id, reason=reason)
+        return RedirectResponse(
+            url=f"/tutor/exams/sessions/{res.exam_session_id}?msg=Result reopened for review",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except ExamResultNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.post("/results/{result_id}/correct")
+async def post_correct_result(
+    request: Request,
+    result_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = get_student_exam_result_by_id(db, result_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Result not found.")
+
+    form_data = await request.form()
+    rank_raw = form_data.get("overall_rank")
+    notes = form_data.get("notes")
+    reason = form_data.get("correction_reason")
+
+    group_data = []
+    for gr in result.group_results:
+        key = gr.reporting_group_id or gr.id
+        pct_val = form_data.get(f"group_{key}_percentage") or form_data.get(f"group_{gr.id}_percentage")
+        if pct_val is not None and str(pct_val).strip():
+            group_data.append({
+                "reporting_group_id": gr.reporting_group_id,
+                "group_title": gr.group_title,
+                "percentage": float(pct_val),
+                "included_subject_names": gr.included_subject_names,
+            })
+
+    try:
+        clean_rank = int(rank_raw) if rank_raw and str(rank_raw).strip() else None
+        res = tutor_correct_exam_result(
+            db,
+            result_id=result.id,
+            actor_id=current_user.id,
+            group_data=group_data if group_data else None,
+            overall_rank=clean_rank,
+            notes=str(notes) if notes else None,
+            reason=str(reason) if reason else "Tutor correction",
+        )
+        return RedirectResponse(
+            url=f"/tutor/exams/sessions/{res.exam_session_id}?msg=Result corrected successfully",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except ExamValidationError as exc:
+        return RedirectResponse(
+            url=f"/tutor/exams/sessions/{result.exam_session_id}?err={exc}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+
+@router.post("/{exam_id}/archive")
+def post_archive_series(
+    exam_id: uuid.UUID,
+    reason: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        archive_exam(db, exam_id, actor_id=current_user.id, reason=reason)
+        return RedirectResponse(
+            url=f"/tutor/exams?msg=Exam series archived successfully",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except ExamNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.post("/{exam_id}/restore-archive")
+def post_restore_archive_series(
+    exam_id: uuid.UUID,
+    reason: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        restore_archived_exam_series(db, exam_id, actor_id=current_user.id, reason=reason)
+        return RedirectResponse(
+            url=f"/tutor/exams/{exam_id}?msg=Exam series restored from archive",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except ExamNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.post("/{exam_id}/delete")
+def post_delete_series(
+    exam_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        safe_delete_exam_series(db, exam_id, actor_id=current_user.id)
+        return RedirectResponse(
+            url="/tutor/exams?msg=Exam series deleted successfully",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except ExamValidationError as exc:
+        return RedirectResponse(
+            url=f"/tutor/exams/{exam_id}?err={exc}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+
+@router.post("/sessions/{session_id}/cancel")
+def post_cancel_session(
+    session_id: uuid.UUID,
+    reason: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        sess = cancel_exam_session(db, session_id, actor_id=current_user.id, reason=reason)
+        return RedirectResponse(
+            url=f"/tutor/exams/{sess.exam_id}?msg=Occurrence on {sess.date} cancelled",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except ExamSessionNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.post("/sessions/{session_id}/delete")
+def post_delete_session(
+    session_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    sess = get_exam_session_by_id(db, session_id)
+    if not sess:
+        raise HTTPException(status_code=404, detail="Occurrence not found.")
+    exam_id = sess.exam_id
+    try:
+        delete_exam_session(db, session_id, actor_id=current_user.id)
+        return RedirectResponse(
+            url=f"/tutor/exams/{exam_id}?msg=Occurrence deleted successfully",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except ExamValidationError as exc:
+        return RedirectResponse(
+            url=f"/tutor/exams/{exam_id}?err={exc}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+
+@router.post("/sessions/bulk/action")
+async def post_bulk_session_action(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    form_data = await request.form()
+    action = form_data.get("bulk_action")
+    session_ids_raw = form_data.getlist("session_ids")
+    session_ids = [uuid.UUID(str(sid)) for sid in session_ids_raw if sid]
+    reason = form_data.get("reason")
+    exam_id_raw = form_data.get("exam_id")
+
+    redirect_url = f"/tutor/exams/{exam_id_raw}" if exam_id_raw else "/tutor/exams"
+
+    if not session_ids:
+        return RedirectResponse(url=f"{redirect_url}?err=No occurrences selected", status_code=status.HTTP_303_SEE_OTHER)
+
+    if action == "skip":
+        res = bulk_skip_exam_sessions(db, session_ids, actor_id=current_user.id, reason=str(reason) if reason else None)
+        msg = f"{res['affected_count']} occurrence(s) marked as No Exam."
+    elif action == "cancel":
+        res = bulk_cancel_exam_sessions(db, session_ids, actor_id=current_user.id, reason=str(reason) if reason else None)
+        msg = f"{res['affected_count']} occurrence(s) cancelled."
+    elif action == "restore":
+        res = bulk_restore_exam_sessions(db, session_ids, actor_id=current_user.id, reason=str(reason) if reason else None)
+        msg = f"{res['affected_count']} occurrence(s) restored."
+    else:
+        msg = "Unknown action."
+
+    return RedirectResponse(url=f"{redirect_url}?msg={msg}", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/{exam_id}/extend")
+def post_extend_series_schedule(
+    exam_id: uuid.UUID,
+    new_end_date: str = Form(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        new_last_date = date.fromisoformat(new_end_date)
+        created = extend_exam_recurrence(db, exam_id, new_last_date, actor_id=current_user.id)
+        return RedirectResponse(
+            url=f"/tutor/exams/{exam_id}?msg=Schedule extended: {len(created)} new occurrences generated",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except (ValueError, ExamValidationError) as exc:
+        return RedirectResponse(url=f"/tutor/exams/{exam_id}?err={exc}", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/{exam_id}/students/bulk-remove")
+async def post_bulk_remove_students(
+    request: Request,
+    exam_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    form_data = await request.form()
+    student_ids_raw = form_data.getlist("student_ids")
+    student_ids = [uuid.UUID(str(sid)) for sid in student_ids_raw if sid]
+    if not student_ids:
+        return RedirectResponse(url=f"/tutor/exams/{exam_id}?err=No students selected", status_code=status.HTTP_303_SEE_OTHER)
+
+    res = bulk_remove_students_from_future_occurrences(db, exam_id, student_ids, actor_id=current_user.id)
+    return RedirectResponse(
+        url=f"/tutor/exams/{exam_id}?msg=Removed {res['affected_students_count']} student(s) from future occurrences ({res['removed_assignments_count']} assignments cancelled). Past results strictly preserved.",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.get("/bulk/overview", response_class=HTMLResponse)
+def get_submission_overview_page(
+    request: Request,
+    exam_id: Optional[uuid.UUID] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_session: UserSession = Depends(get_current_session),
+):
+    overview = get_bulk_series_submission_overview(db, exam_id=exam_id)
+    exams = list_exams(db, include_inactive=False)
+    return templates.TemplateResponse(
+        request=request,
+        name="tutor/exams/submission_overview.html",
+        context={
+            "overview": overview,
+            "exams": exams,
+            "selected_exam_id": str(exam_id) if exam_id else None,
+            "current_user": current_user,
+            "current_session": current_session,
+        },
+    )
+
+
+@router.get("/{exam_id}/audit-logs", response_class=HTMLResponse)
+def get_series_audit_logs_page(
+    request: Request,
+    exam_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_session: UserSession = Depends(get_current_session),
+):
+    exam = get_exam_by_id(db, exam_id)
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam series not found")
+    logs = list_exam_audit_logs(db, exam_id=exam.id)
+    return templates.TemplateResponse(
+        request=request,
+        name="tutor/exams/audit_logs.html",
+        context={
+            "exam": exam,
+            "logs": logs,
+            "current_user": current_user,
+            "current_session": current_session,
+        },
+    )
+
+
+@router.get("/sessions/{session_id}/compare", response_class=HTMLResponse)
+def get_session_student_comparison_page(
+    request: Request,
+    session_id: uuid.UUID,
+    grade: Optional[str] = None,
+    track_id: Optional[uuid.UUID] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_session: UserSession = Depends(get_current_session),
+):
+    session = get_exam_session_by_id(db, session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Exam session not found")
+    comparison = compare_students_on_session(db, session_id=session_id, grade=grade, track_id=track_id)
+    tracks = list_tracks(db)
+    return templates.TemplateResponse(
+        request=request,
+        name="tutor/exams/compare_students.html",
+        context={
+            "session": session,
+            "comparison": comparison,
+            "tracks": tracks,
+            "current_user": current_user,
+            "current_session": current_session,
+        },
     )

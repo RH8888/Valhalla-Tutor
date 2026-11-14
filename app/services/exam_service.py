@@ -14,6 +14,7 @@ from app.models.exam import (
     ExamSeriesAssignment,
     ExamSession,
     ExamSessionAudit,
+    ExamAuditLog,
     ExamSubjectConfiguration,
     ExamTrackConfiguration,
     HistoricalExamResult,
@@ -51,6 +52,54 @@ class ExamResultNotFoundError(Exception):
 
 class DuplicateExamResultError(Exception):
     pass
+
+
+def log_exam_audit(
+    db: Session,
+    entity_type: str,
+    entity_id: uuid.UUID,
+    action: str,
+    actor_id: Optional[uuid.UUID] = None,
+    exam_id: Optional[uuid.UUID] = None,
+    previous_value: Optional[str] = None,
+    new_value: Optional[str] = None,
+    reason: Optional[str] = None,
+) -> ExamAuditLog:
+    """Record an audit trail entry for exam series, occurrences, configurations, assignments, or results."""
+    audit = ExamAuditLog(
+        entity_type=entity_type,
+        entity_id=entity_id,
+        action=action,
+        actor_id=actor_id,
+        exam_id=exam_id,
+        previous_value=previous_value,
+        new_value=new_value,
+        reason=reason.strip() if reason and reason.strip() else None,
+    )
+    db.add(audit)
+    db.flush()
+    return audit
+
+
+def list_exam_audit_logs(
+    db: Session,
+    exam_id: Optional[uuid.UUID] = None,
+    entity_type: Optional[str] = None,
+    entity_id: Optional[uuid.UUID] = None,
+    limit: int = 200,
+) -> List[ExamAuditLog]:
+    """Retrieve audit history filtered by entity or exam series."""
+    query = (
+        db.query(ExamAuditLog)
+        .options(joinedload(ExamAuditLog.actor), joinedload(ExamAuditLog.exam))
+    )
+    if exam_id:
+        query = query.filter(ExamAuditLog.exam_id == exam_id)
+    if entity_type:
+        query = query.filter(ExamAuditLog.entity_type == entity_type)
+    if entity_id:
+        query = query.filter(ExamAuditLog.entity_id == entity_id)
+    return query.order_by(desc(ExamAuditLog.created_at)).limit(limit).all()
 
 
 WEEKDAY_MAPPING: Dict[int, Dict[str, Any]] = {
@@ -132,6 +181,9 @@ def create_exam(
     last_exam_date: Optional[date] = None,
     recurrence_interval_weeks: Optional[int] = None,
     recurrence_weekday: Optional[int] = None,
+    submission_days_after_exam: Optional[int] = None,
+    is_active: bool = True,
+    actor_id: Optional[uuid.UUID] = None,
 ) -> Exam:
     clean_title = (title or "").strip()
     if not clean_title:
@@ -149,9 +201,21 @@ def create_exam(
         last_exam_date=last_exam_date,
         recurrence_interval_weeks=recurrence_interval_weeks,
         recurrence_weekday=recurrence_weekday,
-        is_active=True,
+        submission_days_after_exam=submission_days_after_exam,
+        is_active=is_active,
+        is_archived=False,
     )
     db.add(exam)
+    db.flush()
+    log_exam_audit(
+        db,
+        entity_type="SERIES",
+        entity_id=exam.id,
+        action="CREATED",
+        actor_id=actor_id,
+        exam_id=exam.id,
+        new_value=json.dumps({"title": exam.title, "interval": recurrence_interval_weeks}, ensure_ascii=False),
+    )
     db.commit()
     db.refresh(exam)
     return exam
@@ -167,6 +231,8 @@ def update_exam(
     last_exam_date: Optional[date] = None,
     recurrence_interval_weeks: Optional[int] = None,
     recurrence_weekday: Optional[int] = None,
+    submission_days_after_exam: Optional[int] = None,
+    actor_id: Optional[uuid.UUID] = None,
 ) -> Exam:
     exam = get_exam_by_id(db, exam_id)
     if not exam:
@@ -181,6 +247,8 @@ def update_exam(
     if first_exam_date and last_exam_date and first_exam_date > last_exam_date:
         raise ExamValidationError("First exam date cannot be after last exam date.")
 
+    prev = {"title": exam.title, "description": exam.description, "interval": exam.recurrence_interval_weeks}
+
     exam.title = clean_title
     exam.description = description.strip() if description and description.strip() else None
     if is_active is not None:
@@ -193,20 +261,71 @@ def update_exam(
         exam.recurrence_interval_weeks = recurrence_interval_weeks
     if recurrence_weekday is not None:
         exam.recurrence_weekday = recurrence_weekday
+    if submission_days_after_exam is not None:
+        exam.submission_days_after_exam = submission_days_after_exam
 
+    log_exam_audit(
+        db,
+        entity_type="SERIES",
+        entity_id=exam.id,
+        action="UPDATED",
+        actor_id=actor_id,
+        exam_id=exam.id,
+        previous_value=json.dumps(prev, ensure_ascii=False),
+        new_value=json.dumps({"title": exam.title, "interval": exam.recurrence_interval_weeks}, ensure_ascii=False),
+    )
     db.commit()
     db.refresh(exam)
     return exam
 
 
-def archive_exam(db: Session, exam_id: uuid.UUID) -> Exam:
+def archive_exam(db: Session, exam_id: uuid.UUID, actor_id: Optional[uuid.UUID] = None, reason: Optional[str] = None) -> Exam:
     exam = get_exam_by_id(db, exam_id)
     if not exam:
         raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
     exam.is_active = False
+    exam.is_archived = True
+    log_exam_audit(db, "SERIES", exam.id, "ARCHIVED", actor_id=actor_id, exam_id=exam.id, reason=reason)
     db.commit()
     db.refresh(exam)
     return exam
+
+
+def restore_archived_exam_series(db: Session, exam_id: uuid.UUID, actor_id: Optional[uuid.UUID] = None, reason: Optional[str] = None) -> Exam:
+    exam = get_exam_by_id(db, exam_id)
+    if not exam:
+        raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
+    exam.is_active = True
+    exam.is_archived = False
+    log_exam_audit(db, "SERIES", exam.id, "RESTORED", actor_id=actor_id, exam_id=exam.id, reason=reason)
+    db.commit()
+    db.refresh(exam)
+    return exam
+
+
+def safe_delete_exam_series(db: Session, exam_id: uuid.UUID, actor_id: Optional[uuid.UUID] = None, force: bool = False) -> None:
+    exam = get_exam_by_id(db, exam_id)
+    if not exam:
+        raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
+
+    has_results = any(len(s.results) > 0 for s in exam.sessions)
+    if has_results and not force:
+        raise ExamValidationError(
+            "This exam series has submitted student results. Hard deletion is prevented to preserve historical results. "
+            "Please archive the series instead."
+        )
+
+    log_exam_audit(
+        db,
+        entity_type="SERIES",
+        entity_id=exam.id,
+        action="DELETED",
+        actor_id=actor_id,
+        exam_id=exam.id,
+        previous_value=json.dumps({"title": exam.title}, ensure_ascii=False),
+    )
+    db.delete(exam)
+    db.commit()
 
 
 def get_exam_by_id(db: Session, exam_id: uuid.UUID) -> Optional[Exam]:
@@ -283,9 +402,11 @@ def configure_exam_grade_track(
     exam_id: uuid.UUID,
     grade: str,
     track_id: uuid.UUID,
-    reporting_groups_data: List[Dict[str, Any]],
+    reporting_groups_data: Optional[List[Dict[str, Any]]] = None,
+    groups: Optional[List[Dict[str, Any]]] = None,
 ) -> ExamGradeTrackConfig:
     """Configure reporting groups and subject combinations for an eligible grade/track."""
+    reporting_groups_data = reporting_groups_data if reporting_groups_data is not None else (groups or [])
     exam = get_exam_by_id(db, exam_id)
     if not exam:
         raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
@@ -308,7 +429,7 @@ def configure_exam_grade_track(
         grp_title = (grp.get("title") or "").strip()
         if not grp_title:
             raise ExamValidationError("Reporting group title cannot be empty.")
-        raw_s_ids = list(dict.fromkeys(grp.get("subject_ids") or []))
+        raw_s_ids = list(dict.fromkeys(grp.get("subject_ids") or grp.get("subjects") or []))
         valid_s_ids = []
         for sid in raw_s_ids:
             if isinstance(sid, str):
@@ -406,11 +527,13 @@ def create_exam_session(
     status: str = "SCHEDULED",
     is_manually_added: bool = False,
     sequence_order: Optional[int] = None,
+    submission_deadline: Optional[datetime] = None,
+    allow_late_submission: bool = True,
 ) -> ExamSession:
     exam = get_exam_by_id(db, exam_id)
     if not exam:
         raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
-    if not exam.is_active:
+    if not exam.is_active or getattr(exam, 'is_archived', False):
         raise ExamValidationError(f"Cannot schedule session for archived exam '{exam.title}'.")
 
     existing = db.query(ExamSession).filter(
@@ -433,6 +556,10 @@ def create_exam_session(
     if not track_subjects_map or len(track_subjects_map) == 0:
         raise ExamValidationError("At least one academic track must be configured for the exam.")
 
+    if submission_deadline is None and exam.submission_days_after_exam:
+        dl_date = exam_date + timedelta(days=exam.submission_days_after_exam)
+        submission_deadline = datetime(dl_date.year, dl_date.month, dl_date.day, 23, 59, 59)
+
     session = ExamSession(
         exam_id=exam.id,
         date=exam_date,
@@ -440,6 +567,8 @@ def create_exam_session(
         status=status,
         is_manually_added=is_manually_added,
         sequence_order=sequence_order,
+        submission_deadline=submission_deadline,
+        allow_late_submission=allow_late_submission,
     )
     db.add(session)
     db.flush()
@@ -549,12 +678,60 @@ def update_exam_session(
     return get_exam_session_by_id(db, session.id)
 
 
-def delete_exam_session(db: Session, session_id: uuid.UUID) -> None:
+def delete_exam_session(
+    db: Session,
+    session_id: uuid.UUID,
+    actor_id: Optional[uuid.UUID] = None,
+    force: bool = False,
+) -> None:
     session = get_exam_session_by_id(db, session_id)
     if not session:
         raise ExamSessionNotFoundError(f"Exam session with id {session_id} not found.")
+
+    if session.results and len(session.results) > 0 and not force:
+        raise ExamValidationError(
+            "This occurrence already has submitted student results. "
+            "Ordinary deletion is prevented to protect student data. Please cancel the occurrence instead."
+        )
+
+    log_exam_audit(
+        db,
+        entity_type="OCCURRENCE",
+        entity_id=session.id,
+        action="DELETED",
+        actor_id=actor_id,
+        exam_id=session.exam_id,
+        previous_value=json.dumps({"date": session.date.isoformat(), "title": session.title}, ensure_ascii=False),
+    )
     db.delete(session)
     db.commit()
+
+
+def cancel_exam_session(
+    db: Session,
+    session_id: uuid.UUID,
+    actor_id: Optional[uuid.UUID] = None,
+    reason: Optional[str] = None,
+) -> ExamSession:
+    session = get_exam_session_by_id(db, session_id)
+    if not session:
+        raise ExamSessionNotFoundError(f"Exam session with id {session_id} not found.")
+
+    session.status = "CANCELLED"
+    session.skip_reason = reason.strip() if reason and reason.strip() else None
+
+    log_exam_audit(
+        db,
+        entity_type="OCCURRENCE",
+        entity_id=session.id,
+        action="CANCELLED",
+        actor_id=actor_id,
+        exam_id=session.exam_id,
+        reason=reason,
+    )
+    db.commit()
+    db.refresh(session)
+    return session
 
 
 def generate_series_sessions(
@@ -756,6 +933,156 @@ def update_future_recurrence(
     return created
 
 
+def bulk_skip_exam_sessions(
+    db: Session,
+    session_ids: List[uuid.UUID],
+    actor_id: Optional[uuid.UUID] = None,
+    reason: Optional[str] = None,
+    force_if_results: bool = False,
+) -> Dict[str, Any]:
+    skipped = []
+    skipped_count = 0
+    with_results = 0
+    for sid in session_ids:
+        sess = get_exam_session_by_id(db, sid)
+        if not sess:
+            continue
+        if sess.results and len(sess.results) > 0:
+            with_results += 1
+            if not force_if_results:
+                continue
+        sess.status = "SKIPPED"
+        sess.skip_reason = reason.strip() if reason and reason.strip() else None
+        log_exam_audit(db, "OCCURRENCE", sess.id, "SKIPPED", actor_id=actor_id, exam_id=sess.exam_id, reason=reason)
+        skipped.append(sess)
+        skipped_count += 1
+    db.commit()
+    return {"affected_count": skipped_count, "skipped_with_results_count": with_results, "sessions": skipped}
+
+
+def bulk_cancel_exam_sessions(
+    db: Session,
+    session_ids: List[uuid.UUID],
+    actor_id: Optional[uuid.UUID] = None,
+    reason: Optional[str] = None,
+) -> Dict[str, Any]:
+    cancelled = []
+    for sid in session_ids:
+        sess = get_exam_session_by_id(db, sid)
+        if not sess:
+            continue
+        sess.status = "CANCELLED"
+        sess.skip_reason = reason.strip() if reason and reason.strip() else None
+        log_exam_audit(db, "OCCURRENCE", sess.id, "CANCELLED", actor_id=actor_id, exam_id=sess.exam_id, reason=reason)
+        cancelled.append(sess)
+    db.commit()
+    return {"affected_count": len(cancelled), "sessions": cancelled}
+
+
+def bulk_restore_exam_sessions(
+    db: Session,
+    session_ids: List[uuid.UUID],
+    actor_id: Optional[uuid.UUID] = None,
+    reason: Optional[str] = None,
+) -> Dict[str, Any]:
+    restored = []
+    for sid in session_ids:
+        sess = get_exam_session_by_id(db, sid)
+        if not sess:
+            continue
+        sess.status = "SCHEDULED"
+        sess.skip_reason = None
+        log_exam_audit(db, "OCCURRENCE", sess.id, "RESTORED", actor_id=actor_id, exam_id=sess.exam_id, reason=reason)
+        restored.append(sess)
+    db.commit()
+    return {"affected_count": len(restored), "sessions": restored}
+
+
+def extend_exam_recurrence(
+    db: Session,
+    exam_id: uuid.UUID,
+    new_last_exam_date: date,
+    actor_id: Optional[uuid.UUID] = None,
+) -> List[ExamSession]:
+    """Extend a recurring exam series to a later date without modifying earlier occurrences."""
+    exam = get_exam_by_id(db, exam_id)
+    if not exam:
+        raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
+    if not exam.first_exam_date or not exam.recurrence_interval_weeks:
+        raise ExamValidationError("Exam series does not have recurrence configured.")
+    if exam.last_exam_date and new_last_exam_date <= exam.last_exam_date:
+        raise ExamValidationError("New end date must be after the current last exam date.")
+
+    old_end = exam.last_exam_date
+    exam.last_exam_date = new_last_exam_date
+
+    all_dates = calculate_recurring_dates(
+        first_exam_date=exam.first_exam_date,
+        last_exam_date=new_last_exam_date,
+        interval_weeks=exam.recurrence_interval_weeks,
+        weekday=exam.recurrence_weekday,
+    )
+    existing_dates = {s.date for s in exam.sessions}
+    new_dates = [d for d in all_dates if d not in existing_dates]
+
+    created = []
+    start_order = len(exam.sessions) + 1
+    for idx, d in enumerate(new_dates):
+        session = create_exam_session(
+            db,
+            exam_id=exam.id,
+            exam_date=d,
+            sequence_order=start_order + idx,
+            status="SCHEDULED",
+        )
+        log_exam_audit(db, "OCCURRENCE", session.id, "CREATED", actor_id=actor_id, exam_id=exam.id, reason="Schedule extended")
+        created.append(session)
+
+    log_exam_audit(
+        db,
+        "SERIES",
+        exam.id,
+        "EXTENDED",
+        actor_id=actor_id,
+        exam_id=exam.id,
+        previous_value=str(old_end),
+        new_value=str(new_last_exam_date),
+    )
+    db.commit()
+    return created
+
+
+def bulk_add_manual_sessions(
+    db: Session,
+    exam_id: uuid.UUID,
+    dates_and_titles: List[Dict[str, Any]],
+    actor_id: Optional[uuid.UUID] = None,
+) -> List[ExamSession]:
+    """Add multiple manually specified dates to a series."""
+    exam = get_exam_by_id(db, exam_id)
+    if not exam:
+        raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
+
+    created = []
+    for item in dates_and_titles:
+        d = item.get("date")
+        if isinstance(d, str):
+            d = date.fromisoformat(d)
+        t = item.get("title")
+        sess = create_exam_session(
+            db,
+            exam_id=exam.id,
+            exam_date=d,
+            title=t,
+            status="SCHEDULED",
+            is_manually_added=True,
+        )
+        log_exam_audit(db, "OCCURRENCE", sess.id, "MANUAL_ADDED", actor_id=actor_id, exam_id=exam.id, reason="Bulk manual add")
+        created.append(sess)
+    db.commit()
+    return created
+
+
 def get_student_available_exams(db: Session, student: User) -> Dict[str, Any]:
     if not student.academic_track_id:
         return {"upcoming": [], "past": [], "track_assigned": False}
@@ -858,15 +1185,35 @@ def get_student_exam_result_by_id(
 
 def submit_student_exam_result(
     db: Session,
-    student: User,
-    exam_session_id: uuid.UUID,
+    student_or_session_id: Any = None,
+    session_id_or_student: Any = None,
+    exam_session_id: Optional[uuid.UUID] = None,
+    student: Optional[User] = None,
+    student_id: Optional[uuid.UUID] = None,
     subject_data: Optional[List[Dict[str, Any]]] = None,
     group_data: Optional[List[Dict[str, Any]]] = None,
+    group_percentages: Optional[Dict[Any, float]] = None,
     overall_rank: Optional[int] = None,
     notes: Optional[str] = None,
     report_card_file_path: Optional[str] = None,
     report_card_file_name: Optional[str] = None,
+    is_tutor_override: bool = False,
 ) -> StudentExamResult:
+    if isinstance(student_or_session_id, User):
+        student = student_or_session_id
+    elif isinstance(student_or_session_id, uuid.UUID):
+        exam_session_id = student_or_session_id
+
+    if isinstance(session_id_or_student, uuid.UUID):
+        exam_session_id = session_id_or_student
+    elif isinstance(session_id_or_student, User):
+        student = session_id_or_student
+
+    if student is None and student_id is not None:
+        student = db.query(User).get(student_id)
+
+    if not student:
+        raise ExamValidationError("Student not found.")
     if not student.academic_track_id:
         raise ExamValidationError("Student has no academic track assigned.")
 
@@ -876,6 +1223,17 @@ def submit_student_exam_result(
 
     if session.status in ("SKIPPED", "CANCELLED"):
         raise ExamValidationError("Cannot submit results for a skipped or cancelled exam occurrence.")
+
+    now = now_utc()
+    is_late = False
+    s_deadline = session.submission_deadline
+    if s_deadline and s_deadline.tzinfo is None:
+        from datetime import timezone
+        s_deadline = s_deadline.replace(tzinfo=timezone.utc)
+    if s_deadline and now > s_deadline:
+        is_late = True
+        if not getattr(session, 'allow_late_submission', True) and not is_tutor_override:
+            raise ExamValidationError("Submission deadline has passed for this exam occurrence.")
 
     existing_result = get_student_exam_result(db, student.id, session.id)
     if existing_result:
@@ -889,6 +1247,11 @@ def submit_student_exam_result(
         raise ExamValidationError("This exam is not available for your academic track.")
 
     grade_track_cfg = get_student_series_grade_track_config(db, session.exam_id, student)
+
+    if group_percentages:
+        group_data = group_data or []
+        for gid, pct in group_percentages.items():
+            group_data.append({"reporting_group_id": gid, "percentage": pct})
 
     if not group_data and not subject_data:
         raise ExamValidationError("At least one subject or group result must be submitted.")
@@ -922,7 +1285,14 @@ def submit_student_exam_result(
     parsed_group_items = []
     if group_data:
         for grp in group_data:
+            rg_id = grp.get("reporting_group_id") or grp.get("group_id")
+            if isinstance(rg_id, str):
+                rg_id = uuid.UUID(rg_id)
             g_title = (grp.get("group_title") or grp.get("title") or "").strip()
+            if not g_title and rg_id:
+                rg_obj = db.query(ExamReportingGroup).get(rg_id)
+                if rg_obj:
+                    g_title = rg_obj.title
             if not g_title:
                 raise ExamValidationError("Reporting group title cannot be empty.")
             try:
@@ -931,9 +1301,6 @@ def submit_student_exam_result(
                 raise ExamValidationError("Percentage must be a valid number.")
             if pct < 0.0 or pct > 100.0:
                 raise ExamValidationError("Percentage must be between 0 and 100.")
-            rg_id = grp.get("reporting_group_id")
-            if isinstance(rg_id, str):
-                rg_id = uuid.UUID(rg_id)
 
             parsed_group_items.append((rg_id, g_title, pct, grp.get("included_subject_names")))
 
@@ -984,6 +1351,9 @@ def submit_student_exam_result(
         grade=student.grade,
         academic_track_id=student.academic_track_id,
         config_snapshot=json.dumps(snapshot_data, ensure_ascii=False) if snapshot_data else None,
+        is_late=is_late,
+        is_reviewed=False,
+        is_tutor_corrected=False,
     )
     db.add(result)
     db.flush()
@@ -1008,8 +1378,169 @@ def submit_student_exam_result(
         )
         db.add(subject_result)
 
+    log_exam_audit(db, "RESULT", result.id, "SUBMITTED", actor_id=student.id, exam_id=session.exam_id)
     db.commit()
     return get_student_exam_result_by_id(db, result.id)
+
+
+def mark_exam_result_reviewed(
+    db: Session,
+    result_id: uuid.UUID,
+    actor_id: Optional[uuid.UUID] = None,
+    tutor_id: Optional[uuid.UUID] = None,
+    notes: Optional[str] = None,
+) -> StudentExamResult:
+    effective_actor = actor_id or tutor_id
+    result = get_student_exam_result_by_id(db, result_id)
+    if not result:
+        raise ExamResultNotFoundError(f"Result {result_id} not found.")
+
+    result.is_reviewed = True
+    result.reviewed_by_id = effective_actor
+    result.reviewed_at = now_utc()
+    if notes and notes.strip():
+        result.notes = (result.notes + "\n" if result.notes else "") + f"[Review Note]: {notes.strip()}"
+
+    log_exam_audit(
+        db,
+        entity_type="RESULT",
+        entity_id=result.id,
+        action="REVIEWED",
+        actor_id=effective_actor,
+        exam_id=result.exam_session.exam_id,
+        reason=notes,
+    )
+    db.commit()
+    db.refresh(result)
+    return result
+
+
+def reopen_exam_result(
+    db: Session,
+    result_id: uuid.UUID,
+    actor_id: Optional[uuid.UUID] = None,
+    tutor_id: Optional[uuid.UUID] = None,
+    reason: Optional[str] = None,
+) -> StudentExamResult:
+    effective_actor = actor_id or tutor_id
+    result = get_student_exam_result_by_id(db, result_id)
+    if not result:
+        raise ExamResultNotFoundError(f"Result {result_id} not found.")
+
+    result.is_reviewed = False
+    result.reviewed_at = None
+
+    log_exam_audit(
+        db,
+        entity_type="RESULT",
+        entity_id=result.id,
+        action="REOPENED",
+        actor_id=effective_actor,
+        exam_id=result.exam_session.exam_id,
+        reason=reason,
+    )
+    db.commit()
+    db.refresh(result)
+    return result
+
+
+def tutor_correct_exam_result(
+    db: Session,
+    result_id: uuid.UUID,
+    actor_id: Optional[uuid.UUID] = None,
+    tutor_id: Optional[uuid.UUID] = None,
+    group_data: Optional[List[Dict[str, Any]]] = None,
+    group_percentages: Optional[Dict[Any, float]] = None,
+    subject_data: Optional[List[Dict[str, Any]]] = None,
+    overall_rank: Optional[int] = None,
+    notes: Optional[str] = None,
+    reason: Optional[str] = None,
+) -> StudentExamResult:
+    effective_actor = actor_id or tutor_id
+    result = get_student_exam_result_by_id(db, result_id)
+    if not result:
+        raise ExamResultNotFoundError(f"Result {result_id} not found.")
+
+    prev_state = {
+        "overall_rank": result.overall_rank,
+        "notes": result.notes,
+        "groups": [{"title": gr.group_title, "pct": gr.percentage} for gr in result.group_results],
+    }
+
+    result.is_tutor_corrected = True
+    if overall_rank is not None:
+        result.overall_rank = overall_rank
+    if notes is not None:
+        result.notes = notes
+
+    if group_percentages is not None:
+        group_data = []
+        for gid, pct in group_percentages.items():
+            group_data.append({"reporting_group_id": gid, "percentage": pct})
+
+    if group_data is not None:
+        for gr in list(result.group_results):
+            db.delete(gr)
+        db.flush()
+        for grp in group_data:
+            rg_id = grp.get("reporting_group_id") or grp.get("group_id")
+            if isinstance(rg_id, str):
+                rg_id = uuid.UUID(rg_id)
+            g_title = (grp.get("group_title") or grp.get("title") or "").strip()
+            if not g_title and rg_id:
+                rg_obj = db.query(ExamReportingGroup).get(rg_id)
+                if rg_obj:
+                    g_title = rg_obj.title
+            pct = float(grp.get("percentage", 0.0))
+            if pct < 0.0 or pct > 100.0:
+                raise ExamValidationError("Percentage must be between 0 and 100.")
+            group_res = StudentExamGroupResult(
+                student_exam_result_id=result.id,
+                reporting_group_id=rg_id,
+                group_title=g_title,
+                percentage=pct,
+                included_subject_names=grp.get("included_subject_names"),
+            )
+            db.add(group_res)
+
+    if subject_data is not None:
+        for sr in list(result.subject_results):
+            db.delete(sr)
+        db.flush()
+        for item in subject_data:
+            sub_id = item.get("subject_id")
+            if isinstance(sub_id, str):
+                sub_id = uuid.UUID(sub_id)
+            correct = int(item.get("correct_answers", 0))
+            incorrect = int(item.get("incorrect_answers", 0))
+            pct = float(item.get("percentage", 0.0))
+            db.add(StudentExamSubjectResult(
+                student_exam_result_id=result.id,
+                subject_id=sub_id,
+                correct_answers=correct,
+                incorrect_answers=incorrect,
+                percentage=pct,
+            ))
+
+    new_state = {
+        "overall_rank": result.overall_rank,
+        "notes": result.notes,
+        "groups": [{"title": gr.group_title, "pct": gr.percentage} for gr in result.group_results],
+    }
+    log_exam_audit(
+        db,
+        entity_type="RESULT",
+        entity_id=result.id,
+        action="CORRECTED",
+        actor_id=effective_actor,
+        exam_id=result.exam_session.exam_id,
+        previous_value=json.dumps(prev_state, ensure_ascii=False),
+        new_value=json.dumps(new_state, ensure_ascii=False),
+        reason=reason,
+    )
+    db.commit()
+    db.refresh(result)
+    return result
 
 
 def update_student_exam_result(
@@ -1270,6 +1801,10 @@ def get_tutor_session_analytics(db: Session, session_id: uuid.UUID) -> Dict[str,
             "subject_scores": sub_map,
             "has_report_card": bool(r.report_card_file_path),
             "report_card_file_name": r.report_card_file_name,
+            "is_reviewed": getattr(r, "is_reviewed", False),
+            "is_late": getattr(r, "is_late", False),
+            "is_tutor_corrected": getattr(r, "is_tutor_corrected", False),
+            "reviewed_at": r.reviewed_at.strftime('%Y-%m-%d %H:%M') if getattr(r, "reviewed_at", None) else None,
         })
 
     subject_averages = {
@@ -1440,6 +1975,89 @@ def assign_exam_series_to_students(
 
     db.commit()
     return {"assigned_count": assigned_count, "eligible_count": len(eval_result["eligible"])}
+
+
+def bulk_assign_occurrences_to_students(
+    db: Session,
+    session_ids: List[uuid.UUID],
+    student_ids: List[uuid.UUID],
+    actor_id: Optional[uuid.UUID] = None,
+    allow_partial: bool = False,
+) -> Dict[str, Any]:
+    """Assign specific exam occurrences to multiple students, validating eligibility."""
+    sessions = db.query(ExamSession).filter(ExamSession.id.in_(session_ids)).all()
+    if not sessions:
+        raise ExamValidationError("No valid exam sessions found.")
+
+    students = db.query(User).filter(User.id.in_(student_ids), User.role == "STUDENT", User.is_active == True).all()
+    assigned_count = 0
+
+    for sess in sessions:
+        eval_result = evaluate_students_eligibility(db, sess.exam_id, [s.id for s in students])
+        if not allow_partial and eval_result["ineligible"]:
+            first_ineligible = eval_result["ineligible"][0]
+            st = first_ineligible["student"]
+            reason = first_ineligible["reason"]
+            raise IneligibleStudentError(f"Student '{st.full_name or st.username}' is not eligible for this exam: {reason}")
+
+        for item in eval_result["eligible"]:
+            st = item["student"]
+            existing = db.query(ExternalExamAssignment).filter(
+                ExternalExamAssignment.exam_session_id == sess.id,
+                ExternalExamAssignment.student_id == st.id,
+            ).first()
+            if not existing:
+                db.add(ExternalExamAssignment(exam_session_id=sess.id, student_id=st.id))
+                assigned_count += 1
+                log_exam_audit(db, "ASSIGNMENT", sess.id, "ASSIGNED", actor_id=actor_id, exam_id=sess.exam_id, reason=f"Assigned to {st.username}")
+
+    db.commit()
+    return {"assigned_count": assigned_count, "sessions_count": len(sessions), "students_count": len(students)}
+
+
+def bulk_remove_students_from_future_occurrences(
+    db: Session,
+    exam_id: uuid.UUID,
+    student_ids: List[uuid.UUID],
+    actor_id: Optional[uuid.UUID] = None,
+) -> Dict[str, Any]:
+    """Remove selected students from future occurrences while strictly preserving past or completed submissions."""
+    today = date.today()
+    future_sessions = db.query(ExamSession).filter(ExamSession.exam_id == exam_id, ExamSession.date >= today).all()
+    future_session_ids = [s.id for s in future_sessions]
+
+    # Find submitted result session ids to preserve them
+    submitted_pairs = {
+        (r.exam_session_id, r.student_id)
+        for r in db.query(StudentExamResult).filter(
+            StudentExamResult.student_id.in_(student_ids),
+            StudentExamResult.exam_session_id.in_(future_session_ids),
+        ).all()
+    }
+
+    removed_count = 0
+    assignments = db.query(ExternalExamAssignment).filter(
+        ExternalExamAssignment.student_id.in_(student_ids),
+        ExternalExamAssignment.exam_session_id.in_(future_session_ids),
+    ).all()
+
+    for a in assignments:
+        if (a.exam_session_id, a.student_id) not in submitted_pairs:
+            db.delete(a)
+            removed_count += 1
+
+    # Also remove series assignment if removing from all
+    for sid in student_ids:
+        sa = db.query(ExamSeriesAssignment).filter(
+            ExamSeriesAssignment.exam_id == exam_id,
+            ExamSeriesAssignment.student_id == sid,
+        ).first()
+        if sa:
+            db.delete(sa)
+            log_exam_audit(db, "SERIES", exam_id, "REMOVED", actor_id=actor_id, exam_id=exam_id, reason=f"Removed student {sid}")
+
+    db.commit()
+    return {"removed_assignments_count": removed_count, "affected_students_count": len(student_ids)}
 
 
 def check_student_series_eligibility(
@@ -1682,3 +2300,385 @@ def get_historical_exam_result_by_id(
         .filter(HistoricalExamResult.id == result_id)
         .first()
     )
+
+
+def get_bulk_series_submission_overview(
+    db: Session,
+    exam_id: Optional[uuid.UUID] = None,
+) -> Dict[str, Any]:
+    """Provide a high-level matrix of assigned, submitted, awaiting, reviewed, and missing results."""
+    query = db.query(ExamSession).options(
+        joinedload(ExamSession.exam),
+        joinedload(ExamSession.assignments).joinedload(ExternalExamAssignment.student),
+        joinedload(ExamSession.results).joinedload(StudentExamResult.group_results),
+    )
+    if exam_id:
+        query = query.filter(ExamSession.exam_id == exam_id)
+    sessions = query.order_by(desc(ExamSession.date)).all()
+
+    now = now_utc()
+    today = now.date()
+
+    total_assigned = 0
+    total_submitted = 0
+    total_reviewed = 0
+    total_awaiting = 0
+    total_missing = 0
+
+    session_rows = []
+    for s in sessions:
+        res_map = {r.student_id: r for r in s.results}
+        assigned_students = [a.student for a in s.assignments if a.student]
+        total_assigned += len(assigned_students)
+
+        s_submitted = 0
+        s_reviewed = 0
+        s_awaiting = 0
+        s_missing = 0
+
+        student_details = []
+        for st in assigned_students:
+            res = res_map.get(st.id)
+            if res:
+                s_submitted += 1
+                if res.is_reviewed:
+                    s_reviewed += 1
+                student_details.append({
+                    "student_id": str(st.id),
+                    "name": st.full_name or st.username,
+                    "grade": st.grade,
+                    "status": "Reviewed" if res.is_reviewed else "Submitted",
+                    "overall_rank": res.overall_rank,
+                    "is_late": res.is_late,
+                    "is_corrected": res.is_tutor_corrected,
+                })
+            else:
+                # Not submitted
+                is_overdue = bool(s.submission_deadline and now > s.submission_deadline)
+                if s.date <= today:
+                    if is_overdue:
+                        s_missing += 1
+                    else:
+                        s_awaiting += 1
+                status_label = "Missing" if is_overdue else ("Awaiting" if s.date <= today else "Upcoming")
+                student_details.append({
+                    "student_id": str(st.id),
+                    "name": st.full_name or st.username,
+                    "grade": st.grade,
+                    "status": status_label,
+                    "overall_rank": None,
+                    "is_late": False,
+                    "is_corrected": False,
+                })
+
+        total_submitted += s_submitted
+        total_reviewed += s_reviewed
+        total_awaiting += s_awaiting
+        total_missing += s_missing
+
+        session_rows.append({
+            "session_id": str(s.id),
+            "exam_title": s.exam.title if s.exam else "",
+            "date": s.date.isoformat(),
+            "status": s.status,
+            "assigned_count": len(assigned_students),
+            "submitted_count": s_submitted,
+            "reviewed_count": s_reviewed,
+            "awaiting_count": s_awaiting,
+            "missing_count": s_missing,
+            "deadline": s.submission_deadline.isoformat() if s.submission_deadline else None,
+            "students": student_details,
+        })
+
+    return {
+        "summary": {
+            "total_assigned": total_assigned,
+            "total_submitted": total_submitted,
+            "total_reviewed": total_reviewed,
+            "total_awaiting": total_awaiting,
+            "total_missing": total_missing,
+        },
+        "sessions": session_rows,
+    }
+
+
+def compare_students_on_session(
+    db: Session,
+    session_id: uuid.UUID,
+    grade: Optional[str] = None,
+    track_id: Optional[uuid.UUID] = None,
+) -> Dict[str, Any]:
+    """Compare students taking the same occurrence strictly within the same grade and track."""
+    session = get_exam_session_by_id(db, session_id)
+    if not session:
+        raise ExamSessionNotFoundError(f"Session {session_id} not found.")
+
+    assignments = [a for a in session.assignments if a.student]
+    if grade:
+        assignments = [a for a in assignments if a.student.grade == str(grade)]
+    if track_id:
+        assignments = [a for a in assignments if a.student.academic_track_id == track_id]
+
+    results_map = {r.student_id: r for r in session.results}
+    rows = []
+    group_scores_agg: Dict[str, List[float]] = {}
+    valid_ranks = []
+
+    for a in assignments:
+        st = a.student
+        res = results_map.get(st.id)
+        if res:
+            res_type = "Tutor-Corrected" if res.is_tutor_corrected else "Student-Entered"
+            review_state = "Reviewed" if res.is_reviewed else "Not Reviewed"
+            group_scores = {gr.group_title: gr.percentage for gr in res.group_results}
+            for title, pct in group_scores.items():
+                if title not in group_scores_agg:
+                    group_scores_agg[title] = []
+                group_scores_agg[title].append(pct)
+
+            avg_pct = round(sum(group_scores.values()) / len(group_scores), 2) if group_scores else None
+            if res.overall_rank is not None:
+                valid_ranks.append(res.overall_rank)
+
+            rows.append({
+                "student_id": str(st.id),
+                "name": st.full_name or st.username,
+                "grade": st.grade,
+                "track": st.academic_track.name if st.academic_track else "",
+                "submission_status": "Submitted",
+                "result_type": res_type,
+                "review_state": review_state,
+                "overall_rank": res.overall_rank,
+                "average_percentage": avg_pct,
+                "group_scores": group_scores,
+                "is_late": res.is_late,
+            })
+        else:
+            # Missing result - NEVER treated as zero!
+            rows.append({
+                "student_id": str(st.id),
+                "name": st.full_name or st.username,
+                "grade": st.grade,
+                "track": st.academic_track.name if st.academic_track else "",
+                "submission_status": "Missing",
+                "result_type": "N/A",
+                "review_state": "N/A",
+                "overall_rank": None,
+                "average_percentage": None,
+                "group_scores": {},
+                "is_late": False,
+            })
+
+    group_averages = {
+        title: round(sum(scores) / len(scores), 2)
+        for title, scores in group_scores_agg.items()
+        if scores
+    }
+    avg_rank = round(sum(valid_ranks) / len(valid_ranks), 1) if valid_ranks else None
+
+    return {
+        "session": session,
+        "filter_grade": grade,
+        "filter_track_id": track_id,
+        "rows": rows,
+        "group_averages": group_averages,
+        "average_rank": avg_rank,
+        "total_assigned": len(assignments),
+        "submitted_count": len([r for r in rows if r["submission_status"] == "Submitted"]),
+        "missing_count": len([r for r in rows if r["submission_status"] == "Missing"]),
+    }
+
+
+def get_exam_series_analytics(db: Session, exam_id: uuid.UUID) -> Dict[str, Any]:
+    """Analytics for a selected exam series including occurrences, submissions, and averages."""
+    exam = get_exam_by_id(db, exam_id)
+    if not exam:
+        raise ExamNotFoundError(f"Exam series {exam_id} not found.")
+
+    today = date.today()
+    total_occurrences = len(exam.sessions)
+    completed_occurrences = len([s for s in exam.sessions if s.date < today and s.status == "SCHEDULED"])
+
+    all_results = (
+        db.query(StudentExamResult)
+        .join(ExamSession, ExamSession.id == StudentExamResult.exam_session_id)
+        .options(joinedload(StudentExamResult.group_results))
+        .filter(ExamSession.exam_id == exam.id)
+        .order_by(ExamSession.date.asc())
+        .all()
+    )
+
+    total_submitted = len(all_results)
+    # Total assignments across all past/completed sessions
+    total_expected = sum(len(s.assignments) for s in exam.sessions if s.date <= today and s.status == "SCHEDULED")
+    missing_count = max(0, total_expected - total_submitted)
+    submission_rate = round((total_submitted / total_expected * 100), 1) if total_expected > 0 else 100.0
+
+    group_percentages: Dict[str, List[float]] = {}
+    ranks: List[int] = []
+    consecutive_comparisons: List[Dict[str, Any]] = []
+
+    # Map session id to results for consecutive comparison
+    for s in sorted(exam.sessions, key=lambda x: x.date):
+        s_results = [r for r in all_results if r.exam_session_id == s.id]
+        if s_results:
+            s_pcts = [
+                gr.percentage for r in s_results for gr in r.group_results
+            ]
+            avg_p = round(sum(s_pcts) / len(s_pcts), 2) if s_pcts else 0.0
+            consecutive_comparisons.append({
+                "session_id": str(s.id),
+                "date": s.date.isoformat(),
+                "title": s.title or exam.title,
+                "submissions": len(s_results),
+                "average_percentage": avg_p,
+            })
+
+    for r in all_results:
+        if r.overall_rank is not None:
+            ranks.append(r.overall_rank)
+        for gr in r.group_results:
+            if gr.group_title not in group_percentages:
+                group_percentages[gr.group_title] = []
+            group_percentages[gr.group_title].append(gr.percentage)
+
+    reporting_group_averages = {
+        title: round(sum(scores) / len(scores), 2)
+        for title, scores in group_percentages.items()
+        if scores
+    }
+    avg_rank = round(sum(ranks) / len(ranks), 1) if ranks else None
+
+    return {
+        "exam_title": exam.title,
+        "total_occurrences": total_occurrences,
+        "completed_occurrences": completed_occurrences,
+        "total_submitted": total_submitted,
+        "missing_submissions": missing_count,
+        "submission_rate": submission_rate,
+        "reporting_group_averages": reporting_group_averages,
+        "average_rank": avg_rank,
+        "consecutive_comparisons": consecutive_comparisons,
+    }
+
+
+def get_student_comprehensive_analytics(
+    db: Session,
+    student_id: uuid.UUID,
+    exam_id: Optional[uuid.UUID] = None,
+) -> Dict[str, Any]:
+    """Calculate deep reporting group analytics, progression trends, and missing exams."""
+    student = db.query(User).filter(User.id == student_id, User.role == "STUDENT").first()
+    if not student:
+        raise ExamValidationError(f"Student {student_id} not found.")
+
+    query = (
+        db.query(StudentExamResult)
+        .join(ExamSession, ExamSession.id == StudentExamResult.exam_session_id)
+        .options(
+            joinedload(StudentExamResult.exam_session).joinedload(ExamSession.exam),
+            joinedload(StudentExamResult.group_results),
+        )
+        .filter(StudentExamResult.student_id == student_id)
+    )
+    if exam_id:
+        query = query.filter(ExamSession.exam_id == exam_id)
+    results = query.order_by(ExamSession.date.asc()).all()
+
+    rank_progression = []
+    group_history: Dict[str, List[float]] = {}
+    consecutive_diffs = []
+    prev_overall_avg = None
+
+    for r in results:
+        sess = r.exam_session
+        date_str = sess.date.strftime("%Y-%m-%d")
+        exam_title = sess.title or sess.exam.title
+
+        pcts = [gr.percentage for gr in r.group_results]
+        overall_avg = round(sum(pcts) / len(pcts), 2) if pcts else None
+
+        if r.overall_rank is not None:
+            rank_progression.append({"date": date_str, "exam_title": exam_title, "rank": r.overall_rank})
+
+        for gr in r.group_results:
+            if gr.group_title not in group_history:
+                group_history[gr.group_title] = []
+            group_history[gr.group_title].append(gr.percentage)
+
+        diff = round(overall_avg - prev_overall_avg, 2) if (overall_avg is not None and prev_overall_avg is not None) else None
+        consecutive_diffs.append({
+            "date": date_str,
+            "exam_title": exam_title,
+            "average_percentage": overall_avg,
+            "change_from_previous": diff,
+            "overall_rank": r.overall_rank,
+        })
+        if overall_avg is not None:
+            prev_overall_avg = overall_avg
+
+    # Best, weakest, and trends per group
+    group_stats = {}
+    for title, scores in group_history.items():
+        avg_score = round(sum(scores) / len(scores), 2) if scores else 0.0
+        # Avoid claiming trend from only 1 or 2 results: requires >= 3 results
+        is_sufficient = len(scores) >= 3
+        if is_sufficient:
+            recent_delta = scores[-1] - scores[-2]
+            trend = "Improving" if recent_delta >= 2.0 else ("Declining" if recent_delta <= -2.0 else "Relatively stable")
+        else:
+            trend = "Insufficient data"
+        group_stats[title] = {
+            "average": avg_score,
+            "best": max(scores) if scores else 0.0,
+            "weakest": min(scores) if scores else 0.0,
+            "latest": scores[-1] if scores else 0.0,
+            "trend": trend,
+            "is_sufficient_data": is_sufficient,
+            "scores_count": len(scores),
+        }
+
+    # Missing submissions
+    today = date.today()
+    assigned_sessions = (
+        db.query(ExamSession)
+        .join(ExternalExamAssignment, ExternalExamAssignment.exam_session_id == ExamSession.id)
+        .options(joinedload(ExamSession.exam))
+        .filter(
+            ExternalExamAssignment.student_id == student_id,
+            ExamSession.date <= today,
+            ExamSession.status == "SCHEDULED",
+        )
+        .all()
+    )
+    submitted_session_ids = {r.exam_session_id for r in results}
+    missing_sessions = [
+        {"session_id": str(s.id), "exam_title": s.exam.title if s.exam else "", "date": s.date.isoformat()}
+        for s in assigned_sessions if s.id not in submitted_session_ids
+    ]
+
+    all_scores = [gr.percentage for r in results for gr in r.group_results]
+    overall_mean = round(sum(all_scores) / len(all_scores), 2) if all_scores else None
+
+    # Overall performance trend
+    if len(consecutive_diffs) >= 3:
+        last_diff = consecutive_diffs[-1]["change_from_previous"]
+        if last_diff is not None and last_diff >= 2.0:
+            overall_trend = "Improving"
+        elif last_diff is not None and last_diff <= -2.0:
+            overall_trend = "Declining"
+        else:
+            overall_trend = "Relatively stable"
+    else:
+        overall_trend = "Relatively stable"
+
+    return {
+        "student": student,
+        "results_count": len(results),
+        "overall_average": overall_mean,
+        "overall_trend": overall_trend,
+        "rank_progression": rank_progression,
+        "consecutive_comparisons": consecutive_diffs,
+        "group_stats": group_stats,
+        "missing_sessions": missing_sessions,
+    }

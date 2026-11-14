@@ -9,6 +9,16 @@
         <p class="text-sm text-slate-500 mt-1">
             Exam: <strong class="text-slate-800">{{ session.exam.title }}</strong> &bull; Date: {{ session.date }}
         </p>
+        {% if session.submission_deadline %}
+            <div class="mt-2 text-xs px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-800 flex items-center gap-2">
+                <span>⏰ Submission Deadline: <strong>{{ session.submission_deadline.strftime('%Y-%m-%d %H:%M') }}</strong></span>
+                {% if session.allow_late_submission %}
+                    <span class="text-slate-500">(Late submissions permitted)</span>
+                {% else %}
+                    <span class="text-red-600 font-semibold">(Strict deadline)</span>
+                {% endif %}
+            </div>
+        {% endif %}
     </div>
 
     {% if error %}

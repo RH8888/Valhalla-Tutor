@@ -22,6 +22,7 @@ from app.models.exam import (
     ExamGradeTrackConfig,
     ExamSeriesAssignment,
     ExamSessionAudit,
+    ExamAuditLog,
     StudentExamGroupResult,
 )
 from app.models.practice_exam import (
@@ -73,6 +74,7 @@ __all__ = [
     "ExamGradeTrackConfig",
     "ExamSeriesAssignment",
     "ExamSessionAudit",
+    "ExamAuditLog",
     "StudentExamGroupResult",
     "PracticeExam",
     "PracticeExamBooklet",

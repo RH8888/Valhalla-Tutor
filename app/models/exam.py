@@ -47,6 +47,15 @@ class Exam(Base):
         Integer,
         nullable=True,
     )
+    submission_days_after_exam: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+    is_archived: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -131,6 +140,11 @@ class ExamSession(Base):
     submission_deadline: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
+    )
+    allow_late_submission: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -300,6 +314,30 @@ class StudentExamResult(Base):
         Text,
         nullable=True,
     )
+    is_reviewed: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+    reviewed_by_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    is_late: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+    is_tutor_corrected: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -312,7 +350,8 @@ class StudentExamResult(Base):
         onupdate=now_utc,
     )
 
-    student: Mapped["User"] = relationship("User")
+    student: Mapped["User"] = relationship("User", foreign_keys=[student_id])
+    reviewed_by: Mapped[Optional["User"]] = relationship("User", foreign_keys=[reviewed_by_id])
     exam_session: Mapped["ExamSession"] = relationship("ExamSession", back_populates="results")
     academic_track: Mapped[Optional["AcademicTrack"]] = relationship("AcademicTrack")
     subject_results: Mapped[List["StudentExamSubjectResult"]] = relationship(
@@ -415,7 +454,6 @@ class ExternalExamAssignment(Base):
     exam_session: Mapped["ExamSession"] = relationship("ExamSession", back_populates="assignments")
     student: Mapped["User"] = relationship("User")
 
-
 class ExamGradeTrackConfig(Base):
     """Academic grade and track eligibility and reporting structure configuration for an exam series."""
     __tablename__ = "exam_grade_track_configs"
@@ -499,7 +537,6 @@ class ExamSeriesAssignment(Base):
 
     exam: Mapped["Exam"] = relationship("Exam", back_populates="series_assignments")
     student: Mapped["User"] = relationship("User")
-
 
 class ExamReportingGroup(Base):
     """Flexible reporting group for external exams (e.g. Mathematics combining Geometry, Calculus, Stats)."""
@@ -598,6 +635,65 @@ class ExamSessionAudit(Base):
 
     exam_session: Mapped["ExamSession"] = relationship("ExamSession", back_populates="audit_logs")
     actor: Mapped[Optional["User"]] = relationship("User")
+
+
+class ExamAuditLog(Base):
+    """Unified database-backed audit log for exam series, occurrences, configurations, assignments, and results."""
+    __tablename__ = "exam_audit_logs"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    actor_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    entity_type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        index=True,
+    )
+    entity_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        nullable=False,
+        index=True,
+    )
+    exam_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid,
+        ForeignKey("exams.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    action: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        index=True,
+    )
+    previous_value: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    new_value: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    reason: Mapped[Optional[str]] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=now_utc,
+        index=True,
+    )
+
+    actor: Mapped[Optional["User"]] = relationship("User")
+    exam: Mapped[Optional["Exam"]] = relationship("Exam")
 
 
 class StudentExamGroupResult(Base):

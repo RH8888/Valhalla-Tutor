@@ -22,15 +22,24 @@
             {% endif %}
         </div>
         <div class="flex items-center space-x-2">
+            <a href="/tutor/exams/sessions/{{ session.id }}/compare" class="px-3 py-1.5 border border-indigo-200 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition">
+                📊 Group Comparison
+            </a>
             {% if session.status == 'SCHEDULED' %}
                 <form method="POST" action="/tutor/exams/sessions/{{ session.id }}/skip" onsubmit="return confirm('Skip this exam occurrence (No Exam)?');">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                     <input type="hidden" name="reason" value="Holiday / Postponed">
                     <button type="submit" class="px-3 py-1.5 border border-amber-300 rounded-lg text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 transition">
-                        Mark as No Exam (Skip)
+                        No Exam
                     </button>
                 </form>
-            {% elif session.status == 'SKIPPED' %}
+                <form method="POST" action="/tutor/exams/sessions/{{ session.id }}/cancel" onsubmit="return confirm('Cancel this occurrence?');">
+                    <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                    <button type="submit" class="px-3 py-1.5 border border-red-300 rounded-lg text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 transition">
+                        Cancel
+                    </button>
+                </form>
+            {% elif session.status in ['SKIPPED', 'CANCELLED'] %}
                 <form method="POST" action="/tutor/exams/sessions/{{ session.id }}/restore">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                     <button type="submit" class="px-3 py-1.5 border border-emerald-300 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition">
@@ -92,6 +101,7 @@
                             {% for sub_name in analytics.all_subjects %}
                                 <th class="px-4 py-3 text-center">{{ sub_name }}</th>
                             {% endfor %}
+                            <th class="px-4 py-3 text-center">Status / Review</th>
                             <th class="px-4 py-3 text-center">Report Card</th>
                             <th class="px-6 py-3 text-right">Monitoring</th>
                         </tr>
@@ -116,6 +126,37 @@
                                         {% endif %}
                                     </td>
                                 {% endfor %}
+                                <td class="px-4 py-4 text-center whitespace-nowrap">
+                                    <div class="flex flex-col items-center gap-1">
+                                        {% if row.is_reviewed %}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-100 text-indigo-800">
+                                                Reviewed
+                                            </span>
+                                            <form method="POST" action="/tutor/exams/results/{{ row.result_id }}/reopen" class="inline">
+                                                <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                                                <button type="submit" class="text-[10px] text-slate-500 hover:text-indigo-600 underline">
+                                                    Reopen
+                                                </button>
+                                            </form>
+                                        {% else %}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-100 text-amber-800">
+                                                Pending Review
+                                            </span>
+                                            <form method="POST" action="/tutor/exams/results/{{ row.result_id }}/review" class="inline">
+                                                <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                                                <button type="submit" class="text-[10px] font-semibold text-emerald-600 hover:text-emerald-800 underline">
+                                                    Mark Reviewed
+                                                </button>
+                                            </form>
+                                        {% endif %}
+                                        {% if row.is_late %}
+                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200">Late</span>
+                                        {% endif %}
+                                        {% if row.is_tutor_corrected %}
+                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-50 text-purple-700 border border-purple-200">Corrected</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
                                 <td class="px-4 py-4 text-center whitespace-nowrap">
                                     {% if row.has_report_card %}
                                         <a href="/tutor/exams/results/{{ row.result_id }}/report-card" target="_blank"
