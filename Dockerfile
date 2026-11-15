@@ -12,7 +12,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+# Create dedicated non-root user and ensure permissions on runtime directories
+RUN groupadd -r -g 10001 appuser && useradd -r -u 10001 -g appuser -d /app -s /sbin/nologin appuser \
+    && mkdir -p /app/uploads \
+    && chown -R appuser:appuser /app
+
+COPY --chown=appuser:appuser . .
+
+USER appuser
 
 EXPOSE 8000
 
