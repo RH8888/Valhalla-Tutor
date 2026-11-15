@@ -214,7 +214,12 @@ def get_chapters_for_course(
     plan_id: uuid.UUID,
     course_id: uuid.UUID,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
+    plan = get_study_plan(db, plan_id, tutor_id=current_user.id)
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
+
     course = db.query(Course).filter(Course.id == course_id).first()
     if not course:
         return HTMLResponse('<option value="">-- No chapters --</option>')
@@ -230,7 +235,12 @@ def get_chapters_for_book(
     plan_id: uuid.UUID,
     book_id: uuid.UUID,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
+    plan = get_study_plan(db, plan_id, tutor_id=current_user.id)
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
+
     book = db.query(Book).filter(Book.id == book_id).first()
     if not book:
         return HTMLResponse('<option value="">-- No chapters --</option>')
@@ -253,7 +263,7 @@ def get_video_estimate_badge(
     if not plan or not course_id:
         return HTMLResponse("")
 
-    est = estimate_video_duration(db, plan.student_id, course_id, video_count)
+    est = estimate_video_duration(db, plan.student_id, course_id, video_count, tutor_id=current_user.id)
     if est.is_historical and est.suggested_duration_minutes:
         return HTMLResponse(
             f"""
@@ -298,7 +308,7 @@ def get_test_estimate_badge(
     if test_count <= 0:
         return HTMLResponse('<div class="mt-2 p-2 rounded bg-amber-50 text-xs text-amber-700">Invalid test range: end test must be >= start test.</div>')
 
-    est = estimate_test_duration(db, plan.student_id, book_id, test_count)
+    est = estimate_test_duration(db, plan.student_id, book_id, test_count, tutor_id=current_user.id)
     if est.is_historical and est.suggested_duration_minutes:
         return HTMLResponse(
             f"""

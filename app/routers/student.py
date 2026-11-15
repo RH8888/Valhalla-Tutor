@@ -208,8 +208,8 @@ def get_student_plan_detail(
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
-    plan = get_study_plan(db, plan_id)
-    if not plan or plan.student_id != current_user.id:
+    plan = get_study_plan(db, plan_id, student_id=current_user.id)
+    if not plan:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
 
     effective_subjects = get_student_effective_subjects(current_user)

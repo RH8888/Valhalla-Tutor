@@ -78,6 +78,7 @@ def estimate_test_duration(
     student_id: uuid.UUID,
     book_id: uuid.UUID,
     test_count: int,
+    tutor_id: Optional[uuid.UUID] = None,
 ) -> DurationEstimate:
     """
     Estimate test duration using rolling average from the student's last completed plans.
@@ -95,7 +96,7 @@ def estimate_test_duration(
         )
 
     # Find distinct study plans containing completed assignments for this student and book
-    plan_subq = (
+    plan_query = (
         db.query(PlanAssignment.study_plan_id)
         .join(StudyPlan, PlanAssignment.study_plan_id == StudyPlan.id)
         .filter(
@@ -107,6 +108,12 @@ def estimate_test_duration(
             PlanAssignment.test_count > 0,
             PlanAssignment.recommended_duration_minutes > 0,
         )
+    )
+    if tutor_id is not None:
+        plan_query = plan_query.filter(StudyPlan.tutor_id == tutor_id)
+
+    plan_subq = (
+        plan_query
         .group_by(StudyPlan.id, StudyPlan.end_date, PlanAssignment.study_plan_id)
         .order_by(desc(StudyPlan.end_date))
         .limit(3)
@@ -170,6 +177,7 @@ def estimate_video_duration(
     student_id: uuid.UUID,
     course_id: uuid.UUID,
     video_count: int,
+    tutor_id: Optional[uuid.UUID] = None,
 ) -> DurationEstimate:
     """
     Estimate video duration using rolling average from the student's last completed plans.
@@ -187,7 +195,7 @@ def estimate_video_duration(
         )
 
     # Find distinct study plans containing completed video assignments for this student and course
-    plan_subq = (
+    plan_query = (
         db.query(PlanAssignment.study_plan_id)
         .join(StudyPlan, PlanAssignment.study_plan_id == StudyPlan.id)
         .filter(
@@ -199,6 +207,12 @@ def estimate_video_duration(
             PlanAssignment.video_count > 0,
             PlanAssignment.recommended_duration_minutes > 0,
         )
+    )
+    if tutor_id is not None:
+        plan_query = plan_query.filter(StudyPlan.tutor_id == tutor_id)
+
+    plan_subq = (
+        plan_query
         .group_by(StudyPlan.id, StudyPlan.end_date, PlanAssignment.study_plan_id)
         .order_by(desc(StudyPlan.end_date))
         .limit(3)
@@ -285,10 +299,17 @@ def create_study_plan(
     return plan
 
 
-def get_study_plan(db: Session, plan_id: uuid.UUID, tutor_id: Optional[uuid.UUID] = None) -> Optional[StudyPlan]:
+def get_study_plan(
+    db: Session,
+    plan_id: uuid.UUID,
+    tutor_id: Optional[uuid.UUID] = None,
+    student_id: Optional[uuid.UUID] = None,
+) -> Optional[StudyPlan]:
     query = db.query(StudyPlan).filter(StudyPlan.id == plan_id)
     if tutor_id is not None:
         query = query.filter(StudyPlan.tutor_id == tutor_id)
+    if student_id is not None:
+        query = query.filter(StudyPlan.student_id == student_id)
     return query.first()
 
 
@@ -303,16 +324,19 @@ def list_student_plans(db: Session, student_id: uuid.UUID, tutor_id: Optional[uu
     )
 
 
-def get_active_student_plan(db: Session, student_id: uuid.UUID) -> Optional[StudyPlan]:
+def get_active_student_plan(
+    db: Session,
+    student_id: uuid.UUID,
+    tutor_id: Optional[uuid.UUID] = None,
+) -> Optional[StudyPlan]:
     """Retrieve the single active published plan for a student, if any."""
-    return (
-        db.query(StudyPlan)
-        .filter(
-            StudyPlan.student_id == student_id,
-            StudyPlan.status == PlanStatus.PUBLISHED,
-        )
-        .first()
+    query = db.query(StudyPlan).filter(
+        StudyPlan.student_id == student_id,
+        StudyPlan.status == PlanStatus.PUBLISHED,
     )
+    if tutor_id is not None:
+        query = query.filter(StudyPlan.tutor_id == tutor_id)
+    return query.first()
 
 
 def publish_study_plan(db: Session, plan_id: uuid.UUID, tutor_id: Optional[uuid.UUID] = None) -> StudyPlan:
@@ -322,15 +346,17 @@ def publish_study_plan(db: Session, plan_id: uuid.UUID, tutor_id: Optional[uuid.
         raise PlanNotFoundError(f"Plan with id {plan_id} not found.")
 
     # Archive any existing published plan for the student
-    existing_published = (
+    existing_query = (
         db.query(StudyPlan)
         .filter(
             StudyPlan.student_id == plan.student_id,
             StudyPlan.status == PlanStatus.PUBLISHED,
             StudyPlan.id != plan_id,
         )
-        .all()
     )
+    if tutor_id is not None:
+        existing_query = existing_query.filter(StudyPlan.tutor_id == tutor_id)
+    existing_published = existing_query.all()
     for p in existing_published:
         p.status = PlanStatus.ARCHIVED
 
@@ -523,10 +549,17 @@ def create_assignment(
     return assignment
 
 
-def get_assignment(db: Session, assignment_id: uuid.UUID, tutor_id: Optional[uuid.UUID] = None) -> Optional[PlanAssignment]:
+def get_assignment(
+    db: Session,
+    assignment_id: uuid.UUID,
+    tutor_id: Optional[uuid.UUID] = None,
+    student_id: Optional[uuid.UUID] = None,
+) -> Optional[PlanAssignment]:
     query = db.query(PlanAssignment).filter(PlanAssignment.id == assignment_id)
     if tutor_id is not None:
         query = query.join(StudyPlan, PlanAssignment.study_plan_id == StudyPlan.id).filter(StudyPlan.tutor_id == tutor_id)
+    if student_id is not None:
+        query = query.filter(PlanAssignment.student_id == student_id)
     return query.first()
 
 
@@ -635,7 +668,7 @@ def complete_assignment(
     performed_by_id: Optional[uuid.UUID] = None,
 ) -> PlanAssignment:
     """Mark an assignment completed with fresh server timestamp and audit record."""
-    assignment = get_assignment(db, assignment_id)
+    assignment = get_assignment(db, assignment_id, student_id=student_id)
     if not assignment:
         raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
 
@@ -676,7 +709,7 @@ def undo_assignment_completion(
     student_id: uuid.UUID,
 ) -> PlanAssignment:
     """Return a completed assignment to pending state and log audit entry."""
-    assignment = get_assignment(db, assignment_id)
+    assignment = get_assignment(db, assignment_id, student_id=student_id)
     if not assignment:
         raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
 
@@ -764,6 +797,7 @@ def get_student_completion_history(
     db: Session,
     student_id: uuid.UUID,
     limit: Optional[int] = None,
+    tutor_id: Optional[uuid.UUID] = None,
 ) -> List[PlanAssignment]:
     """Retrieve chronologically completed assignments for a student."""
     query = (
@@ -772,8 +806,12 @@ def get_student_completion_history(
             PlanAssignment.student_id == student_id,
             PlanAssignment.is_completed.is_(True),
         )
-        .order_by(desc(PlanAssignment.completed_at))
     )
+    if tutor_id is not None:
+        query = query.join(StudyPlan, PlanAssignment.study_plan_id == StudyPlan.id).filter(
+            StudyPlan.tutor_id == tutor_id
+        )
+    query = query.order_by(desc(PlanAssignment.completed_at))
     if limit:
         query = query.limit(limit)
     return query.all()
@@ -916,8 +954,8 @@ def get_student_monitoring_data(db: Session, student_id: uuid.UUID, tutor_id: Op
             "completed_so_far": completed_so_far,
         }
 
-    recent_completed = get_student_completion_history(db, student_id, limit=10)
-    all_plans = list_student_plans(db, student_id)
+    recent_completed = get_student_completion_history(db, student_id, limit=10, tutor_id=tutor_id)
+    all_plans = list_student_plans(db, student_id, tutor_id=tutor_id)
     archived_plans = [p for p in all_plans if p.status == PlanStatus.ARCHIVED or (active_plan and p.id != active_plan.id)]
 
     return {
