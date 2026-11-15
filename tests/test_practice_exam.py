@@ -1,9 +1,14 @@
 import uuid
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.core.dependencies import SESSION_COOKIE_NAME
+from app.core.storage import get_upload_base_path
 from app.core.timezone import now_utc
+from app.services.auth_service import create_session
 
 from app.models.practice_exam import (
     PracticeExam,
@@ -453,3 +458,93 @@ def test_student_can_retake_completed_practice_exam(
     att2_2 = start_practice_attempt(db_session, student, exam_retake.id)
     assert att2_2.id != att2_1.id
     assert att2_2.status == "IN_PROGRESS"
+
+
+def test_practice_exam_booklet_download_authorization(
+    client: TestClient, db_session: Session, practice_setup
+):
+    setup = practice_setup
+    st_eligible = setup["st_riazi_11"]
+    st_ineligible = setup["st_tajrobi_11"]
+
+    # Create dummy pdf files on disk
+    upload_dir = get_upload_base_path() / "practice_booklets"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    pdf_file_1 = upload_dir / "dl_test_b1.pdf"
+    pdf_file_2 = upload_dir / "dl_test_b2.pdf"
+    pdf_file_1.write_bytes(b"%PDF-1.4 Mock Booklet 1")
+    pdf_file_2.write_bytes(b"%PDF-1.4 Mock Booklet 2")
+
+    exam = create_practice_exam(
+        db_session,
+        title="آزمون سنجش دسترسی دفترچه‌ها",
+        grade="11",
+        academic_track_id=setup["track_riazi"].id,
+        is_timed=False,
+    )
+    b1 = add_practice_exam_booklet(
+        db_session,
+        practice_exam_id=exam.id,
+        title="دفترچه ۱",
+        pdf_file_path="practice_booklets/dl_test_b1.pdf",
+        pdf_file_name="dl_test_b1.pdf",
+        question_start=1,
+        question_end=2,
+    )
+    b2 = add_practice_exam_booklet(
+        db_session,
+        practice_exam_id=exam.id,
+        title="دفترچه ۲",
+        pdf_file_path="practice_booklets/dl_test_b2.pdf",
+        pdf_file_name="dl_test_b2.pdf",
+        question_start=3,
+        question_end=4,
+    )
+
+    token_ineligible, _ = create_session(db_session, st_ineligible)
+    token_eligible, _ = create_session(db_session, st_eligible)
+
+    # 1. Ineligible / unassigned student receives 403 Forbidden
+    client.cookies.set(SESSION_COOKIE_NAME, token_ineligible)
+    res = client.get(f"/student/practice-exams/booklets/{b1.id}/download")
+    assert res.status_code == 403
+
+    # 2. Eligible student without an active attempt receives 403 Forbidden
+    client.cookies.set(SESSION_COOKIE_NAME, token_eligible)
+    res = client.get(f"/student/practice-exams/booklets/{b1.id}/download")
+    assert res.status_code == 403
+
+    # 3. Start attempt -> Booklet 1 is unlocked and downloadable
+    attempt = start_practice_attempt(db_session, st_eligible, exam.id)
+    res1 = client.get(f"/student/practice-exams/booklets/{b1.id}/download")
+    assert res1.status_code == 200
+    assert res1.content == b"%PDF-1.4 Mock Booklet 1"
+
+    # Also works with explicit attempt_id in query and path
+    res1_query = client.get(f"/student/practice-exams/booklets/{b1.id}/download?attempt_id={attempt.id}")
+    assert res1_query.status_code == 200
+    res1_path = client.get(f"/student/practice-exams/attempts/{attempt.id}/booklets/{b1.id}/download")
+    assert res1_path.status_code == 200
+
+    # 4. Booklet 2 is not yet unlocked -> 403 Forbidden
+    res2 = client.get(f"/student/practice-exams/booklets/{b2.id}/download")
+    assert res2.status_code == 403
+
+    # 5. Another student cannot access another student's attempt
+    st_other = create_student(
+        db_session, username="riazi11_other", full_name="Other Student", password="pass", grade="11"
+    )
+    assign_student_track(db_session, st_other.id, setup["track_riazi"].id)
+    token_other, _ = create_session(db_session, st_other)
+    client.cookies.set(SESSION_COOKIE_NAME, token_other)
+    res_spoof = client.get(f"/student/practice-exams/booklets/{b1.id}/download?attempt_id={attempt.id}")
+    assert res_spoof.status_code == 403
+
+    # 6. Once booklet 1 is completed/advanced, booklet 1 locks and booklet 2 becomes downloadable
+    client.cookies.set(SESSION_COOKIE_NAME, token_eligible)
+    submit_booklet_answers(db_session, st_eligible, attempt.id, b1.id, {}, advance_to_next=True)
+    res1_locked = client.get(f"/student/practice-exams/booklets/{b1.id}/download")
+    assert res1_locked.status_code == 403
+    res2_unlocked = client.get(f"/student/practice-exams/booklets/{b2.id}/download")
+    assert res2_unlocked.status_code == 200
+    assert res2_unlocked.content == b"%PDF-1.4 Mock Booklet 2"

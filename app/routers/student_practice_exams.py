@@ -81,6 +81,7 @@ def post_start_practice_exam(
 @router.get("/booklets/{booklet_id}/download")
 def download_student_practice_booklet(
     booklet_id: uuid.UUID,
+    attempt_id: Optional[uuid.UUID] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -88,12 +89,49 @@ def download_student_practice_booklet(
     if not booklet:
         raise HTTPException(status_code=404, detail="Booklet not found.")
 
-    # Authorization: check student eligibility for booklet's practice exam
+    # 1. Authorization: check student assignment/eligibility for booklet's practice exam
     exam = booklet.practice_exam
     has_direct_assignment = any(a.student_id == current_user.id for a in exam.assignments)
     is_eligible = current_user.grade == exam.grade and current_user.academic_track_id == exam.academic_track_id
     if not (has_direct_assignment or is_eligible):
         raise HTTPException(status_code=403, detail="You are not authorized to download this booklet.")
+
+    # 2. Check active attempt and enforce access isolation
+    if attempt_id:
+        attempt = db.query(StudentPracticeAttempt).filter(StudentPracticeAttempt.id == attempt_id).first()
+        if not attempt:
+            raise HTTPException(status_code=404, detail="Attempt not found.")
+        if attempt.student_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Unauthorized access to another student's attempt.")
+        if attempt.practice_exam_id != exam.id:
+            raise HTTPException(status_code=403, detail="Attempt does not belong to this practice exam.")
+        if attempt.status != "IN_PROGRESS":
+            raise HTTPException(status_code=403, detail="Exam attempt is not active.")
+    else:
+        attempt = (
+            db.query(StudentPracticeAttempt)
+            .filter(
+                StudentPracticeAttempt.student_id == current_user.id,
+                StudentPracticeAttempt.practice_exam_id == exam.id,
+                StudentPracticeAttempt.status == "IN_PROGRESS",
+            )
+            .order_by(StudentPracticeAttempt.started_at.desc())
+            .first()
+        )
+        if not attempt:
+            raise HTTPException(status_code=403, detail="Active exam attempt required to download booklet.")
+
+    # 3. Check that the requested booklet is unlocked for that attempt
+    try:
+        state = get_student_booklet_state(db, attempt.id, booklet.id)
+    except PracticeExamNotFoundError:
+        raise HTTPException(status_code=404, detail="Booklet or attempt not found.")
+
+    b_attempt = state.get("booklet_attempt")
+    if not b_attempt:
+        raise HTTPException(status_code=403, detail="Booklet is not unlocked for this attempt.")
+    if state.get("is_locked"):
+        raise HTTPException(status_code=403, detail="Booklet is locked.")
 
     abs_path = get_absolute_file_path(booklet.pdf_file_path)
     if not abs_path.exists():
@@ -103,6 +141,21 @@ def download_student_practice_booklet(
         path=str(abs_path),
         filename=booklet.pdf_file_name,
         media_type="application/pdf",
+    )
+
+
+@router.get("/attempts/{attempt_id}/booklets/{booklet_id}/download")
+def download_student_practice_booklet_with_attempt(
+    attempt_id: uuid.UUID,
+    booklet_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return download_student_practice_booklet(
+        booklet_id=booklet_id,
+        attempt_id=attempt_id,
+        db=db,
+        current_user=current_user,
     )
 
 
