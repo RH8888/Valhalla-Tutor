@@ -2,7 +2,7 @@
 import os
 import uuid
 from pathlib import Path
-from app.core.storage import get_upload_base_path
+from app.core.storage import get_upload_base_path, FilePathTraversalError
 
 
 def create_minimal_pdf_bytes(title: str, subtitle: str = "") -> bytes:
@@ -46,18 +46,36 @@ def create_minimal_pdf_bytes(title: str, subtitle: str = "") -> bytes:
 
 def save_demo_pdf(subfolder: str, filename_prefix: str, title: str, subtitle: str = "") -> tuple[str, str]:
     """Save demo PDF to upload directory and return (relative_path, display_name)."""
-    upload_base = get_upload_base_path()
-    folder_path = upload_base / subfolder
+    upload_base = get_upload_base_path().resolve()
+
+    if not subfolder or not isinstance(subfolder, str) or not subfolder.strip():
+        raise FilePathTraversalError("Invalid subfolder.")
+
+    subfolder_path = Path(subfolder.strip())
+    if subfolder_path.is_absolute() or ".." in subfolder_path.parts:
+        raise FilePathTraversalError("Path traversal or absolute paths are not permitted in subfolder.")
+
+    folder_path = (upload_base / subfolder_path).resolve()
+    if not folder_path.is_relative_to(upload_base):
+        raise FilePathTraversalError("Subfolder path escapes upload directory.")
+
     folder_path.mkdir(parents=True, exist_ok=True)
 
+    safe_prefix = os.path.basename(filename_prefix.strip()).replace("/", "").replace("\\", "")
+    if not safe_prefix or ".." in safe_prefix:
+        safe_prefix = "demo"
+
     file_uuid = uuid.uuid4().hex
-    storage_name = f"demo_{filename_prefix}_{file_uuid}.pdf"
-    target_path = folder_path / storage_name
+    storage_name = f"demo_{safe_prefix}_{file_uuid}.pdf"
+    target_path = (folder_path / storage_name).resolve()
+
+    if not target_path.is_relative_to(upload_base) or not target_path.is_relative_to(folder_path):
+        raise FilePathTraversalError("Target path escapes upload directory.")
 
     pdf_data = create_minimal_pdf_bytes(title, subtitle)
     with open(target_path, "wb") as f:
         f.write(pdf_data)
 
-    rel_path = f"{subfolder}/{storage_name}"
-    display_name = f"{filename_prefix}.pdf"
+    rel_path = str(target_path.relative_to(upload_base)).replace("\\", "/")
+    display_name = f"{safe_prefix}.pdf"
     return rel_path, display_name
