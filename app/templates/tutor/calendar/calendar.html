@@ -80,4 +80,36 @@
     <!-- Modal Container for Create/Edit/Details -->
     <div id="modal-container"></div>
 </div>
+
+<script>
+    function handleMeetingDragStart(event, meetingId) {
+        event.dataTransfer.setData('text/plain', meetingId);
+        event.dataTransfer.effectAllowed = 'move';
+    }
+    function handleMeetingDrop(event, targetDate, defaultTime) {
+        event.preventDefault();
+        const meetingId = event.dataTransfer.getData('text/plain');
+        if (!meetingId) return;
+        const time = defaultTime || prompt("Enter new start time for this day (HH:MM):", "16:00");
+        if (!time) return;
+        const formData = new FormData();
+        formData.append("target_date", targetDate);
+        formData.append("target_time", time);
+        formData.append("notify", "true");
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        formData.append("csrf_token", csrfToken);
+
+        fetch(`/tutor/meetings/${meetingId}/quick-move`, {
+            method: "POST",
+            headers: { "X-CSRF-Token": csrfToken, "HX-Request": "true" },
+            body: formData
+        }).then(res => {
+            if (res.ok) {
+                document.body.dispatchEvent(new CustomEvent('meetingChanged'));
+            } else {
+                res.text().then(t => alert("Could not move meeting: " + t));
+            }
+        });
+    }
+</script>
 {% endblock %}

@@ -19,7 +19,7 @@
                 {% set is_today = d_str == cal.today_date %}
                 {% set day_meetings = cal.meetings_by_date.get(d_str, []) %}
 
-                <div class="min-h-[110px] p-2 flex flex-col justify-between transition hover:bg-slate-50/70 relative group {% if not is_current_month %}bg-slate-50/50 text-slate-400{% else %}bg-white text-slate-800{% endif %}">
+                <div ondragover="event.preventDefault()" ondrop="handleMeetingDrop(event, '{{ d_str }}')" class="min-h-[110px] p-2 flex flex-col justify-between transition hover:bg-slate-50/70 relative group {% if not is_current_month %}bg-slate-50/50 text-slate-400{% else %}bg-white text-slate-800{% endif %}">
                     <div class="flex items-center justify-between mb-1">
                         <span class="text-xs font-bold inline-block px-1.5 py-0.5 rounded-full {% if is_today %}bg-indigo-600 text-white{% elif not is_current_month %}text-slate-400{% else %}text-slate-700{% endif %}">
                             {{ d.day }}
@@ -37,7 +37,9 @@
                     <div class="space-y-1 flex-1 overflow-y-auto max-h-[90px]">
                         {% for item in day_meetings %}
                             {% set m = item.meeting %}
-                            <div hx-get="/tutor/meetings/{{ m.id }}"
+                            <div draggable="true"
+                                 ondragstart="handleMeetingDragStart(event, '{{ m.id }}')"
+                                 hx-get="/tutor/meetings/{{ m.id }}"
                                  hx-target="#modal-container"
                                  class="cursor-pointer text-[11px] leading-tight px-1.5 py-1 rounded border flex items-center justify-between gap-1 transition shadow-2xs truncate {% if m.status == 'CANCELLED' %}bg-slate-100 border-slate-200 text-slate-400 line-through{% elif m.status == 'COMPLETED' %}bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100{% elif m.status == 'STUDENT_ABSENT' %}bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100{% elif m.meeting_type == 'ONLINE' %}bg-indigo-50 border-indigo-200 text-indigo-900 hover:bg-indigo-100{% else %}bg-cyan-50 border-cyan-200 text-cyan-900 hover:bg-cyan-100{% endif %}"
                                  title="{{ item.time_str }} - {{ m.student.full_name }} ({{ m.meeting_type }}, {{ m.status }})">

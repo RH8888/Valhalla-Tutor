@@ -45,6 +45,9 @@ from app.models.meeting import (
     TutorMeeting,
     MeetingRescheduleHistory,
     MeetingReminder,
+    ProposalStatus,
+    WeeklyScheduleProposal,
+    WeeklyScheduleItem,
 )
 
 __all__ = [
@@ -98,4 +101,7 @@ __all__ = [
     "TutorMeeting",
     "MeetingRescheduleHistory",
     "MeetingReminder",
+    "ProposalStatus",
+    "WeeklyScheduleProposal",
+    "WeeklyScheduleItem",
 ]

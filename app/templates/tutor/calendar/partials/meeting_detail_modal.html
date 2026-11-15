@@ -93,6 +93,31 @@
                 </div>
             {% endif %}
 
+            <!-- Quick Swap Accordion / Box -->
+            {% if meeting.status == 'SCHEDULED' %}
+                <form method="POST"
+                      action="/tutor/meetings/{{ meeting.id }}/quick-move"
+                      hx-post="/tutor/meetings/{{ meeting.id }}/quick-move"
+                      hx-target="#modal-container"
+                      class="p-2.5 rounded-lg border border-indigo-100 bg-indigo-50/40 space-y-2">
+                    <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-indigo-900 text-[11px]">⚡ Quick Swap Slot & Notify Student</span>
+                        <label class="inline-flex items-center space-x-1 text-[10px] text-slate-500">
+                            <input type="checkbox" name="notify" value="true" checked class="rounded border-slate-300 text-indigo-600">
+                            <span>Send in-app notice</span>
+                        </label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="date" name="target_date" value="{{ local_start.strftime('%Y-%m-%d') }}" required class="border rounded px-2 py-1 text-xs bg-white flex-1">
+                        <input type="time" name="target_time" value="{{ local_start.strftime('%H:%M') }}" required class="border rounded px-2 py-1 text-xs bg-white">
+                        <button type="submit" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-bold text-xs shadow-2xs">
+                            Swap
+                        </button>
+                    </div>
+                </form>
+            {% endif %}
+
             <!-- Reschedule Accordion -->
             {% if meeting.status == 'SCHEDULED' %}
                 <details class="group border border-slate-200 rounded-xl p-3 bg-slate-50/50">

@@ -26,15 +26,20 @@ def test_postgres_schema_and_session_lifecycle():
     Base.metadata.create_all(bind=pg_engine)
 
     from sqlalchemy.orm import Session
+    from app.core.security import hash_password
     with Session(pg_engine) as session:
-        # Provision tutor
+        # Create temp tutor
         test_uname = f"pg_tutor_{uuid.uuid4().hex[:8]}"
-        tutor = provision_tutor(
-            db=session,
+        tutor = User(
+            id=uuid.uuid4(),
             username=test_uname,
-            password="PgPassword123!",
+            hashed_password=hash_password("PgPassword123!"),
+            role=UserRole.TUTOR,
             full_name="Postgres Tutor",
+            timezone="Asia/Tehran",
         )
+        session.add(tutor)
+        session.commit()
         assert tutor.role == UserRole.TUTOR
 
         # Create session
@@ -48,7 +53,7 @@ def test_postgres_schema_and_session_lifecycle():
 
         # Cleanup
         session.delete(s_rec)
-        tutor.username = "headtutor"
+        session.delete(tutor)
         session.commit()
 
 
@@ -70,12 +75,17 @@ def test_postgres_meeting_and_reminders_lifecycle():
 
     pg_engine = create_engine(settings.sync_database_url)
     with Session(pg_engine) as session:
-        tutor = provision_tutor(
-            db=session,
+        from app.core.security import hash_password
+        tutor = User(
+            id=uuid.uuid4(),
             username=f"tutor_{uuid.uuid4().hex[:6]}",
-            password="PgPassword123!",
+            hashed_password=hash_password("PgPassword123!"),
+            role=UserRole.TUTOR,
             full_name="Postgres Meeting Tutor",
+            timezone="Asia/Tehran",
         )
+        session.add(tutor)
+        session.commit()
         student = create_student(
             db=session,
             username=f"stu_{uuid.uuid4().hex[:6]}",

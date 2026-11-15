@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}Review Proposed Schedule &mdash; Valhalla Tutor{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-5xl mx-auto">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <div class="flex items-center space-x-2">
+                <h1 class="text-2xl font-bold tracking-tight text-slate-900">Review Proposed Weekly Schedule</h1>
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold {% if proposal.status == 'APPROVED' %}bg-emerald-100 text-emerald-800{% else %}bg-amber-100 text-amber-800{% endif %}">
+                    {{ proposal.status }}
+                </span>
+            </div>
+            <p class="text-sm text-slate-500 mt-1">
+                Week starting <strong>{{ proposal.target_week_start.strftime('%A, %B %d, %Y') }}</strong> &bull; {{ proposal.items|length }} session(s) suggested
+            </p>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <a href="/tutor/scheduler" class="px-3.5 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 transition">
+                &larr; Reselect Students
+            </a>
+            {% if proposal.status != 'APPROVED' %}
+                <form method="POST" action="/tutor/scheduler/proposals/{{ proposal.id }}/regenerate" class="inline">
+                    <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                    <button type="submit" class="px-3.5 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 transition" title="Recalculate unadjusted slots without losing your manual edits">
+                        🔄 Regenerate Suggestions
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Proposed Items Table -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+            <span class="text-xs font-bold text-slate-700 uppercase tracking-wider">Proposed Sessions</span>
+            <span class="text-xs text-slate-500">Edit any time before approving</span>
+        </div>
+
+        <div class="divide-y divide-slate-100">
+            {% for item in proposal.items %}
+                <div class="p-4 hover:bg-slate-50/70 transition flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs">
+                    <div class="flex items-start space-x-4">
+                        <div class="min-w-[60px] text-center bg-slate-50 border border-slate-200 rounded-lg p-2">
+                            <span class="text-xs font-bold text-slate-600 uppercase block">{{ item.scheduled_date.strftime('%a') }}</span>
+                            <span class="text-sm font-extrabold text-slate-900 block">{{ item.scheduled_date.strftime('%d') }}</span>
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="font-bold text-slate-900 text-sm">{{ item.student.full_name }}</span>
+                                <span class="text-slate-500">@{{ item.student.username }}</span>
+                                {% if item.student.grade %}
+                                    <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-slate-100 text-slate-700">G{{ item.student.grade }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="flex items-center space-x-3 text-slate-600 mt-1">
+                                <span class="font-bold text-indigo-700 text-sm">{{ item.start_time_str }}</span>
+                                <span>&bull;</span>
+                                <span>{{ item.duration_minutes }} min</span>
+                                <span>&bull;</span>
+                                <span>{% if item.meeting_type == 'ONLINE' %}🌐 Online{% else %}📍 In-Person{% endif %}</span>
+                            </div>
+                            <div class="mt-1">
+                                {% if item.is_manually_adjusted %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                        ✏️ Manually adjusted by tutor
+                                    </span>
+                                {% elif item.preference_source and 'Learned' in item.preference_source %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                        🕒 {{ item.preference_source }}
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                                        {{ item.preference_source or 'Manual default' }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Edit Accordion / Action -->
+                    {% if proposal.status != 'APPROVED' %}
+                        <details class="border border-slate-200 rounded-lg p-2.5 bg-white text-xs">
+                            <summary class="cursor-pointer text-xs font-semibold text-indigo-600 hover:text-indigo-800 select-none">
+                                ✏️ Change Time / Details &darr;
+                            </summary>
+                            <form method="POST" action="/tutor/scheduler/proposals/{{ proposal.id }}/items/{{ item.id }}" class="mt-2.5 space-y-2">
+                                <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-slate-600">Date</label>
+                                        <input type="date" name="scheduled_date" value="{{ item.scheduled_date.strftime('%Y-%m-%d') }}" required class="w-full border rounded px-2 py-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-slate-600">Time</label>
+                                        <input type="time" name="start_time" value="{{ item.start_time_str }}" required class="w-full border rounded px-2 py-1 text-xs">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-slate-600">Duration (m)</label>
+                                        <input type="number" name="duration_minutes" value="{{ item.duration_minutes }}" min="15" max="360" required class="w-full border rounded px-2 py-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-slate-600">Type</label>
+                                        <select name="meeting_type" class="w-full border rounded px-2 py-1 text-xs">
+                                            <option value="ONLINE" {% if item.meeting_type == 'ONLINE' %}selected{% endif %}>Online</option>
+                                            <option value="OFFLINE" {% if item.meeting_type == 'OFFLINE' %}selected{% endif %}>In-Person</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="flex justify-end pt-1">
+                                    <button type="submit" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded text-xs transition">
+                                        Save Adjustment
+                                    </button>
+                                </div>
+                            </form>
+                        </details>
+                    {% else %}
+                        <span class="inline-flex items-center text-xs text-emerald-700 font-bold">
+                            ✓ Scheduled & Notified
+                        </span>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+
+        {% if proposal.status != 'APPROVED' %}
+            <div class="p-6 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="text-xs text-slate-500">
+                    <p class="font-bold text-slate-700">Notice:</p>
+                    <p>Approving will schedule these appointments on the calendar, setup in-app reminders, and privately notify each student in their chat conversation.</p>
+                </div>
+                <form method="POST" action="/tutor/scheduler/proposals/{{ proposal.id }}/approve">
+                    <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                    <button type="submit" onclick="return confirm('Approve and schedule this week? Private in-app messages will be delivered to each student.')" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition">
+                        ✓ Approve & Schedule Week
+                    </button>
+                </form>
+            </div>
+        {% else %}
+            <div class="p-4 bg-emerald-50 text-emerald-900 border-t border-emerald-100 text-xs font-bold text-center">
+                This schedule proposal has been approved. All sessions are live in the calendar and students have been notified.
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,8 +1,8 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import date, datetime, time
 from typing import TYPE_CHECKING, List, Optional
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, Uuid
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, String, Text, Time, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.timezone import now_utc
@@ -83,6 +83,10 @@ class TutorMeeting(Base):
     )
     reminder_minutes: Mapped[Optional[int]] = mapped_column(
         Integer,
+        nullable=True,
+    )
+    notification_sent_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
         nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
@@ -237,4 +241,143 @@ class MeetingReminder(Base):
     tutor: Mapped["User"] = relationship(
         "User",
         foreign_keys=[tutor_id],
+    )
+
+
+class ProposalStatus(str, enum.Enum):
+    DRAFT = "DRAFT"
+    APPROVED = "APPROVED"
+    DISCARDED = "DISCARDED"
+
+
+class WeeklyScheduleProposal(Base):
+    __tablename__ = "weekly_schedule_proposals"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tutor_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    target_week_start: Mapped[date] = mapped_column(
+        Date,
+        nullable=False,
+        index=True,
+    )
+    status: Mapped[ProposalStatus] = mapped_column(
+        String(20),
+        nullable=False,
+        default=ProposalStatus.DRAFT,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=now_utc,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=now_utc,
+        onupdate=now_utc,
+    )
+
+    tutor: Mapped["User"] = relationship(
+        "User",
+        foreign_keys=[tutor_id],
+    )
+    items: Mapped[List["WeeklyScheduleItem"]] = relationship(
+        "WeeklyScheduleItem",
+        back_populates="proposal",
+        cascade="all, delete-orphan",
+        order_by="WeeklyScheduleItem.scheduled_date.asc(), WeeklyScheduleItem.start_time_str.asc()",
+    )
+
+
+class WeeklyScheduleItem(Base):
+    __tablename__ = "weekly_schedule_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    proposal_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("weekly_schedule_proposals.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    student_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    scheduled_date: Mapped[date] = mapped_column(
+        Date,
+        nullable=False,
+    )
+    start_time_str: Mapped[str] = mapped_column(
+        String(10),
+        nullable=False,
+    )
+    duration_minutes: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=60,
+    )
+    meeting_type: Mapped[MeetingType] = mapped_column(
+        String(20),
+        nullable=False,
+        default=MeetingType.ONLINE,
+    )
+    meeting_url: Mapped[Optional[str]] = mapped_column(
+        String(1024),
+        nullable=True,
+    )
+    location: Mapped[Optional[str]] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+    notes: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    preference_source: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+    is_manually_adjusted: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+    meeting_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid,
+        ForeignKey("tutor_meetings.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=now_utc,
+    )
+
+    proposal: Mapped["WeeklyScheduleProposal"] = relationship(
+        "WeeklyScheduleProposal",
+        back_populates="items",
+    )
+    student: Mapped["User"] = relationship(
+        "User",
+        foreign_keys=[student_id],
+    )
+    meeting: Mapped[Optional["TutorMeeting"]] = relationship(
+        "TutorMeeting",
+        foreign_keys=[meeting_id],
     )
