@@ -254,6 +254,7 @@ def get_student_available_practice_exams(db: Session, student: User) -> List[Dic
         )
         if has_direct_assignment or is_eligible_by_profile:
             student_attempts = [att for att in exam.attempts if att.student_id == student.id]
+            student_attempts.sort(key=lambda a: a.started_at)
             exam.latest_attempt = student_attempts[-1] if student_attempts else None
             results.append(exam)
     return results

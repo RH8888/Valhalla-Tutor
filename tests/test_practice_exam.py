@@ -3,6 +3,8 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy.orm import Session
 
+from app.core.timezone import now_utc
+
 from app.models.practice_exam import (
     PracticeExam,
     PracticeExamBooklet,
@@ -384,3 +386,49 @@ def test_grade_and_track_restrictions_and_direct_assignment(db_session: Session,
     # Now the assigned student can start and take the exam
     att = start_practice_attempt(db_session, ineligible_track, exam.id)
     assert att.id is not None
+
+
+def test_student_can_retake_completed_practice_exam(
+    db_session: Session,
+    practice_setup: dict,
+):
+    setup = practice_setup
+    student = setup["st_riazi_11"]
+
+    exam = create_practice_exam(
+        db_session,
+        title="Retake Test Exam",
+        grade="11",
+        academic_track_id=setup["track_riazi"].id,
+        is_timed=False,
+    )
+    add_practice_exam_booklet(
+        db_session,
+        practice_exam_id=exam.id,
+        title="Booklet 1",
+        pdf_file_path="mock.pdf",
+        pdf_file_name="mock.pdf",
+        question_start=1,
+        question_end=5,
+    )
+
+    # 1. Start attempt 1
+    att1 = start_practice_attempt(db_session, student, exam.id)
+    assert att1.status == "IN_PROGRESS"
+
+    # Complete attempt 1
+    att1.status = "COMPLETED"
+    att1.completed_at = now_utc()
+    att1.overall_percentage = 85.0
+    db_session.commit()
+
+    # 2. Student starts exam again -> gets a new distinct in-progress attempt
+    att2 = start_practice_attempt(db_session, student, exam.id)
+    assert att2.id != att1.id
+    assert att2.status == "IN_PROGRESS"
+
+    # 3. Available exams list has latest_attempt pointing to the new attempt
+    avail = get_student_available_practice_exams(db_session, student)
+    user_exam = next(e for e in avail if e.id == exam.id)
+    assert user_exam.latest_attempt.id == att2.id
+    assert user_exam.latest_attempt.status == "IN_PROGRESS"
