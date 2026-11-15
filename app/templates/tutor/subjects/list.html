@@ -55,7 +55,7 @@
                                     <td class="px-4 py-3 text-slate-500 text-xs">{{ sub.description or '—' }}</td>
                                     <td class="px-4 py-3 text-right space-x-2">
                                         <a href="/tutor/subjects/{{ sub.id }}/edit" class="text-indigo-600 hover:text-indigo-900 font-medium text-xs">Edit</a>
-                                        <form method="POST" action="/tutor/subjects/{{ sub.id }}/delete" class="inline" onsubmit="return confirm('Delete subject {{ sub.name }}? This will fail if referenced by tracks, courses, or books.')">
+                                        <form method="POST" action="/tutor/subjects/{{ sub.id }}/delete" class="inline delete-subject-form" data-subject-name="{{ sub.name }}">
                                             <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                                             <button type="submit" class="text-red-600 hover:text-red-900 font-medium text-xs">Delete</button>
                                         </form>
@@ -110,5 +110,16 @@
         </div>
     </div>
 </div>
+<script>
+    document.addEventListener('submit', (e) => {
+        const form = e.target.closest('.delete-subject-form');
+        if (form) {
+            const name = form.dataset.subjectName || '';
+            if (!confirm(`Delete subject ${name}? This will fail if referenced by tracks, courses, or books.`)) {
+                e.preventDefault();
+            }
+        }
+    });
+</script>
 {% endblock %}
 

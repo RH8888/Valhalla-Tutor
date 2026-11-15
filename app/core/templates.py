@@ -7,6 +7,7 @@ from app.core.timezone import to_local
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+templates.env.autoescape = True
 
 
 def format_local_dt(dt: Optional[datetime], tz_name: Optional[str] = None, fmt: str = "%b %d, %Y %I:%M %p") -> str:

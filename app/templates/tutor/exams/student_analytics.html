@@ -121,7 +121,7 @@
                             </div>
                         </div>
                         {% if h.notes %}
-                            <p class="text-xs text-slate-500 italic bg-slate-50 p-2 rounded">Notes: {{ h.notes }}</p>
+                            <p class="text-xs text-slate-500 italic bg-slate-50 p-2 rounded">Notes: {{ h.notes | e }}</p>
                         {% endif %}
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
                             {% for sub in h.subjects %}

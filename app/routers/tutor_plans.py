@@ -1,3 +1,4 @@
+import html
 import uuid
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional
@@ -190,16 +191,24 @@ def get_resources_for_subject(
         )
 
     if courses:
-        course_options = "".join([f'<option value="{c.id}">{c.teacher_name} - {c.name}</option>' for c in courses])
+        course_options = "".join([
+            f'<option value="{html.escape(str(c.id), quote=True)}">{html.escape(c.teacher_name or "")} - {html.escape(c.name or "")}</option>'
+            for c in courses
+        ])
         course_select = f'<option value="">-- Select Course / Teacher --</option>{course_options}'
     else:
-        course_select = f'<option value="">-- No courses available for Grade {student_grade} --</option>'
+        escaped_grade = html.escape(str(student_grade))
+        course_select = f'<option value="">-- No courses available for Grade {escaped_grade} --</option>'
 
     if books:
-        book_options = "".join([f'<option value="{b.id}">{b.title} (Grade {b.grade})</option>' for b in books])
+        book_options = "".join([
+            f'<option value="{html.escape(str(b.id), quote=True)}">{html.escape(b.title or "")} (Grade {html.escape(str(b.grade) if b.grade else "")})</option>'
+            for b in books
+        ])
         book_select = f'<option value="">-- Select Book --</option>{book_options}'
     else:
-        book_select = f'<option value="">-- No books available for Grade {student_grade} --</option>'
+        escaped_grade = html.escape(str(student_grade))
+        book_select = f'<option value="">-- No books available for Grade {escaped_grade} --</option>'
 
     return HTMLResponse(
         f"""
@@ -226,7 +235,10 @@ def get_chapters_for_course(
 
     options = ['<option value="">-- Select Chapter --</option>']
     for ch in course.chapters:
-        options.append(f'<option value="{ch.id}" data-videos="{ch.video_count}">{ch.name} ({ch.video_count} videos)</option>')
+        ch_id = html.escape(str(ch.id), quote=True)
+        v_count = html.escape(str(ch.video_count), quote=True)
+        ch_name = html.escape(ch.name or "")
+        options.append(f'<option value="{ch_id}" data-videos="{v_count}">{ch_name} ({ch.video_count} videos)</option>')
     return HTMLResponse("".join(options))
 
 
@@ -247,7 +259,10 @@ def get_chapters_for_book(
 
     options = ['<option value="">-- Select Chapter --</option>']
     for ch in book.chapters:
-        options.append(f'<option value="{ch.id}" data-tests="{ch.test_count}">{ch.title} ({ch.test_count} tests)</option>')
+        ch_id = html.escape(str(ch.id), quote=True)
+        t_count = html.escape(str(ch.test_count), quote=True)
+        ch_title = html.escape(ch.title or "")
+        options.append(f'<option value="{ch_id}" data-tests="{t_count}">{ch_title} ({ch.test_count} tests)</option>')
     return HTMLResponse("".join(options))
 
 

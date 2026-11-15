@@ -53,7 +53,7 @@
                                 </div>
                             </div>
                             <div class="flex items-center space-x-2">
-                                <form method="POST" action="/tutor/books/chapters/{{ ch.id }}/delete" onsubmit="return confirm('Delete chapter {{ ch.title }}?')">
+                                <form method="POST" action="/tutor/books/chapters/{{ ch.id }}/delete" class="delete-chapter-form" data-chapter-title="{{ ch.title }}">
                                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                                     <input type="hidden" name="book_id" value="{{ book.id }}">
                                     <button type="submit" class="text-xs font-semibold text-red-600 hover:text-red-900 px-2 py-1 rounded border border-red-200 hover:bg-red-50">Delete</button>
@@ -119,7 +119,7 @@
             </form>
 
             <div class="pt-4 border-t border-slate-100">
-                <form method="POST" action="/tutor/books/{{ book.id }}/delete" onsubmit="return confirm('Delete book {{ book.title }} and all its chapters?')">
+                <form method="POST" action="/tutor/books/{{ book.id }}/delete" class="delete-book-form" data-book-title="{{ book.title }}">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                     <button type="submit" class="w-full py-2 border border-red-300 text-red-600 hover:bg-red-50 rounded text-xs font-semibold transition">
                         Delete Book
@@ -129,5 +129,24 @@
         </div>
     </div>
 </div>
+<script>
+    document.addEventListener('submit', (e) => {
+        const chapterForm = e.target.closest('.delete-chapter-form');
+        if (chapterForm) {
+            const title = chapterForm.dataset.chapterTitle || '';
+            if (!confirm(`Delete chapter ${title}?`)) {
+                e.preventDefault();
+            }
+            return;
+        }
+        const bookForm = e.target.closest('.delete-book-form');
+        if (bookForm) {
+            const title = bookForm.dataset.bookTitle || '';
+            if (!confirm(`Delete book ${title} and all its chapters?`)) {
+                e.preventDefault();
+            }
+        }
+    });
+</script>
 {% endblock %}
 
