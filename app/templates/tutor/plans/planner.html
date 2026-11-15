@@ -405,10 +405,76 @@
         let currentPlanId = '{{ plan.id }}';
         let currentSubjectId = '';
 
+        function populateSelectOptions(selectEl, source, defaultLabel) {
+            selectEl.replaceChildren();
+            if (!source) {
+                if (defaultLabel) {
+                    const defaultOpt = document.createElement('option');
+                    defaultOpt.value = '';
+                    defaultOpt.textContent = defaultLabel;
+                    selectEl.appendChild(defaultOpt);
+                }
+                return;
+            }
+            let options;
+            if (typeof source === 'string') {
+                const doc = new DOMParser().parseFromString(source, 'text/html');
+                options = doc.querySelectorAll('option');
+            } else if (source.querySelectorAll) {
+                options = source.querySelectorAll('option');
+            } else {
+                return;
+            }
+            options.forEach(opt => {
+                const newOpt = document.createElement('option');
+                newOpt.value = opt.value;
+                newOpt.textContent = opt.textContent;
+                if (opt.hasAttribute('data-videos')) {
+                    newOpt.setAttribute('data-videos', opt.getAttribute('data-videos'));
+                }
+                if (opt.hasAttribute('data-tests')) {
+                    newOpt.setAttribute('data-tests', opt.getAttribute('data-tests'));
+                }
+                if (opt.selected) newOpt.selected = true;
+                selectEl.appendChild(newOpt);
+            });
+        }
+
+        function setSafeEstimate(containerId, htmlString) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.replaceChildren();
+            if (!htmlString) return;
+
+            const doc = new DOMParser().parseFromString(htmlString, 'text/html');
+            const scripts = doc.querySelectorAll('script');
+            scripts.forEach(s => {
+                const text = s.textContent || '';
+                const match = text.match(/value\s*=\s*'(\d+)'/);
+                if (match) {
+                    const val = match[1];
+                    const isVideo = containerId === 'video-estimate-container';
+                    const prefix = isVideo ? 'video' : 'test';
+                    const dur = document.getElementById(`${prefix}-duration-input`);
+                    const isEst = document.getElementById(`${prefix}-is-estimated-input`);
+                    const estDur = document.getElementById(`${prefix}-estimated-duration-input`);
+                    if (dur) dur.value = val;
+                    if (isEst) isEst.value = 'true';
+                    if (estDur) estDur.value = val;
+                }
+            });
+
+            Array.from(doc.body.children).forEach(child => {
+                if (child.tagName.toLowerCase() !== 'script') {
+                    container.appendChild(document.importNode(child, true));
+                }
+            });
+        }
+
         function openAddTaskModal(isoDate, subjectId, subjectName, dateFormatted) {
             currentSubjectId = subjectId;
-            document.getElementById('modal-title').innerText = 'Add Task &bull; ' + subjectName;
-            document.getElementById('modal-subtitle').innerHTML = dateFormatted;
+            document.getElementById('modal-title').textContent = 'Add Task • ' + subjectName;
+            document.getElementById('modal-subtitle').textContent = (dateFormatted || '').replace(/&bull;/g, '•');
 
             document.getElementById('video-scheduled-date').value = isoDate;
             document.getElementById('video-subject-id').value = subjectId;
@@ -419,19 +485,18 @@
             document.getElementById('custom-scheduled-date').value = isoDate;
             document.getElementById('custom-subject-id').value = subjectId;
 
-            // Load courses and books for this subject via HTMX / fetch
+            // Load courses and books for this subject via fetch
             fetch(`/tutor/plans/${currentPlanId}/options/resources/${subjectId}`)
                 .then(r => r.text())
                 .then(html => {
-                    const temp = document.createElement('div');
-                    temp.innerHTML = html;
-                    document.getElementById('course-select').innerHTML = temp.querySelector('#course-options-container').innerHTML;
-                    document.getElementById('book-select').innerHTML = temp.querySelector('#book-options-container').innerHTML;
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
+                    populateSelectOptions(document.getElementById('course-select'), doc.querySelector('#course-options-container'));
+                    populateSelectOptions(document.getElementById('book-select'), doc.querySelector('#book-options-container'));
                 });
 
             // Reset estimate containers and duration inputs
-            document.getElementById('video-estimate-container').innerHTML = '';
-            document.getElementById('test-estimate-container').innerHTML = '';
+            document.getElementById('video-estimate-container').replaceChildren();
+            document.getElementById('test-estimate-container').replaceChildren();
             document.getElementById('video-duration-input').value = '';
             document.getElementById('test-duration-input').value = '';
 
@@ -467,26 +532,26 @@
 
         function fetchCourseChapters(courseId) {
             if (!courseId) {
-                document.getElementById('course-chapter-select').innerHTML = '<option value="">-- Select Chapter --</option>';
+                populateSelectOptions(document.getElementById('course-chapter-select'), null, '-- Select Chapter --');
                 return;
             }
             fetch(`/tutor/plans/${currentPlanId}/options/course-chapters/${courseId}`)
                 .then(r => r.text())
                 .then(html => {
-                    document.getElementById('course-chapter-select').innerHTML = html;
+                    populateSelectOptions(document.getElementById('course-chapter-select'), html);
                     recalcVideoEstimate();
                 });
         }
 
         function fetchBookChapters(bookId) {
             if (!bookId) {
-                document.getElementById('book-chapter-select').innerHTML = '<option value="">-- Select Chapter --</option>';
+                populateSelectOptions(document.getElementById('book-chapter-select'), null, '-- Select Chapter --');
                 return;
             }
             fetch(`/tutor/plans/${currentPlanId}/options/book-chapters/${bookId}`)
                 .then(r => r.text())
                 .then(html => {
-                    document.getElementById('book-chapter-select').innerHTML = html;
+                    populateSelectOptions(document.getElementById('book-chapter-select'), html);
                     recalcTestEstimate();
                 });
         }
@@ -501,7 +566,7 @@
             fetch(`/tutor/plans/${currentPlanId}/estimate-video?course_id=${courseId}&video_count=${videoCount}`)
                 .then(r => r.text())
                 .then(html => {
-                    document.getElementById('video-estimate-container').innerHTML = html;
+                    setSafeEstimate('video-estimate-container', html);
                 });
         }
 
@@ -514,7 +579,7 @@
             fetch(`/tutor/plans/${currentPlanId}/estimate-test?book_id=${bookId}&test_start=${startNum}&test_end=${endNum}`)
                 .then(r => r.text())
                 .then(html => {
-                    document.getElementById('test-estimate-container').innerHTML = html;
+                    setSafeEstimate('test-estimate-container', html);
                 });
         }
     </script>
