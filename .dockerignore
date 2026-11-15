@@ -1,0 +1,58 @@
+# Version control
+.git
+.gitignore
+
+# Environment files, secrets and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+*credentials*
+*secret*
+
+# Database files and backups
+backups/
+postgres_data/
+*.db
+*.sqlite
+*.sqlite3
+*.sql
+*.dump
+*.bak
+
+# Local uploads and temporary storage
+uploads/
+
+# Python caches and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Testing, documentation, and development artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+tests/
+docs/
+
+# Logs and temporary files
+*.log
+tmp/
+temp/
+
+# IDE and OS metadata
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
