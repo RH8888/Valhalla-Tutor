@@ -70,14 +70,13 @@ def post_login(
     redirect_url = "/tutor/students" if user.role == UserRole.TUTOR else "/student/dashboard"
     resp = RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
-    secure_cookie = settings.ENVIRONMENT == "production"
     resp.set_cookie(
         key=SESSION_COOKIE_NAME,
         value=raw_token,
         max_age=14 * 24 * 3600,
         httponly=True,
         samesite="lax",
-        secure=secure_cookie,
+        secure=True,
         path="/",
     )
     return resp
@@ -94,5 +93,11 @@ def post_logout(
         revoke_session(db, token)
 
     resp = RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
-    resp.delete_cookie(key=SESSION_COOKIE_NAME, path="/")
+    resp.delete_cookie(
+        key=SESSION_COOKIE_NAME,
+        path="/",
+        httponly=True,
+        samesite="lax",
+        secure=True,
+    )
     return resp
