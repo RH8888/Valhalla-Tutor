@@ -74,6 +74,31 @@ def save_uploaded_file(
     return relative_path, original_filename
 
 
+class FilePathTraversalError(HTTPException, ValueError):
+    def __init__(self, detail: str = "Path traversal or absolute paths are not permitted."):
+        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+
+
 def get_absolute_file_path(relative_path: str) -> Path:
-    return get_upload_base_path() / relative_path
+    if not relative_path or not isinstance(relative_path, str) or not relative_path.strip():
+        raise FilePathTraversalError("Invalid file path.")
+
+    if "\x00" in relative_path:
+        raise FilePathTraversalError("Invalid file path.")
+
+    rel_p = Path(relative_path.strip())
+
+    if rel_p.is_absolute() or rel_p.anchor or rel_p.drive or rel_p.root:
+        raise FilePathTraversalError("Path traversal or absolute paths are not permitted.")
+
+    if ".." in rel_p.parts:
+        raise FilePathTraversalError("Path traversal or absolute paths are not permitted.")
+
+    base = get_upload_base_path().resolve()
+    target = (base / rel_p).resolve()
+
+    if target == base or not target.is_relative_to(base):
+        raise FilePathTraversalError("Path traversal or absolute paths are not permitted.")
+
+    return target
 
