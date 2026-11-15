@@ -239,3 +239,37 @@ def test_quick_move_meeting_and_notification(
     conv = get_conversation_by_student_id(db_session, student_user.id)
     assert conv is not None
     assert any("Session Rescheduled" in m.content for m in conv.messages)
+
+
+def test_proposal_strictly_respects_tutor_availability_window(
+    db_session: Session,
+    tutor_user: User,
+    student_user: User,
+):
+    target_sat = date(2026, 12, 12)
+    # Tutor is only available from 15:00 to 18:00
+    proposal = generate_weekly_proposal(
+        db=db_session,
+        tutor=tutor_user,
+        target_week_start=target_sat,
+        student_selections=[
+            {
+                "student_id": student_user.id,
+                "days": ["saturday", "sunday"],
+                "duration_minutes": 60,
+                "meeting_type": MeetingType.ONLINE,
+            }
+        ],
+        avail_start_time_str="15:00",
+        avail_end_time_str="18:00",
+    )
+    assert proposal.avail_start_time_str == "15:00"
+    assert proposal.avail_end_time_str == "18:00"
+
+    for item in proposal.items:
+        h, m = map(int, item.start_time_str.split(":"))
+        start_min = h * 60 + m
+        end_min = start_min + item.duration_minutes
+        # 15:00 is 900 minutes, 18:00 is 1080 minutes
+        assert start_min >= 15 * 60, f"Proposed start {item.start_time_str} is earlier than available 15:00"
+        assert end_min <= 18 * 60, f"Proposed end {end_min} exceeds available 18:00"

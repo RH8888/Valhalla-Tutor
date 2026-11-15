@@ -103,16 +103,33 @@ def find_available_slot(
     duration_minutes: int,
     tz_name: str,
     booked_slots: List[Tuple[datetime, datetime]],
+    avail_start_time: time = time(9, 0),
+    avail_end_time: time = time(21, 0),
 ) -> Optional[time]:
     """
-    Find conflict-free time slot in tutor's working window (09:00 - 21:00).
-    Starts with preferred time, then branches out by nearest hour distance.
+    Find conflict-free time slot strictly within the tutor's availability window [avail_start_time, avail_end_time].
+    Starts testing from preferred time, then branches out by nearest hour distance.
+    Ensures slot start >= avail_start_time and slot end <= avail_end_time.
     """
     start_h = preferred_time_obj.hour
-    candidate_hours = sorted(range(9, 21), key=lambda h: abs(h - start_h))
+    avail_h_start = avail_start_time.hour
+    avail_h_end = avail_end_time.hour
+    if avail_h_end <= avail_h_start:
+        avail_h_end = avail_h_start + 1
+
+    candidate_hours = sorted(range(avail_h_start, avail_h_end + 1), key=lambda h: abs(h - start_h))
+
+    avail_start_dt = datetime.combine(target_date, avail_start_time)
+    avail_end_dt = datetime.combine(target_date, avail_end_time)
 
     for h in candidate_hours:
         candidate_time = time(h, preferred_time_obj.minute)
+        candidate_start_dt = datetime.combine(target_date, candidate_time)
+        candidate_end_dt = candidate_start_dt + timedelta(minutes=duration_minutes)
+
+        if candidate_start_dt < avail_start_dt or candidate_end_dt > avail_end_dt:
+            continue
+
         utc_start, utc_end = calculate_utc_datetimes(target_date, candidate_time, duration_minutes, tz_name)
 
         # Check existing database meetings
@@ -145,24 +162,24 @@ def generate_weekly_proposal(
     tutor: User,
     target_week_start: date,
     student_selections: List[dict],
+    avail_start_time_str: str = "09:00",
+    avail_end_time_str: str = "21:00",
 ) -> WeeklyScheduleProposal:
     """
     Generate a semi-automatic weekly schedule proposal in DRAFT state.
-    student_selections format: [
-        {
-            "student_id": uuid.UUID,
-            "days": ["saturday", "tuesday"],
-            "duration_minutes": 60,
-            "meeting_type": MeetingType.ONLINE,
-            "meeting_url": Optional[str],
-            "location": Optional[str],
-        }
-    ]
+    Respects the tutor's specified availability window [avail_start_time_str, avail_end_time_str].
     """
+    sh, sm = map(int, avail_start_time_str.strip().split(":"))
+    eh, em = map(int, avail_end_time_str.strip().split(":"))
+    avail_start_time = time(sh, sm)
+    avail_end_time = time(eh, em)
+
     proposal = WeeklyScheduleProposal(
         tutor_id=tutor.id,
         target_week_start=target_week_start,
         status=ProposalStatus.DRAFT,
+        avail_start_time_str=avail_start_time_str,
+        avail_end_time_str=avail_end_time_str,
     )
     db.add(proposal)
     db.flush()
@@ -183,7 +200,7 @@ def generate_weekly_proposal(
             pref_h, pref_m = map(int, pref_time_str.split(":"))
             pref_time = time(pref_h, pref_m)
         else:
-            pref_time = time(16, 0)
+            pref_time = time(max(sh, 16), 0)
             pref_source = "Manual selection (first two weeks / insufficient history)"
 
         for day_name in days:
@@ -198,6 +215,8 @@ def generate_weekly_proposal(
                 duration_minutes=dur,
                 tz_name=tutor.timezone,
                 booked_slots=booked_slots,
+                avail_start_time=avail_start_time,
+                avail_end_time=avail_end_time,
             )
             final_time = assigned_time or pref_time
             time_str = final_time.strftime("%H:%M")
@@ -264,6 +283,11 @@ def regenerate_unadjusted_items(
     if not proposal or proposal.tutor_id != tutor.id:
         raise SchedulerError("Proposal not found.")
 
+    sh, sm = map(int, (proposal.avail_start_time_str or "09:00").split(":"))
+    eh, em = map(int, (proposal.avail_end_time_str or "21:00").split(":"))
+    avail_start = time(sh, sm)
+    avail_end = time(eh, em)
+
     # Collect booked slots from manually adjusted items and existing DB meetings
     booked_slots: List[Tuple[datetime, datetime]] = []
     for item in proposal.items:
@@ -293,6 +317,8 @@ def regenerate_unadjusted_items(
             duration_minutes=item.duration_minutes,
             tz_name=tutor.timezone,
             booked_slots=booked_slots,
+            avail_start_time=avail_start,
+            avail_end_time=avail_end,
         )
         final_time = assigned or pref_time
         item.start_time_str = final_time.strftime("%H:%M")

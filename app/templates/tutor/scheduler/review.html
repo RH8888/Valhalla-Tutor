@@ -13,7 +13,7 @@
                 </span>
             </div>
             <p class="text-sm text-slate-500 mt-1">
-                Week starting <strong>{{ proposal.target_week_start.strftime('%A, %B %d, %Y') }}</strong> &bull; {{ proposal.items|length }} session(s) suggested
+                Week starting <strong>{{ proposal.target_week_start.strftime('%A, %B %d, %Y') }}</strong> &bull; {{ proposal.items|length }} session(s) suggested &bull; Availability window: <span class="font-bold text-indigo-700">{{ proposal.avail_start_time_str or '09:00' }} &ndash; {{ proposal.avail_end_time_str or '21:00' }}</span>
             </p>
         </div>
 

@@ -124,11 +124,16 @@ async def post_generate_schedule(
             "location": str(loc) if loc else None,
         })
 
+    avail_start = str(form_data.get("avail_start_time") or "09:00").strip()
+    avail_end = str(form_data.get("avail_end_time") or "21:00").strip()
+
     proposal = generate_weekly_proposal(
         db=db,
         tutor=current_user,
         target_week_start=target_week,
         student_selections=student_selections,
+        avail_start_time_str=avail_start,
+        avail_end_time_str=avail_end,
     )
     return RedirectResponse(url=f"/tutor/scheduler/proposals/{proposal.id}", status_code=303)
 

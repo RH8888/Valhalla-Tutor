@@ -275,6 +275,16 @@ class WeeklyScheduleProposal(Base):
         default=ProposalStatus.DRAFT,
         index=True,
     )
+    avail_start_time_str: Mapped[Optional[str]] = mapped_column(
+        String(10),
+        nullable=True,
+        default="09:00",
+    )
+    avail_end_time_str: Mapped[Optional[str]] = mapped_column(
+        String(10),
+        nullable=True,
+        default="21:00",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
