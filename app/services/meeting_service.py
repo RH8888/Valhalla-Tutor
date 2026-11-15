@@ -117,6 +117,7 @@ def create_meeting(
     location: Optional[str] = None,
     notes: Optional[str] = None,
     reminder_minutes: Optional[int] = None,
+    commit: bool = True,
 ) -> TutorMeeting:
     """Create a new tutor meeting with validation and overlap check."""
     if duration_minutes <= 0:
@@ -162,8 +163,11 @@ def create_meeting(
     db.flush()
 
     _sync_meeting_reminder(db, meeting)
-    db.commit()
-    db.refresh(meeting)
+    if commit:
+        db.commit()
+        db.refresh(meeting)
+    else:
+        db.flush()
     return meeting
 
 

@@ -449,55 +449,70 @@ def approve_weekly_proposal(
 
     if proposal.status == ProposalStatus.APPROVED:
         # Already approved, return existing meetings
-        return [item.meeting for item in proposal.items if item.meeting]
+        return [item.meeting or db.get(TutorMeeting, item.meeting_id) for item in proposal.items if (item.meeting or item.meeting_id)]
 
     created_meetings: List[TutorMeeting] = []
 
-    for item in proposal.items:
-        h, m = map(int, item.start_time_str.split(":"))
-        start_time_obj = time(h, m)
+    try:
+        for item in proposal.items:
+            # Re-use existing meeting if already created to prevent duplicates on retry
+            meeting = item.meeting
+            if not meeting and item.meeting_id:
+                meeting = db.get(TutorMeeting, item.meeting_id)
 
-        meeting = create_meeting(
-            db=db,
-            tutor=tutor,
-            student_id=item.student_id,
-            meeting_date=item.scheduled_date,
-            start_time_obj=start_time_obj,
-            duration_minutes=item.duration_minutes,
-            meeting_type=item.meeting_type,
-            meeting_url=item.meeting_url,
-            location=item.location,
-            notes=item.notes,
-            reminder_minutes=15,
-        )
-        item.meeting_id = meeting.id
-        created_meetings.append(meeting)
+            if not meeting:
+                h, m = map(int, item.start_time_str.split(":"))
+                start_time_obj = time(h, m)
 
-        # Send private notification message to student
-        student = db.get(User, item.student_id)
-        if student:
-            conv = get_or_create_conversation(db, student_id=student.id, tutor_id=tutor.id)
-            loc_or_url = ""
-            if item.meeting_type == MeetingType.ONLINE and item.meeting_url:
-                loc_or_url = f"\nMeeting Link: {item.meeting_url}"
-            elif item.meeting_type == MeetingType.OFFLINE and item.location:
-                loc_or_url = f"\nLocation: {item.location}"
+                meeting = create_meeting(
+                    db=db,
+                    tutor=tutor,
+                    student_id=item.student_id,
+                    meeting_date=item.scheduled_date,
+                    start_time_obj=start_time_obj,
+                    duration_minutes=item.duration_minutes,
+                    meeting_type=item.meeting_type,
+                    meeting_url=item.meeting_url,
+                    location=item.location,
+                    notes=item.notes,
+                    reminder_minutes=15,
+                    commit=False,
+                )
+                item.meeting_id = meeting.id
 
-            msg_content = (
-                f"📅 Weekly Session Scheduled\n"
-                f"Hello {student.full_name}, your session has been scheduled:\n"
-                f"• Date: {item.scheduled_date.strftime('%A, %B %d, %Y')}\n"
-                f"• Time: {item.start_time_str} ({item.duration_minutes} minutes)\n"
-                f"• Type: {'🌐 Online' if item.meeting_type == MeetingType.ONLINE else '📍 In-Person'}"
-                f"{loc_or_url}"
-            )
-            send_message(db, conv.id, sender=tutor, content=msg_content)
-            meeting.notification_sent_at = now_utc()
+            created_meetings.append(meeting)
 
-    proposal.status = ProposalStatus.APPROVED
-    proposal.updated_at = now_utc()
-    db.commit()
-    return created_meetings
+            # Send private notification message to student if not yet sent
+            if not meeting.notification_sent_at:
+                student = db.get(User, item.student_id)
+                if student:
+                    conv = get_or_create_conversation(
+                        db, student_id=student.id, tutor_id=tutor.id, commit=False
+                    )
+                    loc_or_url = ""
+                    if item.meeting_type == MeetingType.ONLINE and item.meeting_url:
+                        loc_or_url = f"\nMeeting Link: {item.meeting_url}"
+                    elif item.meeting_type == MeetingType.OFFLINE and item.location:
+                        loc_or_url = f"\nLocation: {item.location}"
+
+                    msg_content = (
+                        f"📅 Weekly Session Scheduled\n"
+                        f"Hello {student.full_name}, your session has been scheduled:\n"
+                        f"• Date: {item.scheduled_date.strftime('%A, %B %d, %Y')}\n"
+                        f"• Time: {item.start_time_str} ({item.duration_minutes} minutes)\n"
+                        f"• Type: {'🌐 Online' if item.meeting_type == MeetingType.ONLINE else '📍 In-Person'}"
+                        f"{loc_or_url}"
+                    )
+                    send_message(db, conv.id, sender=tutor, content=msg_content, commit=False)
+                    meeting.notification_sent_at = now_utc()
+
+        proposal.status = ProposalStatus.APPROVED
+        proposal.updated_at = now_utc()
+        db.commit()
+        return created_meetings
+    except Exception:
+        db.rollback()
+        raise
 
 
 def quick_move_meeting(

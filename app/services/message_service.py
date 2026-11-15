@@ -30,6 +30,7 @@ def get_or_create_conversation(
     db: Session,
     student_id: uuid.UUID,
     tutor_id: Optional[uuid.UUID] = None,
+    commit: bool = True,
 ) -> Conversation:
     """Retrieve existing conversation for student, or create a new one."""
     conv = db.execute(
@@ -53,8 +54,11 @@ def get_or_create_conversation(
         updated_at=now_utc(),
     )
     db.add(conv)
-    db.commit()
-    db.refresh(conv)
+    if commit:
+        db.commit()
+        db.refresh(conv)
+    else:
+        db.flush()
     return conv
 
 
@@ -81,6 +85,7 @@ def send_message(
     conversation_id: uuid.UUID,
     sender: User,
     content: str,
+    commit: bool = True,
 ) -> Message:
     """Validate and send a text message in the conversation."""
     content_stripped = (content or "").strip()
@@ -113,8 +118,11 @@ def send_message(
     conv.updated_at = msg_now
 
     db.add(message)
-    db.commit()
-    db.refresh(message)
+    if commit:
+        db.commit()
+        db.refresh(message)
+    else:
+        db.flush()
     return message
 
 
