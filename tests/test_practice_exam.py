@@ -395,40 +395,61 @@ def test_student_can_retake_completed_practice_exam(
     setup = practice_setup
     student = setup["st_riazi_11"]
 
-    exam = create_practice_exam(
+    # Exam 1: allow_retake=False (default)
+    exam_no_retake = create_practice_exam(
         db_session,
-        title="Retake Test Exam",
+        title="No Retake Exam",
         grade="11",
         academic_track_id=setup["track_riazi"].id,
         is_timed=False,
+        allow_retake=False,
     )
     add_practice_exam_booklet(
         db_session,
-        practice_exam_id=exam.id,
+        practice_exam_id=exam_no_retake.id,
         title="Booklet 1",
-        pdf_file_path="mock.pdf",
-        pdf_file_name="mock.pdf",
+        pdf_file_path="mock1.pdf",
+        pdf_file_name="mock1.pdf",
         question_start=1,
         question_end=5,
     )
 
-    # 1. Start attempt 1
-    att1 = start_practice_attempt(db_session, student, exam.id)
-    assert att1.status == "IN_PROGRESS"
-
-    # Complete attempt 1
+    # Start and complete attempt 1
+    att1 = start_practice_attempt(db_session, student, exam_no_retake.id)
     att1.status = "COMPLETED"
     att1.completed_at = now_utc()
-    att1.overall_percentage = 85.0
     db_session.commit()
 
-    # 2. Student starts exam again -> gets a new distinct in-progress attempt
-    att2 = start_practice_attempt(db_session, student, exam.id)
-    assert att2.id != att1.id
-    assert att2.status == "IN_PROGRESS"
+    # Retake attempt on exam_no_retake is forbidden
+    with pytest.raises(PracticeExamValidationError) as exc:
+        start_practice_attempt(db_session, student, exam_no_retake.id)
+    assert "Retakes are not permitted" in str(exc.value)
 
-    # 3. Available exams list has latest_attempt pointing to the new attempt
-    avail = get_student_available_practice_exams(db_session, student)
-    user_exam = next(e for e in avail if e.id == exam.id)
-    assert user_exam.latest_attempt.id == att2.id
-    assert user_exam.latest_attempt.status == "IN_PROGRESS"
+    # Exam 2: allow_retake=True (permitted by tutor)
+    exam_retake = create_practice_exam(
+        db_session,
+        title="Retake Allowed Exam",
+        grade="11",
+        academic_track_id=setup["track_riazi"].id,
+        is_timed=False,
+        allow_retake=True,
+    )
+    add_practice_exam_booklet(
+        db_session,
+        practice_exam_id=exam_retake.id,
+        title="Booklet 1",
+        pdf_file_path="mock2.pdf",
+        pdf_file_name="mock2.pdf",
+        question_start=1,
+        question_end=5,
+    )
+
+    att2_1 = start_practice_attempt(db_session, student, exam_retake.id)
+    att2_1.status = "COMPLETED"
+    att2_1.completed_at = now_utc()
+    db_session.commit()
+
+    # Retake succeeds when allow_retake is True
+    att2_2 = start_practice_attempt(db_session, student, exam_retake.id)
+    assert att2_2.id != att2_1.id
+    assert att2_2.status == "IN_PROGRESS"

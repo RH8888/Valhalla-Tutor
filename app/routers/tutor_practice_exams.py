@@ -95,6 +95,7 @@ def post_create_practice_exam(
     academic_track_id: uuid.UUID = Form(...),
     description: Optional[str] = Form(None),
     is_timed: bool = Form(True),
+    allow_retake: bool = Form(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
@@ -107,6 +108,7 @@ def post_create_practice_exam(
             academic_track_id=academic_track_id,
             description=description,
             is_timed=is_timed,
+            allow_retake=allow_retake,
         )
         return RedirectResponse(
             url=f"/tutor/practice-exams/{exam.id}?msg=Practice exam created. Now upload PDF booklets and configure questions.",

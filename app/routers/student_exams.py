@@ -3,10 +3,12 @@ import uuid
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
-from sqlalchemy.orm import Session
+from sqlalchemy import desc
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_session, get_current_user, require_student, verify_csrf_token
+from app.models.practice_exam import StudentPracticeAttempt
 from app.core.storage import (
     REPORT_CARD_ALLOWED_EXTENSIONS,
     REPORT_CARD_ALLOWED_MIMES,
@@ -51,12 +53,23 @@ def get_student_exams_page(
     current_session: UserSession = Depends(get_current_session),
 ):
     exams_data = get_student_available_exams(db, current_user)
+    practice_history = (
+        db.query(StudentPracticeAttempt)
+        .options(joinedload(StudentPracticeAttempt.practice_exam))
+        .filter(
+            StudentPracticeAttempt.student_id == current_user.id,
+            StudentPracticeAttempt.status == "COMPLETED",
+        )
+        .order_by(desc(StudentPracticeAttempt.completed_at))
+        .all()
+    )
     return templates.TemplateResponse(
         request=request,
         name="student/exams/list.html",
         context={
             "upcoming": exams_data["upcoming"],
             "past": exams_data["past"],
+            "practice_history": practice_history,
             "track_assigned": exams_data["track_assigned"],
             "msg": msg,
             "err": err,

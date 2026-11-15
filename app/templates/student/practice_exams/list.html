@@ -18,10 +18,7 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         {% for ex in exams %}
-        {% set user_attempt = none %}
-        {% for att in ex.attempts %}
-        {% if att.student_id == current_user.id %}{% set user_attempt = att %}{% endif %}
-        {% endfor %}
+        {% set user_attempt = ex.latest_attempt %}
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between space-y-4">
             <div>
                 <div class="flex items-center justify-between">
@@ -53,6 +50,7 @@
                         class="inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition">
                         Review Results &rarr;
                     </a>
+                    {% if ex.allow_retake %}
                     <form method="POST" action="/student/practice-exams/{{ ex.id }}/start" class="inline">
                         <input type="hidden" name="csrf_token"
                             value="{{ current_session.csrf_token if current_session else '' }}">
@@ -62,6 +60,7 @@
                             🔄 Retake Exam
                         </button>
                     </form>
+                    {% endif %}
                 </div>
                 {% elif user_attempt and user_attempt.status == 'IN_PROGRESS' %}
                 <div class="text-xs">

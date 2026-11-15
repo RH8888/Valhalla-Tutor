@@ -40,6 +40,7 @@ def create_practice_exam(
     academic_track_id: uuid.UUID,
     description: Optional[str] = None,
     is_timed: bool = True,
+    allow_retake: bool = False,
 ) -> PracticeExam:
     clean_title = (title or "").strip()
     if not clean_title:
@@ -59,6 +60,7 @@ def create_practice_exam(
         grade=clean_grade,
         academic_track_id=track.id,
         is_timed=is_timed,
+        allow_retake=allow_retake,
         is_active=True,
     )
     db.add(exam)
@@ -289,6 +291,19 @@ def start_practice_attempt(
     )
     if existing:
         return existing
+
+    # If already completed and retakes are not permitted, forbid starting a new attempt
+    completed_attempt = (
+        db.query(StudentPracticeAttempt)
+        .filter(
+            StudentPracticeAttempt.student_id == student.id,
+            StudentPracticeAttempt.practice_exam_id == exam.id,
+            StudentPracticeAttempt.status == "COMPLETED",
+        )
+        .first()
+    )
+    if completed_attempt and not getattr(exam, "allow_retake", False):
+        raise PracticeExamValidationError("Retakes are not permitted for this practice exam. You may review your completed results.")
 
     attempt = StudentPracticeAttempt(
         student_id=student.id,
