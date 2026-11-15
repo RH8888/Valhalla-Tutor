@@ -14,6 +14,7 @@ from app.models.session import UserSession
 from app.models.user import User, UserRole
 from app.services.message_service import (
     ConversationNotFoundError,
+    MessagePermissionError,
     MessageValidationError,
     get_conversation_by_id,
     get_or_create_conversation,
@@ -42,7 +43,7 @@ def get_tutor_inbox(
     current_session: UserSession = Depends(get_current_session),
 ):
     """Tutor messaging inbox view with conversations list and active chat pane."""
-    conversations = list_tutor_conversations(db, search_query=q)
+    conversations = list_tutor_conversations(db, tutor_id=current_user.id, search_query=q)
     all_students = list_students(db, include_inactive=False)
 
     active_conv = None
@@ -57,9 +58,13 @@ def get_tutor_inbox(
     if target_student_id:
         active_student = db.get(User, target_student_id)
         if active_student and active_student.role == UserRole.STUDENT:
-            active_conv = get_or_create_conversation(db, student_id=target_student_id, tutor_id=current_user.id)
-            mark_messages_as_read(db, conversation_id=active_conv.id, reader=current_user)
-            messages, has_older = list_messages(db, conversation_id=active_conv.id, limit=50)
+            try:
+                active_conv = get_or_create_conversation(db, student_id=target_student_id, tutor_id=current_user.id)
+                mark_messages_as_read(db, conversation_id=active_conv.id, reader=current_user)
+                messages, has_older = list_messages(db, conversation_id=active_conv.id, limit=50, user=current_user)
+            except MessagePermissionError:
+                active_conv = None
+                messages = []
 
     return templates.TemplateResponse(
         request=request,
@@ -89,7 +94,7 @@ def get_conversations_partial(
     current_user: User = Depends(get_current_user),
 ):
     """Return HTMX partial for conversations list (used by search and auto-refresh)."""
-    conversations = list_tutor_conversations(db, search_query=q)
+    conversations = list_tutor_conversations(db, tutor_id=current_user.id, search_query=q)
     return templates.TemplateResponse(
         request=request,
         name="tutor/messages/partials/conversation_list.html",
@@ -114,9 +119,13 @@ def get_student_conversation_pane(
     if not student or student.role != UserRole.STUDENT:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
 
-    conv = get_or_create_conversation(db, student_id=student_id, tutor_id=current_user.id)
+    try:
+        conv = get_or_create_conversation(db, student_id=student_id, tutor_id=current_user.id)
+    except MessagePermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+
     mark_messages_as_read(db, conversation_id=conv.id, reader=current_user)
-    messages, has_older = list_messages(db, conversation_id=conv.id, limit=50)
+    messages, has_older = list_messages(db, conversation_id=conv.id, limit=50, user=current_user)
 
     return templates.TemplateResponse(
         request=request,
@@ -149,7 +158,7 @@ def send_tutor_message(
         msg = send_message(db, conversation_id=conversation_id, sender=current_user, content=content)
     except MessageValidationError as e:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
-    except ConversationNotFoundError as e:
+    except (ConversationNotFoundError, MessagePermissionError) as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
     return templates.TemplateResponse(
@@ -182,7 +191,11 @@ def poll_tutor_messages(
     except Exception:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-    new_messages, _ = list_messages(db, conversation_id=conversation_id, after=dt_after)
+    try:
+        new_messages, _ = list_messages(db, conversation_id=conversation_id, after=dt_after, user=current_user)
+    except (ConversationNotFoundError, MessagePermissionError):
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
     if not new_messages:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -215,7 +228,10 @@ def load_older_tutor_messages(
     except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid before timestamp")
 
-    older_messages, has_older = list_messages(db, conversation_id=conversation_id, limit=30, before=dt_before)
+    try:
+        older_messages, has_older = list_messages(db, conversation_id=conversation_id, limit=30, before=dt_before, user=current_user)
+    except (ConversationNotFoundError, MessagePermissionError) as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
     btn_html = ""
     if has_older and older_messages:
@@ -245,7 +261,7 @@ def get_tutor_unread_badge(
     current_user: User = Depends(get_current_user),
 ):
     """Return total unread message count badge for tutor navbar."""
-    count = get_tutor_unread_count(db)
+    count = get_tutor_unread_count(db, tutor_id=current_user.id)
     if count > 0:
         return HTMLResponse(
             f'<span id="tutor-unread-badge" hx-get="/tutor/messages/unread-count" hx-trigger="every 15s" hx-swap="outerHTML">'

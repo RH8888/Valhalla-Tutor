@@ -39,7 +39,7 @@ def get_student_chat(
     # Mark messages from tutor as read
     mark_messages_as_read(db, conversation.id, reader=current_user)
 
-    messages, has_older = list_messages(db, conversation.id, limit=50)
+    messages, has_older = list_messages(db, conversation.id, limit=50, user=current_user)
 
     return templates.TemplateResponse(
         request=request,
@@ -102,7 +102,7 @@ def poll_student_messages(
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     conversation = get_or_create_conversation(db, student_id=current_user.id)
-    new_messages, _ = list_messages(db, conversation_id=conversation.id, after=dt_after)
+    new_messages, _ = list_messages(db, conversation_id=conversation.id, after=dt_after, user=current_user)
 
     if not new_messages:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -137,7 +137,7 @@ def load_older_student_messages(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid before timestamp")
 
     conversation = get_or_create_conversation(db, student_id=current_user.id)
-    older_messages, has_older = list_messages(db, conversation_id=conversation.id, limit=30, before=dt_before)
+    older_messages, has_older = list_messages(db, conversation_id=conversation.id, limit=30, before=dt_before, user=current_user)
 
     # Build response: next load-older button (if any) followed by older messages
     btn_html = ""

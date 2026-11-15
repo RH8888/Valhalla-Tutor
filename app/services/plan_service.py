@@ -285,14 +285,19 @@ def create_study_plan(
     return plan
 
 
-def get_study_plan(db: Session, plan_id: uuid.UUID) -> Optional[StudyPlan]:
-    return db.query(StudyPlan).filter(StudyPlan.id == plan_id).first()
+def get_study_plan(db: Session, plan_id: uuid.UUID, tutor_id: Optional[uuid.UUID] = None) -> Optional[StudyPlan]:
+    query = db.query(StudyPlan).filter(StudyPlan.id == plan_id)
+    if tutor_id is not None:
+        query = query.filter(StudyPlan.tutor_id == tutor_id)
+    return query.first()
 
 
-def list_student_plans(db: Session, student_id: uuid.UUID) -> List[StudyPlan]:
+def list_student_plans(db: Session, student_id: uuid.UUID, tutor_id: Optional[uuid.UUID] = None) -> List[StudyPlan]:
+    query = db.query(StudyPlan).filter(StudyPlan.student_id == student_id)
+    if tutor_id is not None:
+        query = query.filter(StudyPlan.tutor_id == tutor_id)
     return (
-        db.query(StudyPlan)
-        .filter(StudyPlan.student_id == student_id)
+        query
         .order_by(desc(StudyPlan.start_date), desc(StudyPlan.created_at))
         .all()
     )
@@ -310,9 +315,9 @@ def get_active_student_plan(db: Session, student_id: uuid.UUID) -> Optional[Stud
     )
 
 
-def publish_study_plan(db: Session, plan_id: uuid.UUID) -> StudyPlan:
+def publish_study_plan(db: Session, plan_id: uuid.UUID, tutor_id: Optional[uuid.UUID] = None) -> StudyPlan:
     """Publish a draft plan and safely archive any previously published plan for this student."""
-    plan = get_study_plan(db, plan_id)
+    plan = get_study_plan(db, plan_id, tutor_id=tutor_id)
     if not plan:
         raise PlanNotFoundError(f"Plan with id {plan_id} not found.")
 
@@ -335,8 +340,8 @@ def publish_study_plan(db: Session, plan_id: uuid.UUID) -> StudyPlan:
     return plan
 
 
-def archive_study_plan(db: Session, plan_id: uuid.UUID) -> StudyPlan:
-    plan = get_study_plan(db, plan_id)
+def archive_study_plan(db: Session, plan_id: uuid.UUID, tutor_id: Optional[uuid.UUID] = None) -> StudyPlan:
+    plan = get_study_plan(db, plan_id, tutor_id=tutor_id)
     if not plan:
         raise PlanNotFoundError(f"Plan with id {plan_id} not found.")
     plan.status = PlanStatus.ARCHIVED
@@ -345,8 +350,8 @@ def archive_study_plan(db: Session, plan_id: uuid.UUID) -> StudyPlan:
     return plan
 
 
-def delete_study_plan(db: Session, plan_id: uuid.UUID) -> None:
-    plan = get_study_plan(db, plan_id)
+def delete_study_plan(db: Session, plan_id: uuid.UUID, tutor_id: Optional[uuid.UUID] = None) -> None:
+    plan = get_study_plan(db, plan_id, tutor_id=tutor_id)
     if not plan:
         raise PlanNotFoundError(f"Plan with id {plan_id} not found.")
     db.delete(plan)
@@ -375,8 +380,9 @@ def create_assignment(
     book_chapter_id: Optional[uuid.UUID] = None,
     test_start_num: Optional[int] = None,
     test_end_num: Optional[int] = None,
+    tutor_id: Optional[uuid.UUID] = None,
 ) -> PlanAssignment:
-    plan = get_study_plan(db, plan_id)
+    plan = get_study_plan(db, plan_id, tutor_id=tutor_id)
     if not plan:
         raise PlanNotFoundError(f"Plan with id {plan_id} not found.")
 
@@ -517,8 +523,11 @@ def create_assignment(
     return assignment
 
 
-def get_assignment(db: Session, assignment_id: uuid.UUID) -> Optional[PlanAssignment]:
-    return db.query(PlanAssignment).filter(PlanAssignment.id == assignment_id).first()
+def get_assignment(db: Session, assignment_id: uuid.UUID, tutor_id: Optional[uuid.UUID] = None) -> Optional[PlanAssignment]:
+    query = db.query(PlanAssignment).filter(PlanAssignment.id == assignment_id)
+    if tutor_id is not None:
+        query = query.join(StudyPlan, PlanAssignment.study_plan_id == StudyPlan.id).filter(StudyPlan.tutor_id == tutor_id)
+    return query.first()
 
 
 def update_assignment(
@@ -530,8 +539,9 @@ def update_assignment(
     scheduled_date: Optional[date] = None,
     subject_id: Optional[uuid.UUID] = None,
     display_order: Optional[int] = None,
+    tutor_id: Optional[uuid.UUID] = None,
 ) -> PlanAssignment:
-    assignment = get_assignment(db, assignment_id)
+    assignment = get_assignment(db, assignment_id, tutor_id=tutor_id)
     if not assignment:
         raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
 
@@ -569,8 +579,8 @@ def update_assignment(
     return assignment
 
 
-def delete_assignment(db: Session, assignment_id: uuid.UUID) -> None:
-    assignment = get_assignment(db, assignment_id)
+def delete_assignment(db: Session, assignment_id: uuid.UUID, tutor_id: Optional[uuid.UUID] = None) -> None:
+    assignment = get_assignment(db, assignment_id, tutor_id=tutor_id)
     if not assignment:
         raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
     db.delete(assignment)
@@ -581,9 +591,10 @@ def reorder_assignment(
     db: Session,
     assignment_id: uuid.UUID,
     direction: str,  # 'up' or 'down'
+    tutor_id: Optional[uuid.UUID] = None,
 ) -> PlanAssignment:
     """Move assignment up or down within its cell (same scheduled_date and subject_id)."""
-    assignment = get_assignment(db, assignment_id)
+    assignment = get_assignment(db, assignment_id, tutor_id=tutor_id)
     if not assignment:
         raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
 
@@ -707,7 +718,7 @@ def reset_assignment_completion(
     note: Optional[str] = None,
 ) -> PlanAssignment:
     """Tutor-only: reset an accidentally completed assignment while preserving audit history."""
-    assignment = get_assignment(db, assignment_id)
+    assignment = get_assignment(db, assignment_id, tutor_id=tutor_id)
     if not assignment:
         raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
 

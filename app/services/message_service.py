@@ -40,6 +40,15 @@ def get_or_create_conversation(
     ).scalar_one_or_none()
 
     if conv:
+        if tutor_id and conv.tutor_id and conv.tutor_id != tutor_id:
+            raise MessagePermissionError("Conversation is owned by another tutor.")
+        if tutor_id and not conv.tutor_id:
+            conv.tutor_id = tutor_id
+            if commit:
+                db.commit()
+                db.refresh(conv)
+            else:
+                db.flush()
         return conv
 
     # Verify student exists
@@ -62,13 +71,23 @@ def get_or_create_conversation(
     return conv
 
 
-def get_conversation_by_id(db: Session, conversation_id: uuid.UUID) -> Optional[Conversation]:
-    """Retrieve conversation by ID with student and tutor loaded."""
-    return db.execute(
+def get_conversation_by_id(
+    db: Session,
+    conversation_id: uuid.UUID,
+    user: Optional[User] = None,
+) -> Optional[Conversation]:
+    """Retrieve conversation by ID with student and tutor loaded, optionally scoped to user."""
+    query = (
         select(Conversation)
         .where(Conversation.id == conversation_id)
         .options(joinedload(Conversation.student), joinedload(Conversation.tutor))
-    ).scalar_one_or_none()
+    )
+    if user is not None:
+        if user.role == UserRole.STUDENT:
+            query = query.where(Conversation.student_id == user.id)
+        elif user.role == UserRole.TUTOR:
+            query = query.where(or_(Conversation.tutor_id == user.id, Conversation.tutor_id.is_(None)))
+    return db.execute(query).scalar_one_or_none()
 
 
 def get_conversation_by_student_id(db: Session, student_id: uuid.UUID) -> Optional[Conversation]:
@@ -102,6 +121,9 @@ def send_message(
     if sender.role == UserRole.STUDENT and sender.id != conv.student_id:
         raise MessagePermissionError("Students cannot send messages to other conversations.")
 
+    if sender.role == UserRole.TUTOR and conv.tutor_id is not None and conv.tutor_id != sender.id:
+        raise MessagePermissionError("Tutors cannot send messages to another tutor's conversation.")
+
     # If tutor sends message and conversation has no tutor assigned yet, assign them
     if sender.role == UserRole.TUTOR and not conv.tutor_id:
         conv.tutor_id = sender.id
@@ -132,11 +154,21 @@ def list_messages(
     limit: int = 50,
     before: Optional[datetime] = None,
     after: Optional[datetime] = None,
+    user: Optional[User] = None,
 ) -> Tuple[List[Message], bool]:
     """
     List messages in chronological order.
     Returns (messages, has_older_messages).
     """
+    if user is not None:
+        conv = get_conversation_by_id(db, conversation_id)
+        if not conv:
+            raise ConversationNotFoundError("Conversation does not exist.")
+        if user.role == UserRole.STUDENT and conv.student_id != user.id:
+            raise MessagePermissionError("Access denied to conversation.")
+        if user.role == UserRole.TUTOR and conv.tutor_id is not None and conv.tutor_id != user.id:
+            raise MessagePermissionError("Access denied to conversation.")
+
     query = (
         select(Message)
         .where(Message.conversation_id == conversation_id)
@@ -173,6 +205,14 @@ def mark_messages_as_read(
     reader: User,
 ) -> int:
     """Mark incoming messages in the conversation as read by the reader."""
+    conv = get_conversation_by_id(db, conversation_id)
+    if not conv:
+        raise ConversationNotFoundError("Conversation does not exist.")
+    if reader.role == UserRole.STUDENT and conv.student_id != reader.id:
+        raise MessagePermissionError("Access denied to conversation.")
+    if reader.role == UserRole.TUTOR and conv.tutor_id is not None and conv.tutor_id != reader.id:
+        raise MessagePermissionError("Access denied to conversation.")
+
     read_now = now_utc()
     stmt = (
         select(Message)
@@ -212,21 +252,25 @@ def get_student_unread_count(db: Session, student_id: uuid.UUID) -> int:
     return count or 0
 
 
-def get_tutor_unread_count(db: Session) -> int:
+def get_tutor_unread_count(db: Session, tutor_id: Optional[uuid.UUID] = None) -> int:
     """Return total count of unread student messages across all conversations."""
-    count = db.execute(
+    stmt = (
         select(func.count(Message.id))
         .join(Conversation, Message.conversation_id == Conversation.id)
         .where(
             Message.sender_id == Conversation.student_id,
             Message.is_read.is_(False),
         )
-    ).scalar()
+    )
+    if tutor_id is not None:
+        stmt = stmt.where(or_(Conversation.tutor_id == tutor_id, Conversation.tutor_id.is_(None)))
+    count = db.execute(stmt).scalar()
     return count or 0
 
 
 def list_tutor_conversations(
     db: Session,
+    tutor_id: Optional[uuid.UUID] = None,
     search_query: Optional[str] = None,
 ) -> List[dict]:
     """
@@ -238,6 +282,8 @@ def list_tutor_conversations(
         .join(User, Conversation.student_id == User.id)
         .options(joinedload(Conversation.student))
     )
+    if tutor_id is not None:
+        query = query.where(or_(Conversation.tutor_id == tutor_id, Conversation.tutor_id.is_(None)))
 
     if search_query and search_query.strip():
         q_term = f"%{search_query.strip()}%"

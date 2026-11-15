@@ -321,7 +321,7 @@ def post_reset_assignment_completion(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    assignment = get_assignment(db, assignment_id)
+    assignment = get_assignment(db, assignment_id, tutor_id=current_user.id)
     if not assignment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
@@ -350,7 +350,7 @@ def get_assignment_audits_view(
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
-    assignment = get_assignment(db, assignment_id)
+    assignment = get_assignment(db, assignment_id, tutor_id=current_user.id)
     if not assignment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 

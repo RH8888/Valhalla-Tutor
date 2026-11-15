@@ -119,7 +119,7 @@ def get_plan_view(
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
-    plan = get_study_plan(db, plan_id)
+    plan = get_study_plan(db, plan_id, tutor_id=current_user.id)
     if not plan:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
 
@@ -170,9 +170,10 @@ def get_resources_for_subject(
     plan_id: uuid.UUID,
     subject_id: uuid.UUID,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Return JSON or HTML snippet of courses and books for a subject filtered by student grade."""
-    plan = get_study_plan(db, plan_id)
+    plan = get_study_plan(db, plan_id, tutor_id=current_user.id)
     student = plan.student if plan else None
     student_grade = student.grade if student else None
 
@@ -246,8 +247,9 @@ def get_video_estimate_badge(
     course_id: Optional[uuid.UUID] = Query(None),
     video_count: int = Query(1),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    plan = get_study_plan(db, plan_id)
+    plan = get_study_plan(db, plan_id, tutor_id=current_user.id)
     if not plan or not course_id:
         return HTMLResponse("")
 
@@ -286,8 +288,9 @@ def get_test_estimate_badge(
     test_start: int = Query(1),
     test_end: int = Query(1),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    plan = get_study_plan(db, plan_id)
+    plan = get_study_plan(db, plan_id, tutor_id=current_user.id)
     if not plan or not book_id:
         return HTMLResponse("")
 
@@ -327,8 +330,12 @@ def get_test_estimate_badge(
 def post_publish_plan(
     plan_id: uuid.UUID,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    plan = publish_study_plan(db, plan_id)
+    try:
+        plan = publish_study_plan(db, plan_id, tutor_id=current_user.id)
+    except PlanNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
     return RedirectResponse(
         url=f"/tutor/plans/{plan.id}",
         status_code=status.HTTP_303_SEE_OTHER,
@@ -339,8 +346,12 @@ def post_publish_plan(
 def post_archive_plan(
     plan_id: uuid.UUID,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    plan = archive_study_plan(db, plan_id)
+    try:
+        plan = archive_study_plan(db, plan_id, tutor_id=current_user.id)
+    except PlanNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
     return RedirectResponse(
         url=f"/tutor/plans/{plan.id}",
         status_code=status.HTTP_303_SEE_OTHER,
@@ -351,12 +362,13 @@ def post_archive_plan(
 def post_delete_plan(
     plan_id: uuid.UUID,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    plan = get_study_plan(db, plan_id)
+    plan = get_study_plan(db, plan_id, tutor_id=current_user.id)
     if not plan:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
     student_id = plan.student_id
-    delete_study_plan(db, plan_id)
+    delete_study_plan(db, plan_id, tutor_id=current_user.id)
     return RedirectResponse(
         url=f"/tutor/students/{student_id}/plans",
         status_code=status.HTTP_303_SEE_OTHER,
@@ -386,6 +398,7 @@ def post_create_assignment(
     test_start_num: Optional[int] = Form(None),
     test_end_num: Optional[int] = Form(None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     parsed_date = date.fromisoformat(scheduled_date)
     try:
@@ -409,7 +422,10 @@ def post_create_assignment(
             book_chapter_id=book_chapter_id,
             test_start_num=test_start_num,
             test_end_num=test_end_num,
+            tutor_id=current_user.id,
         )
+    except PlanNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
     except PlanValidationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
@@ -424,9 +440,10 @@ def get_edit_assignment_modal(
     assignment_id: uuid.UUID,
     request: Request,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
-    assignment = get_assignment(db, assignment_id)
+    assignment = get_assignment(db, assignment_id, tutor_id=current_user.id)
     if not assignment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
@@ -454,8 +471,9 @@ def post_edit_assignment(
     recommended_duration_minutes: int = Form(...),
     description: Optional[str] = Form(None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    assignment = get_assignment(db, assignment_id)
+    assignment = get_assignment(db, assignment_id, tutor_id=current_user.id)
     if not assignment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
@@ -467,6 +485,7 @@ def post_edit_assignment(
             title=title,
             recommended_duration_minutes=recommended_duration_minutes,
             description=description,
+            tutor_id=current_user.id,
         )
     except PlanValidationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -483,8 +502,9 @@ def post_move_assignment(
     new_date: str = Form(...),
     new_subject_id: uuid.UUID = Form(...),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    assignment = get_assignment(db, assignment_id)
+    assignment = get_assignment(db, assignment_id, tutor_id=current_user.id)
     if not assignment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
@@ -496,6 +516,7 @@ def post_move_assignment(
             assignment_id=assignment_id,
             scheduled_date=parsed_date,
             subject_id=new_subject_id,
+            tutor_id=current_user.id,
         )
     except PlanValidationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -511,13 +532,14 @@ def post_reorder_assignment(
     assignment_id: uuid.UUID,
     direction: str = Form(...),  # 'up' or 'down'
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    assignment = get_assignment(db, assignment_id)
+    assignment = get_assignment(db, assignment_id, tutor_id=current_user.id)
     if not assignment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
     plan_id = assignment.study_plan_id
-    reorder_assignment(db, assignment_id, direction)
+    reorder_assignment(db, assignment_id, direction, tutor_id=current_user.id)
     return RedirectResponse(
         url=f"/tutor/plans/{plan_id}",
         status_code=status.HTTP_303_SEE_OTHER,
@@ -528,13 +550,14 @@ def post_reorder_assignment(
 def post_delete_assignment(
     assignment_id: uuid.UUID,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    assignment = get_assignment(db, assignment_id)
+    assignment = get_assignment(db, assignment_id, tutor_id=current_user.id)
     if not assignment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
     plan_id = assignment.study_plan_id
-    delete_assignment(db, assignment_id)
+    delete_assignment(db, assignment_id, tutor_id=current_user.id)
     return RedirectResponse(
         url=f"/tutor/plans/{plan_id}",
         status_code=status.HTTP_303_SEE_OTHER,

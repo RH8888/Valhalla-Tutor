@@ -291,15 +291,21 @@ def post_update_proposal_item(
     p_date = datetime.strptime(scheduled_date, "%Y-%m-%d").date()
     m_type = MeetingType.OFFLINE if meeting_type == "OFFLINE" else MeetingType.ONLINE
 
-    update_proposal_item(
-        db=db,
-        item_id=item_id,
-        scheduled_date=p_date,
-        start_time_str=start_time,
-        duration_minutes=duration_minutes,
-        meeting_type=m_type,
-        notes=notes,
-    )
+    try:
+        item = update_proposal_item(
+            db=db,
+            item_id=item_id,
+            scheduled_date=p_date,
+            start_time_str=start_time,
+            duration_minutes=duration_minutes,
+            meeting_type=m_type,
+            notes=notes,
+            tutor_id=current_user.id,
+        )
+        if item.proposal_id != proposal_id:
+            raise HTTPException(status_code=404, detail="Proposal item not found.")
+    except SchedulerError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
     return RedirectResponse(url=f"/tutor/scheduler/proposals/{proposal_id}", status_code=303)
 
 

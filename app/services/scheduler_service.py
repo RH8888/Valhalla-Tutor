@@ -344,9 +344,18 @@ def update_proposal_item(
     duration_minutes: int,
     meeting_type: MeetingType,
     notes: Optional[str] = None,
+    tutor_id: Optional[uuid.UUID] = None,
 ) -> WeeklyScheduleItem:
     """Manually adjust a proposed meeting item."""
-    item = db.get(WeeklyScheduleItem, item_id)
+    query = (
+        select(WeeklyScheduleItem)
+        .join(WeeklyScheduleProposal, WeeklyScheduleItem.proposal_id == WeeklyScheduleProposal.id)
+        .where(WeeklyScheduleItem.id == item_id)
+    )
+    if tutor_id is not None:
+        query = query.where(WeeklyScheduleProposal.tutor_id == tutor_id)
+
+    item = db.execute(query).scalar_one_or_none()
     if not item:
         raise SchedulerError("Proposal item not found.")
 
