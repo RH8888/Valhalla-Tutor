@@ -172,7 +172,7 @@ def get_student_detail(
     all_subjects = list_subjects(db)
     effective_subjects = get_student_effective_subjects(student)
     custom_subject_ids = {s.id for s in student.custom_subjects}
-    monitoring_data = get_student_monitoring_data(db, student_id)
+    monitoring_data = get_student_monitoring_data(db, student_id, tutor_id=current_user.id)
     student_upcoming, student_previous = list_student_meetings(db, student_id, tutor_id=current_user.id)
 
     return templates.TemplateResponse(
@@ -354,7 +354,7 @@ def get_assignment_audits_view(
     if not assignment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
-    audits = get_assignment_audit_logs(db, assignment_id)
+    audits = get_assignment_audit_logs(db, assignment_id, tutor_id=current_user.id)
     return templates.TemplateResponse(
         request=request,
         name="tutor/plans/assignment_audits.html",

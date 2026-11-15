@@ -90,13 +90,24 @@ def get_conversation_by_id(
     return db.execute(query).scalar_one_or_none()
 
 
-def get_conversation_by_student_id(db: Session, student_id: uuid.UUID) -> Optional[Conversation]:
-    """Retrieve conversation by student ID with student and tutor loaded."""
-    return db.execute(
+def get_conversation_by_student_id(
+    db: Session,
+    student_id: uuid.UUID,
+    user: Optional[User] = None,
+    tutor_id: Optional[uuid.UUID] = None,
+) -> Optional[Conversation]:
+    """Retrieve conversation by student ID with student and tutor loaded, optionally scoped to user/tutor."""
+    query = (
         select(Conversation)
         .where(Conversation.student_id == student_id)
         .options(joinedload(Conversation.student), joinedload(Conversation.tutor))
-    ).scalar_one_or_none()
+    )
+    effective_tutor_id = tutor_id or (user.id if user and user.role == UserRole.TUTOR else None)
+    if user and user.role == UserRole.STUDENT and user.id != student_id:
+        return None
+    if effective_tutor_id is not None:
+        query = query.where(or_(Conversation.tutor_id == effective_tutor_id, Conversation.tutor_id.is_(None)))
+    return db.execute(query).scalar_one_or_none()
 
 
 def send_message(

@@ -746,14 +746,18 @@ def reset_assignment_completion(
 def get_assignment_audit_logs(
     db: Session,
     assignment_id: uuid.UUID,
+    tutor_id: Optional[uuid.UUID] = None,
 ) -> List[CompletionAuditLog]:
     """Retrieve audit logs for an assignment, newest first."""
-    return (
+    query = (
         db.query(CompletionAuditLog)
+        .join(PlanAssignment, CompletionAuditLog.assignment_id == PlanAssignment.id)
+        .join(StudyPlan, PlanAssignment.study_plan_id == StudyPlan.id)
         .filter(CompletionAuditLog.assignment_id == assignment_id)
-        .order_by(desc(CompletionAuditLog.created_at))
-        .all()
     )
+    if tutor_id is not None:
+        query = query.filter(StudyPlan.tutor_id == tutor_id)
+    return query.order_by(desc(CompletionAuditLog.created_at)).all()
 
 
 def get_student_completion_history(
@@ -837,14 +841,14 @@ def get_student_dashboard_data(db: Session, student: User) -> dict:
     }
 
 
-def get_student_monitoring_data(db: Session, student_id: uuid.UUID) -> dict:
+def get_student_monitoring_data(db: Session, student_id: uuid.UUID, tutor_id: Optional[uuid.UUID] = None) -> dict:
     student = db.query(User).filter(User.id == student_id).first()
     if not student:
         raise ValueError(f"Student {student_id} not found.")
 
     from app.services.academic_service import get_student_effective_subjects
     effective_subjects = get_student_effective_subjects(student)
-    active_plan = get_active_student_plan(db, student_id)
+    active_plan = get_active_student_plan(db, student_id, tutor_id=tutor_id)
     today = today_local(getattr(student, "timezone", None))
 
     active_plan_data = None

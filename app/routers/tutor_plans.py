@@ -64,7 +64,7 @@ def get_student_plans_page(
     if not student:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
 
-    plans = list_student_plans(db, student_id)
+    plans = list_student_plans(db, student_id, tutor_id=current_user.id)
     today = today_local(getattr(current_user, "timezone", None))
     default_start_date = today.isoformat()
 
