@@ -16,6 +16,7 @@ from app.models.user import User
 from app.services.meeting_service import create_meeting, update_meeting_status
 from app.services.message_service import get_conversation_by_student_id
 from app.services.scheduler_service import (
+    SchedulerError,
     approve_weekly_proposal,
     find_available_slot,
     generate_weekly_proposal,
@@ -273,3 +274,68 @@ def test_proposal_strictly_respects_tutor_availability_window(
         # 15:00 is 900 minutes, 18:00 is 1080 minutes
         assert start_min >= 15 * 60, f"Proposed start {item.start_time_str} is earlier than available 15:00"
         assert end_min <= 18 * 60, f"Proposed end {end_min} exceeds available 18:00"
+
+
+def test_day_by_day_availability_windows(
+    db_session: Session,
+    tutor_user: User,
+    student_user: User,
+):
+    target_sat = get_target_week_start()
+
+    # Configure day-by-day availability:
+    # Saturday: 15:00 - 18:00
+    # Monday: Day off (no time window)
+    # Friday: 09:00 - 12:00 (morning)
+    daily_avail = {
+        "saturday": {"is_available": True, "mode": "custom", "start_time": "15:00", "end_time": "18:00"},
+        "sunday": {"is_available": True, "mode": "custom", "start_time": "14:00", "end_time": "20:00"},
+        "monday": {"is_available": False, "mode": "none", "start_time": None, "end_time": None},
+        "tuesday": {"is_available": True, "mode": "custom", "start_time": "14:00", "end_time": "20:00"},
+        "wednesday": {"is_available": True, "mode": "custom", "start_time": "14:00", "end_time": "20:00"},
+        "thursday": {"is_available": True, "mode": "custom", "start_time": "14:00", "end_time": "20:00"},
+        "friday": {"is_available": True, "mode": "custom", "start_time": "09:00", "end_time": "12:00"},
+    }
+
+    # 1. Proposal with Saturday and Friday slots respects distinct daily windows
+    proposal = generate_weekly_proposal(
+        db=db_session,
+        tutor=tutor_user,
+        target_week_start=target_sat,
+        student_selections=[
+            {
+                "student_id": student_user.id,
+                "days": ["saturday", "friday"],
+                "duration_minutes": 60,
+                "meeting_type": MeetingType.ONLINE,
+            }
+        ],
+        daily_availability=daily_avail,
+    )
+    assert len(proposal.items) == 2
+    sat_item = next(i for i in proposal.items if i.scheduled_date == target_sat)
+    fri_item = next(i for i in proposal.items if i.scheduled_date == target_sat + timedelta(days=6))
+
+    sat_h, sat_m = map(int, sat_item.start_time_str.split(":"))
+    fri_h, fri_m = map(int, fri_item.start_time_str.split(":"))
+
+    assert 15 <= sat_h < 18, f"Saturday time {sat_item.start_time_str} must be in 15:00-18:00"
+    assert 9 <= fri_h < 12, f"Friday time {fri_item.start_time_str} must be in 09:00-12:00"
+
+    # 2. Scheduling on a day marked as Day Off (Monday) raises SchedulerError
+    with pytest.raises(SchedulerError) as exc_info:
+        generate_weekly_proposal(
+            db=db_session,
+            tutor=tutor_user,
+            target_week_start=target_sat,
+            student_selections=[
+                {
+                    "student_id": student_user.id,
+                    "days": ["monday"],
+                    "duration_minutes": 60,
+                    "meeting_type": MeetingType.ONLINE,
+                }
+            ],
+            daily_availability=daily_avail,
+        )
+    assert "No Time Window / Day Off" in str(exc_info.value)

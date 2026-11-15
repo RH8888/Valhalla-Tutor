@@ -42,30 +42,72 @@
         <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
         <input type="hidden" name="target_week_start" value="{{ target_week_start.strftime('%Y-%m-%d') }}">
 
-        <!-- Tutor Availability Window Card -->
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-3">
-            <div class="flex items-center space-x-2">
-                <span class="text-base">⏰</span>
-                <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Your Availability Window for Suggestions</h2>
+        {% if error_message %}
+            <div class="p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-start space-x-3 text-xs text-rose-900">
+                <span class="text-lg">⚠️</span>
+                <div>
+                    <span class="font-bold">Scheduling Conflict / Limitation:</span>
+                    <p class="mt-0.5 text-rose-800">{{ error_message }}</p>
+                </div>
             </div>
-            <p class="text-xs text-slate-500">
-                Specify the hours you are available for sessions this week. The automatic suggestion engine will only recommend times strictly within this window.
-            </p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 text-xs">
+        {% endif %}
+
+        <!-- Tutor Day-by-Day Availability Windows Card -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                 <div>
-                    <label for="avail_start_time" class="font-bold text-slate-700 block mb-1">Available From (Start Time)</label>
-                    <input type="time" name="avail_start_time" id="avail_start_time" value="14:00" required class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white text-xs font-semibold focus:ring-2 focus:ring-indigo-500">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-base">📅</span>
+                        <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Step 1: Your Day-by-Day Availability Windows</h2>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        Specify custom hours for each day, or select "Day Off / No Window" if you do not want sessions on that day.
+                    </p>
                 </div>
-                <div>
-                    <label for="avail_end_time" class="font-bold text-slate-700 block mb-1">Available Until (End Time)</label>
-                    <input type="time" name="avail_end_time" id="avail_end_time" value="21:00" required class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white text-xs font-semibold focus:ring-2 focus:ring-indigo-500">
+                <!-- Quick Preset Buttons -->
+                <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+                    <span class="text-slate-400 font-medium">Presets:</span>
+                    <button type="button" onclick="applyPreset('standard')" class="px-2 py-1 rounded bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 font-semibold transition">Weekdays 14–21, Fri 09–13</button>
+                    <button type="button" onclick="applyPreset('fri_off')" class="px-2 py-1 rounded bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 font-semibold transition">Weekdays 14–21, Fri Off</button>
+                    <button type="button" onclick="applyPreset('allday')" class="px-2 py-1 rounded bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 font-semibold transition">All Days Open</button>
                 </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 text-xs">
+                {% for d in days_info %}
+                    <div class="border border-slate-200 rounded-lg p-3 bg-slate-50/50 space-y-2 day-card-{{ d.key }}">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-slate-800">{{ d.fa_name }} ({{ d.en_name[:3] }})</span>
+                            <span class="text-[11px] text-slate-500 font-medium">{{ d.date.strftime('%b %d') }}</span>
+                        </div>
+                        <div>
+                            <select name="avail_mode_{{ d.key }}" id="mode_{{ d.key }}" onchange="handleModeChange('{{ d.key }}', this.value)" class="w-full border border-slate-300 rounded px-2 py-1 bg-white text-xs font-medium focus:ring-1 focus:ring-indigo-500">
+                                <option value="custom" {% if d.default_mode == 'custom' %}selected{% endif %}>Specific Window</option>
+                                <option value="none" {% if d.default_mode == 'none' %}selected{% endif %}>Day Off / No Window</option>
+                                <option value="open" {% if d.default_mode == 'open' %}selected{% endif %}>All Day (08:00 - 23:00)</option>
+                            </select>
+                        </div>
+                        <div id="times_{{ d.key }}" class="grid grid-cols-2 gap-1.5 {% if d.default_mode == 'none' %}hidden{% endif %}">
+                            <div>
+                                <label class="text-[10px] text-slate-500 block">From</label>
+                                <input type="time" name="avail_start_{{ d.key }}" id="start_{{ d.key }}" value="{{ d.default_start }}" class="w-full border border-slate-300 rounded px-1.5 py-1 text-[11px] bg-white font-semibold">
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-slate-500 block">Until</label>
+                                <input type="time" name="avail_end_{{ d.key }}" id="end_{{ d.key }}" value="{{ d.default_end }}" class="w-full border border-slate-300 rounded px-1.5 py-1 text-[11px] bg-white font-semibold">
+                            </div>
+                        </div>
+                        <div id="off_badge_{{ d.key }}" class="{% if d.default_mode != 'none' %}hidden{% endif %} py-1.5 text-center bg-slate-200/70 rounded text-[11px] font-bold text-slate-600">
+                            🏖️ Day Off (No Sessions)
+                        </div>
+                    </div>
+                {% endfor %}
             </div>
         </div>
 
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Step 1: Select Students & Meeting Days</h2>
+                <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Step 2: Select Students & Meeting Days</h2>
                 <span class="text-xs text-slate-500">{{ student_preferences|length }} active student(s) available</span>
             </div>
 
@@ -102,9 +144,9 @@
                             <div class="sm:col-span-2 space-y-1.5">
                                 <span class="font-semibold text-slate-600 block">Select Meeting Day(s) for this week:</span>
                                 <div class="flex flex-wrap gap-1.5">
-                                    {% for d in [('saturday', 'Sat'), ('sunday', 'Sun'), ('monday', 'Mon'), ('tuesday', 'Tue'), ('wednesday', 'Wed'), ('thursday', 'Thu')] %}
-                                        <label class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 cursor-pointer text-slate-700 font-medium">
-                                            <input type="checkbox" name="days_{{ s.id }}" value="{{ d[0] }}" {% if loop.first %}checked{% endif %} class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 text-xs">
+                                    {% for d in [('saturday', 'Sat'), ('sunday', 'Sun'), ('monday', 'Mon'), ('tuesday', 'Tue'), ('wednesday', 'Wed'), ('thursday', 'Thu'), ('friday', 'Fri')] %}
+                                        <label class="student-day-label-{{ d[0] }} inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 cursor-pointer text-slate-700 font-medium">
+                                            <input type="checkbox" name="days_{{ s.id }}" value="{{ d[0] }}" data-day="{{ d[0] }}" {% if loop.first %}checked{% endif %} class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 text-xs">
                                             <span>{{ d[1] }}</span>
                                         </label>
                                     {% endfor %}
@@ -143,4 +185,66 @@
         </div>
     </form>
 </div>
+
+<script>
+function handleModeChange(dayKey, mode) {
+    const timesEl = document.getElementById('times_' + dayKey);
+    const badgeEl = document.getElementById('off_badge_' + dayKey);
+    const studentDayLabels = document.querySelectorAll('.student-day-label-' + dayKey);
+    const studentCheckboxes = document.querySelectorAll('input[data-day="' + dayKey + '"]');
+
+    if (mode === 'none') {
+        if (timesEl) timesEl.classList.add('hidden');
+        if (badgeEl) badgeEl.classList.remove('hidden');
+        studentCheckboxes.forEach(cb => { cb.checked = false; cb.disabled = true; });
+        studentDayLabels.forEach(lbl => { lbl.classList.add('opacity-40', 'line-through'); });
+    } else {
+        if (timesEl) timesEl.classList.remove('hidden');
+        if (badgeEl) badgeEl.classList.add('hidden');
+        studentCheckboxes.forEach(cb => { cb.disabled = false; });
+        studentDayLabels.forEach(lbl => { lbl.classList.remove('opacity-40', 'line-through'); });
+        if (mode === 'open') {
+            const startInput = document.getElementById('start_' + dayKey);
+            const endInput = document.getElementById('end_' + dayKey);
+            if (startInput) startInput.value = '08:00';
+            if (endInput) endInput.value = '23:00';
+        }
+    }
+}
+
+function applyPreset(preset) {
+    const days = ['saturday', 'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    days.forEach(d => {
+        const modeEl = document.getElementById('mode_' + d);
+        const startEl = document.getElementById('start_' + d);
+        const endEl = document.getElementById('end_' + d);
+        if (!modeEl) return;
+
+        if (preset === 'standard') {
+            if (d === 'friday') {
+                modeEl.value = 'custom';
+                if (startEl) startEl.value = '09:00';
+                if (endEl) endEl.value = '13:00';
+            } else {
+                modeEl.value = 'custom';
+                if (startEl) startEl.value = '14:00';
+                if (endEl) endEl.value = '21:00';
+            }
+        } else if (preset === 'fri_off') {
+            if (d === 'friday') {
+                modeEl.value = 'none';
+            } else {
+                modeEl.value = 'custom';
+                if (startEl) startEl.value = '14:00';
+                if (endEl) endEl.value = '21:00';
+            }
+        } else if (preset === 'allday') {
+            modeEl.value = 'open';
+            if (startEl) startEl.value = '08:00';
+            if (endEl) endEl.value = '23:00';
+        }
+        handleModeChange(d, modeEl.value);
+    });
+}
+</script>
 {% endblock %}

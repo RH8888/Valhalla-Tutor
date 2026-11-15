@@ -41,6 +41,17 @@ router = APIRouter(
 )
 
 
+DAY_KEYS = [
+    ("saturday", "Saturday", "شنبه"),
+    ("sunday", "Sunday", "یکشنبه"),
+    ("monday", "Monday", "دوشنبه"),
+    ("tuesday", "Tuesday", "سه‌شنبه"),
+    ("wednesday", "Wednesday", "چهارشنبه"),
+    ("thursday", "Thursday", "پنج‌شنبه"),
+    ("friday", "Friday", "جمعه"),
+]
+
+
 @router.get("/scheduler", response_class=HTMLResponse)
 def get_scheduler_dashboard(
     request: Request,
@@ -72,6 +83,27 @@ def get_scheduler_dashboard(
         .first()
     )
 
+    days_info = []
+    for offset, (key, en_name, fa_name) in enumerate(DAY_KEYS):
+        d_date = target_week_start + timedelta(days=offset)
+        if key == "friday":
+            def_start = "09:00"
+            def_end = "13:00"
+            def_mode = "custom"
+        else:
+            def_start = "14:00"
+            def_end = "21:00"
+            def_mode = "custom"
+        days_info.append({
+            "key": key,
+            "en_name": en_name,
+            "fa_name": fa_name,
+            "date": d_date,
+            "default_start": def_start,
+            "default_end": def_end,
+            "default_mode": def_mode,
+        })
+
     return templates.TemplateResponse(
         request=request,
         name="tutor/scheduler/index.html",
@@ -83,6 +115,7 @@ def get_scheduler_dashboard(
             "target_week_end": target_week_start + timedelta(days=6),
             "student_preferences": student_preferences,
             "draft_proposal": draft_proposal,
+            "days_info": days_info,
         },
     )
 
@@ -124,18 +157,91 @@ async def post_generate_schedule(
             "location": str(loc) if loc else None,
         })
 
-    avail_start = str(form_data.get("avail_start_time") or "09:00").strip()
-    avail_end = str(form_data.get("avail_end_time") or "21:00").strip()
+    daily_availability = {}
+    first_avail_start = "14:00"
+    first_avail_end = "21:00"
+    found_avail = False
 
-    proposal = generate_weekly_proposal(
-        db=db,
-        tutor=current_user,
-        target_week_start=target_week,
-        student_selections=student_selections,
-        avail_start_time_str=avail_start,
-        avail_end_time_str=avail_end,
-    )
-    return RedirectResponse(url=f"/tutor/scheduler/proposals/{proposal.id}", status_code=303)
+    for key, _, _ in DAY_KEYS:
+        mode = str(form_data.get(f"avail_mode_{key}", "custom")).strip().lower()
+        if mode == "none":
+            daily_availability[key] = {
+                "is_available": False,
+                "mode": "none",
+                "start_time": None,
+                "end_time": None,
+            }
+        elif mode == "open":
+            daily_availability[key] = {
+                "is_available": True,
+                "mode": "open",
+                "start_time": "08:00",
+                "end_time": "23:00",
+            }
+            if not found_avail:
+                first_avail_start = "08:00"
+                first_avail_end = "23:00"
+                found_avail = True
+        else:  # custom
+            s_time = str(form_data.get(f"avail_start_{key}") or "14:00").strip()
+            e_time = str(form_data.get(f"avail_end_{key}") or "21:00").strip()
+            daily_availability[key] = {
+                "is_available": True,
+                "mode": "custom",
+                "start_time": s_time,
+                "end_time": e_time,
+            }
+            if not found_avail:
+                first_avail_start = s_time
+                first_avail_end = e_time
+                found_avail = True
+
+    try:
+        proposal = generate_weekly_proposal(
+            db=db,
+            tutor=current_user,
+            target_week_start=target_week,
+            student_selections=student_selections,
+            avail_start_time_str=first_avail_start,
+            avail_end_time_str=first_avail_end,
+            daily_availability=daily_availability,
+        )
+        return RedirectResponse(url=f"/tutor/scheduler/proposals/{proposal.id}", status_code=303)
+    except SchedulerError as e:
+        students = list_students(db, include_inactive=False)
+        student_preferences = [
+            {"student": s, "pref": learn_student_preferred_hour(db, s.id, current_user.timezone)}
+            for s in students
+        ]
+        days_info = []
+        for offset, (key, en_name, fa_name) in enumerate(DAY_KEYS):
+            d_date = target_week + timedelta(days=offset)
+            cfg = daily_availability.get(key, {})
+            days_info.append({
+                "key": key,
+                "en_name": en_name,
+                "fa_name": fa_name,
+                "date": d_date,
+                "default_start": cfg.get("start_time") or "14:00",
+                "default_end": cfg.get("end_time") or "21:00",
+                "default_mode": cfg.get("mode") or "custom",
+            })
+        return templates.TemplateResponse(
+            request=request,
+            name="tutor/scheduler/index.html",
+            context={
+                "request": request,
+                "current_user": current_user,
+                "current_session": current_session,
+                "target_week_start": target_week,
+                "target_week_end": target_week + timedelta(days=6),
+                "student_preferences": student_preferences,
+                "draft_proposal": None,
+                "days_info": days_info,
+                "error_message": str(e),
+            },
+            status_code=400,
+        )
 
 
 @router.get("/scheduler/proposals/{proposal_id}", response_class=HTMLResponse)
@@ -155,6 +261,8 @@ def get_proposal_review(
     if not proposal:
         raise HTTPException(status_code=404, detail="Schedule proposal not found.")
 
+    daily_avail = proposal.get_daily_availability()
+
     return templates.TemplateResponse(
         request=request,
         name="tutor/scheduler/review.html",
@@ -163,6 +271,7 @@ def get_proposal_review(
             "current_user": current_user,
             "current_session": current_session,
             "proposal": proposal,
+            "daily_avail": daily_avail,
         },
     )
 

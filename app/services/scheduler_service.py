@@ -1,3 +1,4 @@
+import json
 import uuid
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
@@ -156,23 +157,81 @@ DAY_OFFSETS = {
     "friday": 6,
 }
 
+WEEKDAY_TO_NAME = {
+    5: "saturday",
+    6: "sunday",
+    0: "monday",
+    1: "tuesday",
+    2: "wednesday",
+    3: "thursday",
+    4: "friday",
+}
+
+NAME_TO_PERSIAN = {
+    "saturday": "شنبه",
+    "sunday": "یکشنبه",
+    "monday": "دوشنبه",
+    "tuesday": "سه‌شنبه",
+    "wednesday": "چهارشنبه",
+    "thursday": "پنج‌شنبه",
+    "friday": "جمعه",
+}
+
+DAY_ORDER = [
+    "saturday",
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+]
+
+
+def get_default_daily_availability(
+    default_start: str = "14:00",
+    default_end: str = "21:00",
+    friday_start: str = "09:00",
+    friday_end: str = "13:00",
+    friday_mode: str = "custom",
+) -> Dict[str, dict]:
+    """Default daily availability structure for the Iranian academic week."""
+    result = {}
+    for d in ["saturday", "sunday", "monday", "tuesday", "wednesday", "thursday"]:
+        result[d] = {
+            "is_available": True,
+            "mode": "custom",
+            "start_time": default_start,
+            "end_time": default_end,
+        }
+    result["friday"] = {
+        "is_available": True if friday_mode != "none" else False,
+        "mode": friday_mode,
+        "start_time": friday_start,
+        "end_time": friday_end,
+    }
+    return result
+
 
 def generate_weekly_proposal(
     db: Session,
     tutor: User,
     target_week_start: date,
     student_selections: List[dict],
-    avail_start_time_str: str = "09:00",
+    avail_start_time_str: str = "14:00",
     avail_end_time_str: str = "21:00",
+    daily_availability: Optional[Dict[str, dict]] = None,
 ) -> WeeklyScheduleProposal:
     """
     Generate a semi-automatic weekly schedule proposal in DRAFT state.
-    Respects the tutor's specified availability window [avail_start_time_str, avail_end_time_str].
+    Respects day-by-day availability windows, including custom hours per day,
+    or 'no time window / day off' settings.
     """
-    sh, sm = map(int, avail_start_time_str.strip().split(":"))
-    eh, em = map(int, avail_end_time_str.strip().split(":"))
-    avail_start_time = time(sh, sm)
-    avail_end_time = time(eh, em)
+    if not daily_availability:
+        daily_availability = get_default_daily_availability(
+            default_start=avail_start_time_str,
+            default_end=avail_end_time_str,
+        )
 
     proposal = WeeklyScheduleProposal(
         tutor_id=tutor.id,
@@ -180,6 +239,7 @@ def generate_weekly_proposal(
         status=ProposalStatus.DRAFT,
         avail_start_time_str=avail_start_time_str,
         avail_end_time_str=avail_end_time_str,
+        daily_availability_json=json.dumps(daily_availability),
     )
     db.add(proposal)
     db.flush()
@@ -195,17 +255,41 @@ def generate_weekly_proposal(
         loc = item.get("location")
 
         pref = learn_student_preferred_hour(db, s_id, tutor.timezone)
+        pref_h = None
+        pref_m = None
         if pref:
             pref_time_str, pref_source = pref
             pref_h, pref_m = map(int, pref_time_str.split(":"))
-            pref_time = time(pref_h, pref_m)
         else:
-            pref_time = time(max(sh, 16), 0)
             pref_source = "Manual selection (first two weeks / insufficient history)"
 
         for day_name in days:
-            offset = DAY_OFFSETS.get(day_name.lower().strip(), 0)
+            day_key = day_name.lower().strip()
+            offset = DAY_OFFSETS.get(day_key, 0)
             meeting_date = target_week_start + timedelta(days=offset)
+
+            day_config = daily_availability.get(day_key, {})
+            is_avail = day_config.get("is_available", True)
+            mode = day_config.get("mode", "custom")
+            if not is_avail or mode == "none":
+                student_user = db.get(User, s_id)
+                s_name = student_user.full_name if student_user else "Student"
+                raise SchedulerError(
+                    f"Cannot schedule {s_name} on {day_key.title()} ({meeting_date.strftime('%b %d')}): "
+                    f"You have marked this day as 'No Time Window / Day Off' in your schedule."
+                )
+
+            d_start_str = day_config.get("start_time") or avail_start_time_str
+            d_end_str = day_config.get("end_time") or avail_end_time_str
+            d_sh, d_sm = map(int, d_start_str.split(":"))
+            d_eh, d_em = map(int, d_end_str.split(":"))
+            day_avail_start = time(d_sh, d_sm)
+            day_avail_end = time(d_eh, d_em)
+
+            if pref_h is not None and pref_m is not None:
+                pref_time = time(pref_h, pref_m)
+            else:
+                pref_time = time(max(d_sh, min(max(d_sh, d_eh - 1), 16)), 0)
 
             assigned_time = find_available_slot(
                 db=db,
@@ -215,10 +299,19 @@ def generate_weekly_proposal(
                 duration_minutes=dur,
                 tz_name=tutor.timezone,
                 booked_slots=booked_slots,
-                avail_start_time=avail_start_time,
-                avail_end_time=avail_end_time,
+                avail_start_time=day_avail_start,
+                avail_end_time=day_avail_end,
             )
-            final_time = assigned_time or pref_time
+            if assigned_time is None:
+                student_user = db.get(User, s_id)
+                s_name = student_user.full_name if student_user else "Student"
+                raise SchedulerError(
+                    f"No available {dur}-minute slot on {day_key.title()} ({meeting_date.strftime('%b %d')}) "
+                    f"within your availability window ({d_start_str} - {d_end_str}) for {s_name}. "
+                    f"Please expand your hours for {day_key.title()} or select another day."
+                )
+
+            final_time = assigned_time
             time_str = final_time.strftime("%H:%M")
 
             utc_start, utc_end = calculate_utc_datetimes(meeting_date, final_time, dur, tutor.timezone)
@@ -283,10 +376,7 @@ def regenerate_unadjusted_items(
     if not proposal or proposal.tutor_id != tutor.id:
         raise SchedulerError("Proposal not found.")
 
-    sh, sm = map(int, (proposal.avail_start_time_str or "09:00").split(":"))
-    eh, em = map(int, (proposal.avail_end_time_str or "21:00").split(":"))
-    avail_start = time(sh, sm)
-    avail_end = time(eh, em)
+    daily_avail = proposal.get_daily_availability()
 
     # Collect booked slots from manually adjusted items and existing DB meetings
     booked_slots: List[Tuple[datetime, datetime]] = []
@@ -300,13 +390,25 @@ def regenerate_unadjusted_items(
         if item.is_manually_adjusted:
             continue
 
+        day_name = WEEKDAY_TO_NAME.get(item.scheduled_date.weekday(), "saturday")
+        day_config = daily_avail.get(day_name, {})
+        if not day_config.get("is_available", True) or day_config.get("mode") == "none":
+            continue
+
+        d_start_str = day_config.get("start_time") or proposal.avail_start_time_str or "09:00"
+        d_end_str = day_config.get("end_time") or proposal.avail_end_time_str or "21:00"
+        sh, sm = map(int, d_start_str.split(":"))
+        eh, em = map(int, d_end_str.split(":"))
+        day_avail_start = time(sh, sm)
+        day_avail_end = time(eh, em)
+
         pref = learn_student_preferred_hour(db, item.student_id, tutor.timezone)
         if pref:
             pref_time_str, pref_source = pref
             pref_h, pref_m = map(int, pref_time_str.split(":"))
             pref_time = time(pref_h, pref_m)
         else:
-            pref_time = time(16, 0)
+            pref_time = time(max(sh, min(max(sh, eh - 1), 16)), 0)
             pref_source = "Manual selection (insufficient history)"
 
         assigned = find_available_slot(
@@ -317,15 +419,14 @@ def regenerate_unadjusted_items(
             duration_minutes=item.duration_minutes,
             tz_name=tutor.timezone,
             booked_slots=booked_slots,
-            avail_start_time=avail_start,
-            avail_end_time=avail_end,
+            avail_start_time=day_avail_start,
+            avail_end_time=day_avail_end,
         )
-        final_time = assigned or pref_time
-        item.start_time_str = final_time.strftime("%H:%M")
-        item.preference_source = pref_source
-
-        utc_s, utc_e = calculate_utc_datetimes(item.scheduled_date, final_time, item.duration_minutes, tutor.timezone)
-        booked_slots.append((utc_s, utc_e))
+        if assigned:
+            item.start_time_str = assigned.strftime("%H:%M")
+            item.preference_source = pref_source
+            utc_s, utc_e = calculate_utc_datetimes(item.scheduled_date, assigned, item.duration_minutes, tutor.timezone)
+            booked_slots.append((utc_s, utc_e))
 
     proposal.updated_at = now_utc()
     db.commit()

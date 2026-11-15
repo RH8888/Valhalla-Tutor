@@ -285,6 +285,10 @@ class WeeklyScheduleProposal(Base):
         nullable=True,
         default="21:00",
     )
+    daily_availability_json: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -296,6 +300,29 @@ class WeeklyScheduleProposal(Base):
         default=now_utc,
         onupdate=now_utc,
     )
+
+    def get_daily_availability(self) -> dict:
+        """Return dict of day-by-day availability settings."""
+        import json
+        if self.daily_availability_json:
+            try:
+                data = json.loads(self.daily_availability_json)
+                if isinstance(data, dict):
+                    return data
+            except Exception:
+                pass
+        s_time = self.avail_start_time_str or "14:00"
+        e_time = self.avail_end_time_str or "21:00"
+        days = ["saturday", "sunday", "monday", "tuesday", "wednesday", "thursday", "friday"]
+        return {
+            d: {
+                "is_available": True,
+                "start_time": s_time,
+                "end_time": e_time,
+                "mode": "custom",
+            }
+            for d in days
+        }
 
     tutor: Mapped["User"] = relationship(
         "User",
