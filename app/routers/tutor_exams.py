@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.timezone import today_local
 from app.core.dependencies import get_current_session, get_current_user, require_tutor, verify_csrf_token
 from app.core.templates import templates
 from app.models.session import UserSession
@@ -575,7 +576,7 @@ def get_create_session_form(
             "active_exams": active_exams,
             "tracks": tracks,
             "error": None,
-            "today_date": date.today().isoformat(),
+            "today_date": today_local(getattr(current_user, "timezone", None)).isoformat(),
             "current_user": current_user,
             "current_session": current_session,
         },
@@ -604,7 +605,7 @@ async def post_create_session(
                 "active_exams": active_exams,
                 "tracks": tracks,
                 "error": "Exam and date are required.",
-                "today_date": date.today().isoformat(),
+                "today_date": today_local(getattr(current_user, "timezone", None)).isoformat(),
                 "current_user": current_user,
                 "current_session": current_session,
             },

@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.timezone import today_local
 from app.core.dependencies import get_current_session, get_current_user, require_tutor, verify_csrf_token
 from app.core.storage import (
     REPORT_CARD_ALLOWED_EXTENSIONS,
@@ -102,7 +103,7 @@ def get_create_historical_exam_form(
             "tracks": tracks,
             "subjects": subjects,
             "selected_student_id": student_id,
-            "today_date": date.today().isoformat(),
+            "today_date": today_local(getattr(current_user, "timezone", None)).isoformat(),
             "error": None,
             "current_user": current_user,
             "current_session": current_session,

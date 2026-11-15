@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.timezone import today_local
 from app.core.dependencies import (
     get_current_session,
     get_current_user,
@@ -64,7 +65,7 @@ def get_student_plans_page(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
 
     plans = list_student_plans(db, student_id)
-    today = date.today()
+    today = today_local(getattr(current_user, "timezone", None))
     default_start_date = today.isoformat()
 
     return templates.TemplateResponse(

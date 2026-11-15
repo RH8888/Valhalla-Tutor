@@ -18,6 +18,11 @@ def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def today_local(tz_name: Optional[str] = None) -> date:
+    """Return the current date in the target local timezone (default Asia/Tehran)."""
+    return to_local(now_utc(), tz_name).date()
+
+
 def to_local(dt: datetime, tz_name: Optional[str] = None) -> datetime:
     """Convert a UTC or timezone-aware datetime to the target local timezone."""
     tz = get_timezone(tz_name)

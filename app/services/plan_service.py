@@ -5,7 +5,7 @@ from typing import Dict, List, Optional, Tuple
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
-from app.core.timezone import now_utc
+from app.core.timezone import now_utc, today_local
 from app.models.book import Book, BookChapter
 from app.models.course import Course, CourseChapter
 from app.models.plan import CompletionAuditAction, CompletionAuditLog, PlanAssignment, PlanStatus, StudyPlan, TaskType
@@ -772,7 +772,7 @@ def get_student_dashboard_data(db: Session, student: User) -> dict:
     from app.services.academic_service import get_student_effective_subjects
     effective_subjects = get_student_effective_subjects(student)
     assignments = active_plan.assignments
-    today = date.today()
+    today = today_local(getattr(student, "timezone", None))
 
     today_tasks = [a for a in assignments if a.scheduled_date == today]
     today_tasks_by_subject: Dict[uuid.UUID, List[PlanAssignment]] = {}
@@ -834,7 +834,7 @@ def get_student_monitoring_data(db: Session, student_id: uuid.UUID) -> dict:
     from app.services.academic_service import get_student_effective_subjects
     effective_subjects = get_student_effective_subjects(student)
     active_plan = get_active_student_plan(db, student_id)
-    today = date.today()
+    today = today_local(getattr(student, "timezone", None))
 
     active_plan_data = None
     if active_plan:

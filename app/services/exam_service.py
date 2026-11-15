@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from sqlalchemy import desc
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.timezone import now_utc
+from app.core.timezone import now_utc, today_local
 from app.models.exam import (
     Exam,
     ExamGradeTrackConfig,
@@ -889,7 +889,7 @@ def update_future_recurrence(
     exam.last_exam_date = new_last_date
     exam.recurrence_weekday = new_weekday
 
-    today = date.today()
+    today = today_local()
     # Find cutoff: any session in past OR having results must be preserved
     preserved_dates = set()
     for s in list(exam.sessions):
@@ -1113,7 +1113,7 @@ def get_student_available_exams(db: Session, student: User) -> Dict[str, Any]:
         .all()
     )
 
-    today = date.today()
+    today = today_local(getattr(student, "timezone", None))
     upcoming = []
     past = []
 
@@ -1847,6 +1847,15 @@ def get_student_series_grade_track_config(
     if not student.grade or not student.academic_track_id:
         return None
 
+    variants = {
+        "10": ["10", "دهم"],
+        "دهم": ["10", "دهم"],
+        "11": ["11", "یازدهم"],
+        "یازدهم": ["11", "یازدهم"],
+        "12": ["12", "دوازدهم"],
+        "دوازدهم": ["12", "دوازدهم"],
+    }.get(str(student.grade).strip(), [str(student.grade).strip()])
+
     return (
         db.query(ExamGradeTrackConfig)
         .options(
@@ -1855,7 +1864,7 @@ def get_student_series_grade_track_config(
         )
         .filter(
             ExamGradeTrackConfig.exam_id == exam_id,
-            ExamGradeTrackConfig.grade == str(student.grade),
+            ExamGradeTrackConfig.grade.in_(variants),
             ExamGradeTrackConfig.track_id == student.academic_track_id,
         )
         .first()
@@ -2022,7 +2031,7 @@ def bulk_remove_students_from_future_occurrences(
     actor_id: Optional[uuid.UUID] = None,
 ) -> Dict[str, Any]:
     """Remove selected students from future occurrences while strictly preserving past or completed submissions."""
-    today = date.today()
+    today = today_local()
     future_sessions = db.query(ExamSession).filter(ExamSession.exam_id == exam_id, ExamSession.date >= today).all()
     future_session_ids = [s.id for s in future_sessions]
 
@@ -2317,7 +2326,7 @@ def get_bulk_series_submission_overview(
     sessions = query.order_by(desc(ExamSession.date)).all()
 
     now = now_utc()
-    today = now.date()
+    today = today_local()
 
     total_assigned = 0
     total_submitted = 0
@@ -2495,7 +2504,7 @@ def get_exam_series_analytics(db: Session, exam_id: uuid.UUID) -> Dict[str, Any]
     if not exam:
         raise ExamNotFoundError(f"Exam series {exam_id} not found.")
 
-    today = date.today()
+    today = today_local()
     total_occurrences = len(exam.sessions)
     completed_occurrences = len([s for s in exam.sessions if s.date < today and s.status == "SCHEDULED"])
 
@@ -2639,7 +2648,7 @@ def get_student_comprehensive_analytics(
         }
 
     # Missing submissions
-    today = date.today()
+    today = today_local(getattr(student, "timezone", None))
     assigned_sessions = (
         db.query(ExamSession)
         .join(ExternalExamAssignment, ExternalExamAssignment.exam_session_id == ExamSession.id)
