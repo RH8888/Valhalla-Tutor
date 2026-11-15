@@ -239,6 +239,8 @@ def get_edit_result_form(
         raise HTTPException(status_code=404, detail="Result not found")
     if result.student_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to edit this result")
+    if result.is_reviewed or getattr(result, "is_tutor_corrected", False):
+        raise HTTPException(status_code=400, detail="Cannot edit an exam result that has been reviewed or corrected by a tutor.")
 
     sub_res_map = {sr.subject_id: sr for sr in result.subject_results}
     track_config = next(
@@ -276,6 +278,8 @@ async def post_edit_result(
         raise HTTPException(status_code=404, detail="Result not found")
     if result.student_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to edit this result")
+    if result.is_reviewed or getattr(result, "is_tutor_corrected", False):
+        raise HTTPException(status_code=400, detail="Cannot edit an exam result that has been reviewed or corrected by a tutor.")
 
     form_data = await request.form()
     overall_rank_raw = form_data.get("overall_rank")

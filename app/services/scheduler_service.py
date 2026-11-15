@@ -454,7 +454,14 @@ def approve_weekly_proposal(
     Approve proposed schedule, create TutorMeeting records, and deliver private in-app notifications.
     Idempotent: will not create duplicate meetings or duplicate notification messages.
     """
-    proposal = db.get(WeeklyScheduleProposal, proposal_id)
+    # Concurrency control: serialize per tutor and lock proposal to guarantee idempotency
+    db.query(User.id).filter(User.id == tutor.id).with_for_update().first()
+    proposal = (
+        db.query(WeeklyScheduleProposal)
+        .filter(WeeklyScheduleProposal.id == proposal_id)
+        .with_for_update()
+        .first()
+    )
     if not proposal or proposal.tutor_id != tutor.id:
         raise SchedulerError("Proposal not found.")
 

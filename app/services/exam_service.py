@@ -573,10 +573,14 @@ def create_exam_session(
     db.add(session)
     db.flush()
 
+    series_track_ids = {gtc.track_id for gtc in exam.grade_track_configs} if exam.grade_track_configs else None
+
     for track_id, subject_ids in track_subjects_map.items():
         track = get_track_by_id(db, track_id)
         if not track:
             raise ExamValidationError(f"Academic track with id {track_id} not found.")
+        if series_track_ids is not None and track_id not in series_track_ids:
+            raise ExamValidationError(f"Academic track '{track.name}' is not configured for exam series '{exam.title}'.")
         if not subject_ids:
             raise ExamValidationError(f"At least one subject must be selected for track '{track.name}'.")
 
@@ -1428,6 +1432,7 @@ def reopen_exam_result(
         raise ExamResultNotFoundError(f"Result {result_id} not found.")
 
     result.is_reviewed = False
+    result.is_tutor_corrected = False
     result.reviewed_at = None
 
     log_exam_audit(
@@ -1560,6 +1565,9 @@ def update_student_exam_result(
 
     if result.student_id != student.id:
         raise ExamValidationError("You are not authorized to edit this result.")
+
+    if result.is_reviewed or getattr(result, "is_tutor_corrected", False):
+        raise ExamValidationError("Cannot edit an exam result that has been reviewed or corrected by a tutor without reopening.")
 
     clean_rank = None
     if overall_rank is not None:
@@ -2141,21 +2149,30 @@ def dismiss_series_incompatible_assignment(db: Session, assignment_id: uuid.UUID
 
     db.delete(sa)
 
-    sessions = db.query(ExamSession).filter(ExamSession.exam_id == exam_id).all()
-    session_ids = [s.id for s in sessions]
+    # Only remove future unsubmitted occurrences; preserve historical records
+    today = today_local()
+    future_sessions = (
+        db.query(ExamSession)
+        .filter(
+            ExamSession.exam_id == exam_id,
+            ExamSession.date >= today,
+        )
+        .all()
+    )
+    future_session_ids = [s.id for s in future_sessions]
 
-    submitted_session_ids = {
-        sr.exam_session_id
-        for sr in db.query(StudentExamResult).filter(
-            StudentExamResult.student_id == student_id,
-            StudentExamResult.exam_session_id.in_(session_ids)
-        ).all()
-    }
+    if future_session_ids:
+        submitted_session_ids = {
+            sr.exam_session_id
+            for sr in db.query(StudentExamResult).filter(
+                StudentExamResult.student_id == student_id,
+                StudentExamResult.exam_session_id.in_(future_session_ids)
+            ).all()
+        }
 
-    if session_ids:
         unsubmitted_assignments = db.query(ExternalExamAssignment).filter(
             ExternalExamAssignment.student_id == student_id,
-            ExternalExamAssignment.exam_session_id.in_(session_ids),
+            ExternalExamAssignment.exam_session_id.in_(future_session_ids),
         ).all()
         for u_ass in unsubmitted_assignments:
             if u_ass.exam_session_id not in submitted_session_ids:

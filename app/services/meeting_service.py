@@ -123,6 +123,9 @@ def create_meeting(
     if duration_minutes <= 0:
         raise MeetingValidationError("Meeting duration must be positive.")
 
+    # Concurrency control: serialize meeting creation per tutor to prevent double-booking
+    db.query(User.id).filter(User.id == tutor.id).with_for_update().first()
+
     student = db.get(User, student_id)
     if not student or student.role != UserRole.STUDENT:
         raise MeetingValidationError("Selected student is not valid or does not exist.")
@@ -183,7 +186,10 @@ def reschedule_meeting(
     """
     Reschedule an existing meeting to a new date/time/duration while preserving history.
     """
-    meeting = db.get(TutorMeeting, meeting_id)
+    # Concurrency control: serialize meeting rescheduling per tutor
+    db.query(User.id).filter(User.id == tutor.id).with_for_update().first()
+
+    meeting = db.query(TutorMeeting).filter(TutorMeeting.id == meeting_id).with_for_update().first()
     if not meeting or meeting.tutor_id != tutor.id:
         raise MeetingNotFoundError("Meeting not found.")
 
@@ -243,7 +249,7 @@ def update_meeting_status(
     new_status: MeetingStatus,
 ) -> TutorMeeting:
     """Transition meeting status (COMPLETED, CANCELLED, STUDENT_ABSENT)."""
-    meeting = db.get(TutorMeeting, meeting_id)
+    meeting = db.query(TutorMeeting).filter(TutorMeeting.id == meeting_id).with_for_update().first()
     if not meeting or meeting.tutor_id != tutor.id:
         raise MeetingNotFoundError("Meeting not found.")
 
@@ -270,7 +276,7 @@ def update_meeting_details(
     reminder_minutes: Optional[int] = None,
 ) -> TutorMeeting:
     """Update meeting non-temporal attributes (notes, url, location, reminder config)."""
-    meeting = db.get(TutorMeeting, meeting_id)
+    meeting = db.query(TutorMeeting).filter(TutorMeeting.id == meeting_id).with_for_update().first()
     if not meeting or meeting.tutor_id != tutor.id:
         raise MeetingNotFoundError("Meeting not found.")
 

@@ -88,6 +88,7 @@
 
     <!-- Delete Task Section -->
     <div class="pt-4 border-t border-slate-200 flex items-center justify-between">
+        {% if not assignment.is_completed %}
         <span class="text-xs text-slate-500">Permanently remove this assignment:</span>
         <form method="POST" action="/tutor/plans/assignments/{{ assignment.id }}/delete" class="inline">
             <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
@@ -96,6 +97,9 @@
                 Delete Task
             </button>
         </form>
+        {% else %}
+        <span class="text-xs text-slate-400 italic">Completed tasks cannot be deleted. Reset completion status first if needed.</span>
+        {% endif %}
     </div>
 </div>
 

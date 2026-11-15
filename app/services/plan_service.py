@@ -345,6 +345,11 @@ def publish_study_plan(db: Session, plan_id: uuid.UUID, tutor_id: Optional[uuid.
     if not plan:
         raise PlanNotFoundError(f"Plan with id {plan_id} not found.")
 
+    if plan.status == PlanStatus.ARCHIVED:
+        raise PlanValidationError("Cannot publish an archived study plan. Archived plans cannot be reactivated.")
+    if plan.status != PlanStatus.DRAFT:
+        raise PlanValidationError(f"Cannot publish a study plan with status '{plan.status}'. Only DRAFT plans can be published.")
+
     # Archive any existing published plan for the student
     existing_query = (
         db.query(StudyPlan)
@@ -380,6 +385,8 @@ def delete_study_plan(db: Session, plan_id: uuid.UUID, tutor_id: Optional[uuid.U
     plan = get_study_plan(db, plan_id, tutor_id=tutor_id)
     if not plan:
         raise PlanNotFoundError(f"Plan with id {plan_id} not found.")
+    if plan.status != PlanStatus.DRAFT:
+        raise PlanValidationError("Only DRAFT study plans can be deleted. Published plans must be archived.")
     db.delete(plan)
     db.commit()
 
@@ -411,6 +418,9 @@ def create_assignment(
     plan = get_study_plan(db, plan_id, tutor_id=tutor_id)
     if not plan:
         raise PlanNotFoundError(f"Plan with id {plan_id} not found.")
+
+    if plan.status == PlanStatus.ARCHIVED:
+        raise PlanValidationError("Cannot add assignments to an archived study plan.")
 
     if scheduled_date < plan.start_date or scheduled_date > plan.end_date:
         raise PlanValidationError(
@@ -578,6 +588,9 @@ def update_assignment(
     if not assignment:
         raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
 
+    if assignment.study_plan and assignment.study_plan.status == PlanStatus.ARCHIVED:
+        raise PlanValidationError("Cannot modify assignments in an archived study plan.")
+
     if title is not None:
         clean_title = title.strip()
         if not clean_title:
@@ -602,6 +615,11 @@ def update_assignment(
         sub = db.query(Subject).filter(Subject.id == subject_id).first()
         if not sub:
             raise PlanValidationError(f"Subject with id {subject_id} not found.")
+        student = assignment.study_plan.student if assignment.study_plan else None
+        if student:
+            effective_subjects = get_student_effective_subjects(student)
+            if effective_subjects and subject_id not in {s.id for s in effective_subjects}:
+                raise PlanValidationError(f"Subject '{sub.name}' is not assigned to student '{student.full_name}'.")
         assignment.subject_id = subject_id
 
     if display_order is not None:
@@ -616,6 +634,8 @@ def delete_assignment(db: Session, assignment_id: uuid.UUID, tutor_id: Optional[
     assignment = get_assignment(db, assignment_id, tutor_id=tutor_id)
     if not assignment:
         raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
+    if assignment.is_completed:
+        raise PlanValidationError("Cannot delete a completed assignment. Reset its completion status first.")
     db.delete(assignment)
     db.commit()
 

@@ -288,7 +288,12 @@ def get_practice_results_page(
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
-    data = get_practice_exam_detailed_results(db, attempt_id)
+    try:
+        data = get_practice_exam_detailed_results(db, attempt_id)
+    except PracticeExamValidationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except PracticeExamNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
     if data["attempt"].student_id != current_user.id:
         raise HTTPException(status_code=403, detail="Unauthorized access to results.")
 

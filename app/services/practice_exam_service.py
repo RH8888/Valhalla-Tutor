@@ -122,6 +122,12 @@ def add_practice_exam_booklet(
     if question_start <= 0 or question_end < question_start:
         raise PracticeExamValidationError("Invalid question range: start must be >= 1 and end >= start.")
 
+    for b in exam.booklets:
+        if max(question_start, b.question_start) <= min(question_end, b.question_end):
+            raise PracticeExamValidationError(
+                f"Question range {question_start}–{question_end} overlaps with booklet '{b.title}' ({b.question_start}–{b.question_end})."
+            )
+
     if order_index is None:
         order_index = len(exam.booklets) + 1
 
@@ -172,6 +178,15 @@ def configure_practice_exam_questions(
     exam = get_practice_exam_by_id(db, practice_exam_id)
     if not exam:
         raise PracticeExamNotFoundError(f"Practice exam with id {practice_exam_id} not found.")
+
+    # Preserve historical records: forbid reconfiguring questions once attempts exist
+    has_attempts = db.query(StudentPracticeAttempt).filter(
+        StudentPracticeAttempt.practice_exam_id == exam.id
+    ).first()
+    if has_attempts:
+        raise PracticeExamValidationError(
+            "Cannot reconfigure questions for a practice exam with existing student attempts."
+        )
 
     # Remove existing questions to allow clean reconfiguration
     for q in list(exam.questions):
@@ -267,6 +282,9 @@ def start_practice_attempt(
     student: User,
     practice_exam_id: uuid.UUID,
 ) -> StudentPracticeAttempt:
+    # Concurrency control: lock student row to serialize concurrent attempt starts
+    db.query(User.id).filter(User.id == student.id).with_for_update().first()
+
     exam = get_practice_exam_by_id(db, practice_exam_id)
     if not exam:
         raise PracticeExamNotFoundError(f"Practice exam with id {practice_exam_id} not found.")
@@ -419,16 +437,38 @@ def submit_booklet_answers(
     state = get_student_booklet_state(db, attempt_id, booklet_id)
     attempt = state["attempt"]
     booklet = state["booklet"]
-    b_attempt = state["booklet_attempt"]
 
     if attempt.student_id != student.id:
         raise PracticeExamValidationError("Unauthorized access to this practice exam attempt.")
 
-    if state["is_locked"]:
+    # Concurrency control: atomically lock the booklet attempt row to prevent writes after expiration/lock
+    b_attempt = (
+        db.query(StudentPracticeBookletAttempt)
+        .filter(
+            StudentPracticeBookletAttempt.attempt_id == attempt.id,
+            StudentPracticeBookletAttempt.booklet_id == booklet.id,
+        )
+        .with_for_update()
+        .first()
+    )
+    if not b_attempt or b_attempt.is_locked:
         raise PracticeExamLockedError("This booklet is locked. Answers cannot be modified.")
 
     now = now_utc()
-    valid_q_nums = {q.question_number for q in state["questions"]}
+    if attempt.is_timed and b_attempt.expires_at:
+        exp = b_attempt.expires_at
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        if now >= exp:
+            b_attempt.is_locked = True
+            b_attempt.locked_at = exp
+            db.commit()
+            raise PracticeExamLockedError("Time has expired for this booklet. Answers cannot be modified.")
+
+    valid_q_nums = {
+        q.question_number for q in state["questions"]
+        if booklet.question_start <= q.question_number <= booklet.question_end
+    }
 
     for q_num, choice in answers.items():
         if q_num not in valid_q_nums:
@@ -453,6 +493,8 @@ def submit_booklet_answers(
             )
             db.add(ans_rec)
         else:
+            if ans_rec.booklet_attempt_id != b_attempt.id:
+                raise PracticeExamLockedError(f"Question {q_num} belongs to another booklet and cannot be modified.")
             ans_rec.selected_choice = choice
             ans_rec.booklet_attempt_id = b_attempt.id
 
@@ -511,6 +553,8 @@ def calculate_practice_exam_results(db: Session, attempt_id: uuid.UUID) -> Stude
     )
     if not attempt:
         raise PracticeExamNotFoundError("Attempt not found.")
+    if attempt.status != "COMPLETED":
+        raise PracticeExamValidationError("Results and answer-key feedback are only available after the exam attempt is completed.")
 
     exam = attempt.practice_exam
     questions_by_num = {q.question_number: q for q in exam.questions}
@@ -573,6 +617,8 @@ def get_practice_exam_detailed_results(db: Session, attempt_id: uuid.UUID) -> Di
     )
     if not attempt:
         raise PracticeExamNotFoundError("Attempt not found.")
+    if attempt.status != "COMPLETED":
+        raise PracticeExamValidationError("Results and answer-key feedback are only available after the exam attempt is completed.")
 
     exam = attempt.practice_exam
     questions = exam.questions
