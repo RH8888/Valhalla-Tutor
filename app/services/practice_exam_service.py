@@ -546,6 +546,12 @@ def submit_booklet_answers(
     if not b_attempt:
         raise PracticeExamValidationError("Booklet is not unlocked for this attempt.")
 
+    # Concurrency control: refresh attempt to observe status committed by concurrent requests
+    db.refresh(attempt)
+    if attempt.status == "COMPLETED":
+        db.commit()
+        return {"advanced": False, "completed": True, "next_booklet_id": None}
+
     now = now_utc()
     is_time_expired = False
     if attempt.is_timed and b_attempt.expires_at:
@@ -608,12 +614,17 @@ def submit_booklet_answers(
         if not b_attempt.locked_at:
             b_attempt.locked_at = now
 
+        db.refresh(attempt)
         if attempt.status == "COMPLETED":
             db.commit()
             return {"advanced": False, "completed": True, "next_booklet_id": None}
 
-        exam = attempt.practice_exam
-        exam_booklets = sorted(exam.booklets, key=lambda b: b.order_index)
+        exam_booklets = (
+            db.query(PracticeExamBooklet)
+            .filter(PracticeExamBooklet.practice_exam_id == attempt.practice_exam_id)
+            .order_by(PracticeExamBooklet.order_index)
+            .all()
+        )
         next_booklet = next(
             (b for b in exam_booklets if b.order_index > booklet.order_index),
             None,

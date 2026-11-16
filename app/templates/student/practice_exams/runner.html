@@ -142,7 +142,8 @@
     const csrfToken = "{{ current_session.csrf_token if current_session else '' }}";
     const saveUrl = `/student/practice-exams/attempts/${attemptId}/booklets/${bookletId}/answers`;
 
-    const inFlightSaves = new Map();
+    const isSaving = new Map();
+    const pendingChoice = new Map();
     const confirmedChoices = new Map();
     let activeSaveCount = 0;
     let isSubmitting = false;
@@ -151,6 +152,10 @@
     document.querySelectorAll('.choice-radio:checked').forEach(r => {
         confirmedChoices.set(parseInt(r.dataset.q, 10), parseInt(r.dataset.choice, 10));
     });
+
+    function hasAnyPending() {
+        return pendingChoice.size > 0;
+    }
 
     function setStatus(type, text) {
         const el = document.getElementById('save_status_indicator');
@@ -174,12 +179,8 @@
         });
     }
 
-    async function persistAnswer(qNum, choice) {
-        if (inFlightSaves.has(qNum)) {
-            inFlightSaves.get(qNum).abort();
-        }
-        const controller = new AbortController();
-        inFlightSaves.set(qNum, controller);
+    async function executeAnswerSave(qNum, choice) {
+        isSaving.set(qNum, true);
         activeSaveCount++;
         setStatus('saving');
 
@@ -191,36 +192,47 @@
                     'X-CSRF-Token': csrfToken,
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify({ question_number: qNum, selected_choice: choice }),
-                signal: controller.signal
+                body: JSON.stringify({ question_number: qNum, selected_choice: choice })
             });
 
             if (response.ok) {
                 confirmedChoices.set(qNum, choice);
-                activeSaveCount = Math.max(0, activeSaveCount - 1);
-                if (activeSaveCount === 0) {
-                    setStatus('saved');
-                }
             } else if (response.status === 423 || response.status === 403) {
-                activeSaveCount = Math.max(0, activeSaveCount - 1);
                 setStatus('error', 'Booklet locked. Advancing...');
                 triggerAutomaticSubmission();
+                return;
             } else {
                 throw new Error(`HTTP ${response.status}`);
             }
         } catch (err) {
-            if (err.name === 'AbortError') {
-                activeSaveCount = Math.max(0, activeSaveCount - 1);
-                return;
-            }
-            activeSaveCount = Math.max(0, activeSaveCount - 1);
             setStatus('error', 'Network error. Reverting...');
             revertChoice(qNum);
         } finally {
-            if (inFlightSaves.get(qNum) === controller) {
-                inFlightSaves.delete(qNum);
+            isSaving.set(qNum, false);
+            activeSaveCount = Math.max(0, activeSaveCount - 1);
+
+            // If user selected another choice while saving, process the latest one in order
+            if (pendingChoice.has(qNum)) {
+                const nextChoice = pendingChoice.get(qNum);
+                pendingChoice.delete(qNum);
+                if (nextChoice !== confirmedChoices.get(qNum)) {
+                    executeAnswerSave(qNum, nextChoice);
+                    return;
+                }
+            }
+
+            if (activeSaveCount === 0 && !hasAnyPending()) {
+                setStatus('saved');
             }
         }
+    }
+
+    function queueAnswerSave(qNum, choice) {
+        if (isSaving.get(qNum)) {
+            pendingChoice.set(qNum, choice);
+            return;
+        }
+        executeAnswerSave(qNum, choice);
     }
 
     document.querySelectorAll('.choice-radio').forEach(r => {
@@ -228,9 +240,16 @@
             if (isSubmitting) return;
             const qNum = parseInt(e.target.dataset.q, 10);
             const choice = parseInt(e.target.dataset.choice, 10);
-            persistAnswer(qNum, choice);
+            queueAnswerSave(qNum, choice);
         });
     });
+
+    async function waitForPendingSaves(maxWaitMs = 5000) {
+        const start = Date.now();
+        while ((activeSaveCount > 0 || hasAnyPending()) && (Date.now() - start < maxWaitMs)) {
+            await new Promise(r => setTimeout(r, 40));
+        }
+    }
 
     async function triggerAutomaticSubmission() {
         if (isSubmitting) return;
@@ -239,9 +258,8 @@
         document.querySelectorAll('.choice-radio').forEach(r => r.disabled = true);
         setStatus('saving', 'Advancing to next section...');
 
-        if (activeSaveCount > 0) {
-            await new Promise(r => setTimeout(r, 350));
-        }
+        // Reliably await all in-flight and queued answer saves before booklet finalization
+        await waitForPendingSaves();
 
         const form = document.getElementById('runner_form');
         if (form) {

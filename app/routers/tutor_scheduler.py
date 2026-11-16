@@ -1,3 +1,4 @@
+import html
 import uuid
 from datetime import date, datetime, time, timedelta
 from typing import List, Optional
@@ -348,8 +349,8 @@ def post_quick_move(
     Handle drag-and-drop or quick time swap for a meeting,
     updating history, checking conflicts, and privately notifying the student.
     """
-    t_date = datetime.strptime(target_date.strip(), "%Y-%m-%d").date()
     try:
+        t_date = datetime.strptime(target_date.strip(), "%Y-%m-%d").date()
         quick_move_meeting(
             db=db,
             meeting_id=meeting_id,
@@ -359,13 +360,22 @@ def post_quick_move(
             notify_student=notify,
         )
     except Exception as e:
+        if isinstance(e, (SchedulerError, ValueError)):
+            error_msg = str(e)
+        else:
+            error_msg = "Unable to reschedule meeting."
+
         if request.headers.get("HX-Request"):
-            return Response(content=f"<script>alert('{str(e)}');</script>", status_code=400)
-        raise HTTPException(status_code=400, detail=str(e))
+            escaped_msg = html.escape(error_msg)
+            return HTMLResponse(
+                content=f'<div class="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs font-medium">{escaped_msg}</div>',
+                status_code=400,
+            )
+        raise HTTPException(status_code=400, detail=error_msg)
 
     if request.headers.get("HX-Request"):
         response = Response(status_code=200)
         response.headers["HX-Trigger"] = "meetingChanged"
         return response
 
-    return RedirectResponse(url=f"/tutor/calendar?date={target_date}", status_code=303)
+    return RedirectResponse(url=f"/tutor/calendar?date={t_date.strftime('%Y-%m-%d')}", status_code=303)

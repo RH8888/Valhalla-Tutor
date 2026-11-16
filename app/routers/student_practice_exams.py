@@ -193,6 +193,12 @@ def get_booklet_runner(
                     url=f"/student/practice-exams/attempts/{attempt_id}/booklets/{active_ba.booklet_id}?err=Booklet is not unlocked yet.",
                     status_code=status.HTTP_303_SEE_OTHER,
                 )
+            if attempt.booklet_attempts:
+                latest_ba = attempt.booklet_attempts[-1]
+                return RedirectResponse(
+                    url=f"/student/practice-exams/attempts/{attempt_id}/booklets/{latest_ba.booklet_id}",
+                    status_code=status.HTTP_303_SEE_OTHER,
+                )
             raise HTTPException(status_code=403, detail="Booklet is not unlocked for this attempt.")
 
         # 3. Server-side expiration / progression check:
