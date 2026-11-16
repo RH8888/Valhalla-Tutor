@@ -425,6 +425,98 @@ def get_student_booklet_state(
     }
 
 
+def save_student_answer(
+    db: Session,
+    student: User,
+    attempt_id: uuid.UUID,
+    booklet_id: uuid.UUID,
+    question_number: int,
+    selected_choice: Optional[int],
+) -> StudentPracticeAnswer:
+    """Immediately persist or update a student's answer for a single question."""
+    attempt = db.query(StudentPracticeAttempt).filter(StudentPracticeAttempt.id == attempt_id).first()
+    if not attempt:
+        raise PracticeExamNotFoundError("Attempt not found.")
+    if attempt.student_id != student.id:
+        raise PracticeExamValidationError("Unauthorized access to this practice exam attempt.")
+    if attempt.status != "IN_PROGRESS":
+        raise PracticeExamValidationError("Practice exam attempt is not active.")
+
+    booklet = db.query(PracticeExamBooklet).filter(
+        PracticeExamBooklet.id == booklet_id,
+        PracticeExamBooklet.practice_exam_id == attempt.practice_exam_id,
+    ).first()
+    if not booklet:
+        raise PracticeExamNotFoundError("Booklet not found.")
+
+    b_attempt = (
+        db.query(StudentPracticeBookletAttempt)
+        .filter(
+            StudentPracticeBookletAttempt.attempt_id == attempt.id,
+            StudentPracticeBookletAttempt.booklet_id == booklet.id,
+        )
+        .with_for_update()
+        .first()
+    )
+    if not b_attempt or b_attempt.is_locked:
+        raise PracticeExamLockedError("This booklet is locked. Answers cannot be modified.")
+
+    now = now_utc()
+    if attempt.is_timed and b_attempt.expires_at:
+        exp = b_attempt.expires_at
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        if now >= exp:
+            b_attempt.is_locked = True
+            b_attempt.locked_at = exp
+            db.commit()
+            raise PracticeExamLockedError("Time has expired for this booklet. Answers cannot be modified.")
+
+    if not (booklet.question_start <= question_number <= booklet.question_end):
+        raise PracticeExamValidationError(
+            f"Question {question_number} is outside the question range for this booklet ({booklet.question_start}–{booklet.question_end})."
+        )
+
+    q_def = (
+        db.query(PracticeExamQuestion)
+        .filter(
+            PracticeExamQuestion.practice_exam_id == attempt.practice_exam_id,
+            PracticeExamQuestion.question_number == question_number,
+        )
+        .first()
+    )
+    if not q_def:
+        raise PracticeExamValidationError(f"Question {question_number} does not exist in this practice exam.")
+
+    if selected_choice is not None and selected_choice not in [1, 2, 3, 4]:
+        raise PracticeExamValidationError(f"Invalid choice '{selected_choice}' for question {question_number}. Must be 1, 2, 3, or 4.")
+
+    ans_rec = (
+        db.query(StudentPracticeAnswer)
+        .filter(
+            StudentPracticeAnswer.attempt_id == attempt.id,
+            StudentPracticeAnswer.question_number == question_number,
+        )
+        .first()
+    )
+    if not ans_rec:
+        ans_rec = StudentPracticeAnswer(
+            attempt_id=attempt.id,
+            booklet_attempt_id=b_attempt.id,
+            question_number=question_number,
+            selected_choice=selected_choice,
+        )
+        db.add(ans_rec)
+    else:
+        if ans_rec.booklet_attempt_id != b_attempt.id:
+            raise PracticeExamLockedError(f"Question {question_number} belongs to another booklet and cannot be modified.")
+        ans_rec.selected_choice = selected_choice
+
+    db.commit()
+    db.refresh(ans_rec)
+    return ans_rec
+
+
 def submit_booklet_answers(
     db: Session,
     student: User,
@@ -451,69 +543,95 @@ def submit_booklet_answers(
         .with_for_update()
         .first()
     )
-    if not b_attempt or b_attempt.is_locked:
-        raise PracticeExamLockedError("This booklet is locked. Answers cannot be modified.")
+    if not b_attempt:
+        raise PracticeExamValidationError("Booklet is not unlocked for this attempt.")
 
     now = now_utc()
+    is_time_expired = False
     if attempt.is_timed and b_attempt.expires_at:
         exp = b_attempt.expires_at
         if exp.tzinfo is None:
             exp = exp.replace(tzinfo=timezone.utc)
         if now >= exp:
-            b_attempt.is_locked = True
-            b_attempt.locked_at = exp
+            is_time_expired = True
+            if not b_attempt.is_locked:
+                b_attempt.is_locked = True
+                b_attempt.locked_at = exp
+
+    # Reject answer modification if booklet is already locked or expired
+    if not advance_to_next:
+        if b_attempt.is_locked or is_time_expired:
             db.commit()
-            raise PracticeExamLockedError("Time has expired for this booklet. Answers cannot be modified.")
+            if is_time_expired:
+                raise PracticeExamLockedError("Time has expired for this booklet. Answers cannot be modified.")
+            raise PracticeExamLockedError("This booklet is locked. Answers cannot be modified.")
 
-    valid_q_nums = {
-        q.question_number for q in state["questions"]
-        if booklet.question_start <= q.question_number <= booklet.question_end
-    }
+    # Only save new answers if booklet was not already locked or expired
+    if not b_attempt.is_locked and not is_time_expired:
+        valid_q_nums = {
+            q.question_number for q in state["questions"]
+            if booklet.question_start <= q.question_number <= booklet.question_end
+        }
 
-    for q_num, choice in answers.items():
-        if q_num not in valid_q_nums:
-            continue
-        if choice is not None and choice not in [1, 2, 3, 4]:
-            raise PracticeExamValidationError(f"Invalid choice '{choice}' for question {q_num}. Must be 1, 2, 3, or 4.")
+        for q_num, choice in answers.items():
+            if q_num not in valid_q_nums:
+                continue
+            if choice is not None and choice not in [1, 2, 3, 4]:
+                raise PracticeExamValidationError(f"Invalid choice '{choice}' for question {q_num}. Must be 1, 2, 3, or 4.")
 
-        ans_rec = (
-            db.query(StudentPracticeAnswer)
-            .filter(
-                StudentPracticeAnswer.attempt_id == attempt.id,
-                StudentPracticeAnswer.question_number == q_num,
+            ans_rec = (
+                db.query(StudentPracticeAnswer)
+                .filter(
+                    StudentPracticeAnswer.attempt_id == attempt.id,
+                    StudentPracticeAnswer.question_number == q_num,
+                )
+                .first()
             )
-            .first()
-        )
-        if not ans_rec:
-            ans_rec = StudentPracticeAnswer(
-                attempt_id=attempt.id,
-                booklet_attempt_id=b_attempt.id,
-                question_number=q_num,
-                selected_choice=choice,
-            )
-            db.add(ans_rec)
-        else:
-            if ans_rec.booklet_attempt_id != b_attempt.id:
-                raise PracticeExamLockedError(f"Question {q_num} belongs to another booklet and cannot be modified.")
-            ans_rec.selected_choice = choice
-            ans_rec.booklet_attempt_id = b_attempt.id
+            if not ans_rec:
+                ans_rec = StudentPracticeAnswer(
+                    attempt_id=attempt.id,
+                    booklet_attempt_id=b_attempt.id,
+                    question_number=q_num,
+                    selected_choice=choice,
+                )
+                db.add(ans_rec)
+            else:
+                if ans_rec.booklet_attempt_id != b_attempt.id:
+                    raise PracticeExamLockedError(f"Question {q_num} belongs to another booklet and cannot be modified.")
+                ans_rec.selected_choice = choice
+                ans_rec.booklet_attempt_id = b_attempt.id
 
-    db.flush()
+        db.flush()
 
     if advance_to_next:
-        # Lock current booklet permanently
         b_attempt.is_locked = True
-        b_attempt.locked_at = now
+        if not b_attempt.locked_at:
+            b_attempt.locked_at = now
 
-        # Find next booklet
+        if attempt.status == "COMPLETED":
+            db.commit()
+            return {"advanced": False, "completed": True, "next_booklet_id": None}
+
         exam = attempt.practice_exam
+        exam_booklets = sorted(exam.booklets, key=lambda b: b.order_index)
         next_booklet = next(
-            (b for b in exam.booklets if b.order_index > booklet.order_index),
+            (b for b in exam_booklets if b.order_index > booklet.order_index),
             None,
         )
 
         if next_booklet:
-            # Start next booklet
+            existing_next = (
+                db.query(StudentPracticeBookletAttempt)
+                .filter(
+                    StudentPracticeBookletAttempt.attempt_id == attempt.id,
+                    StudentPracticeBookletAttempt.booklet_id == next_booklet.id,
+                )
+                .first()
+            )
+            if existing_next:
+                db.commit()
+                return {"advanced": True, "completed": False, "next_booklet_id": str(next_booklet.id)}
+
             next_expires = None
             if attempt.is_timed and next_booklet.duration_minutes:
                 next_expires = now + timedelta(minutes=next_booklet.duration_minutes)
@@ -529,7 +647,6 @@ def submit_booklet_answers(
             db.commit()
             return {"advanced": True, "completed": False, "next_booklet_id": str(next_booklet.id)}
         else:
-            # No more booklets, finalize attempt and compute grades
             attempt.status = "COMPLETED"
             attempt.completed_at = now
             db.commit()

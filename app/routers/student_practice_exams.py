@@ -1,7 +1,7 @@
 import uuid
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -19,6 +19,7 @@ from app.services.practice_exam_service import (
     get_practice_exam_detailed_results,
     get_student_available_practice_exams,
     get_student_booklet_state,
+    save_student_answer,
     start_practice_attempt,
     submit_booklet_answers,
 )
@@ -172,8 +173,50 @@ def get_booklet_runner(
 ):
     try:
         state = get_student_booklet_state(db, attempt_id, booklet_id)
-        if state["attempt"].student_id != current_user.id:
+        attempt = state["attempt"]
+        if attempt.student_id != current_user.id:
             raise HTTPException(status_code=403, detail="Unauthorized access to this attempt.")
+
+        # 1. If attempt is completed, redirect to results page
+        if attempt.status == "COMPLETED":
+            return RedirectResponse(
+                url=f"/student/practice-exams/attempts/{attempt_id}/results",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+
+        # 2. Check if student attempted to access a future booklet directly
+        b_attempt = state["booklet_attempt"]
+        if not b_attempt:
+            active_ba = next((ba for ba in attempt.booklet_attempts if not ba.is_locked), None)
+            if active_ba:
+                return RedirectResponse(
+                    url=f"/student/practice-exams/attempts/{attempt_id}/booklets/{active_ba.booklet_id}?err=Booklet is not unlocked yet.",
+                    status_code=status.HTTP_303_SEE_OTHER,
+                )
+            raise HTTPException(status_code=403, detail="Booklet is not unlocked for this attempt.")
+
+        # 3. Server-side expiration / progression check:
+        # If this booklet is locked or expired, automatically advance to next booklet or finalize attempt
+        if state["is_locked"]:
+            res = submit_booklet_answers(
+                db=db,
+                student=current_user,
+                attempt_id=attempt_id,
+                booklet_id=booklet_id,
+                answers={},
+                advance_to_next=True,
+            )
+            if res.get("completed"):
+                return RedirectResponse(
+                    url=f"/student/practice-exams/attempts/{attempt_id}/results?msg=Practice exam completed! Review your results below.",
+                    status_code=status.HTTP_303_SEE_OTHER,
+                )
+            else:
+                next_id = res.get("next_booklet_id")
+                return RedirectResponse(
+                    url=f"/student/practice-exams/attempts/{attempt_id}/booklets/{next_id}",
+                    status_code=status.HTTP_303_SEE_OTHER,
+                )
 
         return templates.TemplateResponse(
             request=request,
@@ -196,6 +239,61 @@ def get_booklet_runner(
         raise HTTPException(status_code=404, detail=str(exc))
 
 
+@router.post("/attempts/{attempt_id}/booklets/{booklet_id}/answers")
+@router.post("/attempts/{attempt_id}/booklets/{booklet_id}/answer")
+async def post_save_single_answer(
+    request: Request,
+    attempt_id: uuid.UUID,
+    booklet_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_session: UserSession = Depends(get_current_session),
+):
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body.")
+
+    q_num = body.get("question_number")
+    if q_num is None:
+        raise HTTPException(status_code=400, detail="question_number is required.")
+    try:
+        q_num = int(q_num)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="question_number must be an integer.")
+
+    choice = body.get("selected_choice")
+    if choice is not None:
+        try:
+            choice = int(choice)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="selected_choice must be 1, 2, 3, or 4.")
+
+    try:
+        ans = save_student_answer(
+            db=db,
+            student=current_user,
+            attempt_id=attempt_id,
+            booklet_id=booklet_id,
+            question_number=q_num,
+            selected_choice=choice,
+        )
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "ok",
+                "question_number": ans.question_number,
+                "selected_choice": ans.selected_choice,
+            },
+        )
+    except PracticeExamLockedError as exc:
+        return JSONResponse(status_code=423, content={"status": "locked", "detail": str(exc)})
+    except PracticeExamValidationError as exc:
+        return JSONResponse(status_code=400, content={"status": "error", "detail": str(exc)})
+    except PracticeExamNotFoundError as exc:
+        return JSONResponse(status_code=404, content={"status": "error", "detail": str(exc)})
+
+
 @router.post("/attempts/{attempt_id}/booklets/{booklet_id}/save")
 async def post_save_booklet_answers(
     request: Request,
@@ -205,6 +303,23 @@ async def post_save_booklet_answers(
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid JSON body.")
+        if "question_number" in body:
+            return await post_save_single_answer(request, attempt_id, booklet_id, db, current_user, current_session)
+        answers = {int(k): (int(v) if v is not None else None) for k, v in body.get("answers", {}).items()}
+        try:
+            submit_booklet_answers(db, current_user, attempt_id, booklet_id, answers, advance_to_next=False)
+            return JSONResponse(status_code=200, content={"status": "ok"})
+        except PracticeExamLockedError as exc:
+            return JSONResponse(status_code=423, content={"status": "locked", "detail": str(exc)})
+        except PracticeExamValidationError as exc:
+            return JSONResponse(status_code=400, content={"status": "error", "detail": str(exc)})
+
     form_data = await request.form()
     state = get_student_booklet_state(db, attempt_id, booklet_id)
     questions = state["questions"]
@@ -243,14 +358,27 @@ async def post_submit_booklet_and_advance(
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
-    form_data = await request.form()
-    state = get_student_booklet_state(db, attempt_id, booklet_id)
-    questions = state["questions"]
-
+    content_type = request.headers.get("content-type", "")
+    is_json = "application/json" in content_type or request.headers.get("accept", "").startswith("application/json")
     answers: Dict[int, Optional[int]] = {}
-    for q in questions:
-        val = form_data.get(f"q_{q.question_number}")
-        answers[q.question_number] = int(val) if val and str(val).isdigit() else None
+
+    if "application/json" in content_type:
+        try:
+            body = await request.json()
+            if isinstance(body, dict):
+                raw_ans = body.get("answers", body)
+                if isinstance(raw_ans, dict):
+                    for k, v in raw_ans.items():
+                        if str(k).isdigit():
+                            answers[int(k)] = int(v) if v is not None and str(v).isdigit() else None
+        except Exception:
+            answers = {}
+    else:
+        form_data = await request.form()
+        state = get_student_booklet_state(db, attempt_id, booklet_id)
+        for q in state["questions"]:
+            val = form_data.get(f"q_{q.question_number}")
+            answers[q.question_number] = int(val) if val and str(val).isdigit() else None
 
     try:
         res = submit_booklet_answers(
@@ -262,17 +390,17 @@ async def post_submit_booklet_and_advance(
             advance_to_next=True,
         )
         if res.get("completed"):
-            return RedirectResponse(
-                url=f"/student/practice-exams/attempts/{attempt_id}/results?msg=Practice exam completed! Review your results below.",
-                status_code=status.HTTP_303_SEE_OTHER,
-            )
+            redirect_url = f"/student/practice-exams/attempts/{attempt_id}/results?msg=Practice exam completed! Review your results below."
         else:
             next_id = res.get("next_booklet_id")
-            return RedirectResponse(
-                url=f"/student/practice-exams/attempts/{attempt_id}/booklets/{next_id}?msg=Booklet submitted. Proceeding to next booklet.",
-                status_code=status.HTTP_303_SEE_OTHER,
-            )
+            redirect_url = f"/student/practice-exams/attempts/{attempt_id}/booklets/{next_id}?msg=Booklet submitted. Proceeding to next booklet."
+
+        if is_json:
+            return JSONResponse(status_code=200, content={"status": "ok", "completed": res.get("completed"), "redirect_url": redirect_url})
+        return RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
     except PracticeExamLockedError as exc:
+        if is_json:
+            return JSONResponse(status_code=423, content={"status": "locked", "detail": str(exc)})
         return RedirectResponse(
             url=f"/student/practice-exams/attempts/{attempt_id}/booklets/{booklet_id}?err={str(exc)}",
             status_code=status.HTTP_303_SEE_OTHER,
