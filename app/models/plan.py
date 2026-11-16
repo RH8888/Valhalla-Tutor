@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import date, datetime
 from typing import TYPE_CHECKING, List, Optional
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, String, Uuid
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.timezone import now_utc
@@ -31,6 +31,7 @@ class StudyPlan(Base):
     __tablename__ = "study_plans"
     __table_args__ = (
         CheckConstraint("end_date >= start_date", name="ck_study_plans_date_range"),
+        UniqueConstraint("id", "student_id", name="uq_study_plans_id_student"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -88,6 +89,7 @@ class StudyPlan(Base):
         back_populates="study_plan",
         cascade="all, delete-orphan",
         order_by="PlanAssignment.scheduled_date, PlanAssignment.display_order",
+        foreign_keys="[PlanAssignment.study_plan_id]",
     )
 
 
@@ -96,6 +98,12 @@ class PlanAssignment(Base):
     __table_args__ = (
         CheckConstraint("recommended_duration_minutes >= 0", name="ck_plan_assignments_duration_non_negative"),
         CheckConstraint("actual_duration_minutes IS NULL OR actual_duration_minutes > 0", name="ck_plan_assignments_actual_duration_positive"),
+        ForeignKeyConstraint(
+            ["study_plan_id", "student_id"],
+            ["study_plans.id", "study_plans.student_id"],
+            ondelete="CASCADE",
+            name="fk_plan_assignments_study_plan_student",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -220,7 +228,11 @@ class PlanAssignment(Base):
         onupdate=now_utc,
     )
 
-    study_plan: Mapped["StudyPlan"] = relationship("StudyPlan", back_populates="assignments")
+    study_plan: Mapped["StudyPlan"] = relationship(
+        "StudyPlan",
+        back_populates="assignments",
+        foreign_keys=[study_plan_id],
+    )
     student: Mapped["User"] = relationship("User", foreign_keys=[student_id])
     subject: Mapped["Subject"] = relationship("Subject", foreign_keys=[subject_id])
     course: Mapped[Optional["Course"]] = relationship("Course", foreign_keys=[course_id])

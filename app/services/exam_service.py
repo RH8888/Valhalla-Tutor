@@ -1,6 +1,6 @@
 import json
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 from sqlalchemy import desc
 from sqlalchemy.orm import Session, joinedload
@@ -1558,16 +1558,31 @@ def update_student_exam_result(
     notes: Optional[str] = None,
     report_card_file_path: Optional[str] = None,
     report_card_file_name: Optional[str] = None,
+    is_tutor_override: bool = False,
 ) -> StudentExamResult:
     result = get_student_exam_result_by_id(db, result_id)
     if not result:
         raise ExamResultNotFoundError(f"Exam result with id {result_id} not found.")
 
-    if result.student_id != student.id:
+    if result.student_id != student.id and not is_tutor_override:
         raise ExamValidationError("You are not authorized to edit this result.")
 
     if result.is_reviewed or getattr(result, "is_tutor_corrected", False):
         raise ExamValidationError("Cannot edit an exam result that has been reviewed or corrected by a tutor without reopening.")
+
+    session = result.exam_session
+    if session:
+        if session.status in ("SKIPPED", "CANCELLED") and not is_tutor_override:
+            raise ExamValidationError("Cannot edit results for a skipped or cancelled exam occurrence.")
+
+        now = now_utc()
+        s_deadline = session.submission_deadline
+        if s_deadline and s_deadline.tzinfo is None:
+            s_deadline = s_deadline.replace(tzinfo=timezone.utc)
+        if s_deadline and now > s_deadline:
+            if not getattr(session, 'allow_late_submission', True) and not is_tutor_override:
+                raise ExamValidationError("Submission deadline has passed for this exam occurrence.")
+            result.is_late = True
 
     clean_rank = None
     if overall_rank is not None:
@@ -1578,12 +1593,30 @@ def update_student_exam_result(
         except (ValueError, TypeError):
             raise ExamValidationError("Overall rank must be a positive integer if provided.")
 
+    prev_state = {
+        "overall_rank": result.overall_rank,
+        "notes": result.notes,
+        "report_card_file_name": result.report_card_file_name,
+        "is_late": result.is_late,
+        "groups": [{"title": gr.group_title, "pct": gr.percentage} for gr in result.group_results],
+        "subjects": [
+            {
+                "subject_id": str(sr.subject_id),
+                "correct": sr.correct_answers,
+                "incorrect": sr.incorrect_answers,
+                "percentage": sr.percentage,
+            }
+            for sr in result.subject_results
+        ],
+    }
+
     result.overall_rank = clean_rank
     result.notes = notes.strip() if notes and notes.strip() else None
     if report_card_file_path:
         result.report_card_file_path = report_card_file_path
         result.report_card_file_name = report_card_file_name
 
+    new_groups = []
     if group_data is not None:
         for gr in list(result.group_results):
             db.delete(gr)
@@ -1604,7 +1637,11 @@ def update_student_exam_result(
                 included_subject_names=grp.get("included_subject_names"),
             )
             db.add(group_res)
+            new_groups.append({"title": g_title, "pct": pct})
+    else:
+        new_groups = prev_state["groups"]
 
+    new_subjects = []
     if subject_data is not None:
         for sr in list(result.subject_results):
             db.delete(sr)
@@ -1624,6 +1661,34 @@ def update_student_exam_result(
                 percentage=percentage,
             )
             db.add(subject_result)
+            new_subjects.append({
+                "subject_id": str(sub_id),
+                "correct": correct,
+                "incorrect": incorrect,
+                "percentage": percentage,
+            })
+    else:
+        new_subjects = prev_state["subjects"]
+
+    new_state = {
+        "overall_rank": result.overall_rank,
+        "notes": result.notes,
+        "report_card_file_name": result.report_card_file_name,
+        "is_late": result.is_late,
+        "groups": new_groups,
+        "subjects": new_subjects,
+    }
+
+    log_exam_audit(
+        db,
+        entity_type="RESULT",
+        entity_id=result.id,
+        action="UPDATED",
+        actor_id=student.id,
+        exam_id=session.exam_id if session else None,
+        previous_value=json.dumps(prev_state, ensure_ascii=False),
+        new_value=json.dumps(new_state, ensure_ascii=False),
+    )
 
     db.commit()
     return get_student_exam_result_by_id(db, result.id)

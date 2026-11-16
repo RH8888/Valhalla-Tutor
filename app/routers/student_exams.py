@@ -1,5 +1,6 @@
 import json
 import uuid
+from datetime import timezone
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_session, get_current_user, require_student, verify_csrf_token
+from app.core.timezone import now_utc
 from app.models.practice_exam import StudentPracticeAttempt
 from app.core.storage import (
     REPORT_CARD_ALLOWED_EXTENSIONS,
@@ -242,6 +244,24 @@ def get_edit_result_form(
     if result.is_reviewed or getattr(result, "is_tutor_corrected", False):
         raise HTTPException(status_code=400, detail="Cannot edit an exam result that has been reviewed or corrected by a tutor.")
 
+    session = result.exam_session
+    if session:
+        if session.status in ("SKIPPED", "CANCELLED"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot edit results for a skipped or cancelled exam occurrence.",
+            )
+        now = now_utc()
+        s_deadline = session.submission_deadline
+        if s_deadline and s_deadline.tzinfo is None:
+            s_deadline = s_deadline.replace(tzinfo=timezone.utc)
+        if s_deadline and now > s_deadline:
+            if not getattr(session, "allow_late_submission", True):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Submission deadline has passed for this exam occurrence.",
+                )
+
     sub_res_map = {sr.subject_id: sr for sr in result.subject_results}
     track_config = next(
         (tc for tc in result.exam_session.track_configs if tc.track_id == current_user.academic_track_id),
@@ -280,6 +300,24 @@ async def post_edit_result(
         raise HTTPException(status_code=403, detail="Not authorized to edit this result")
     if result.is_reviewed or getattr(result, "is_tutor_corrected", False):
         raise HTTPException(status_code=400, detail="Cannot edit an exam result that has been reviewed or corrected by a tutor.")
+
+    session = result.exam_session
+    if session:
+        if session.status in ("SKIPPED", "CANCELLED"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot edit results for a skipped or cancelled exam occurrence.",
+            )
+        now = now_utc()
+        s_deadline = session.submission_deadline
+        if s_deadline and s_deadline.tzinfo is None:
+            s_deadline = s_deadline.replace(tzinfo=timezone.utc)
+        if s_deadline and now > s_deadline:
+            if not getattr(session, "allow_late_submission", True):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Submission deadline has passed for this exam occurrence.",
+                )
 
     form_data = await request.form()
     overall_rank_raw = form_data.get("overall_rank")
