@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import SESSION_COOKIE_NAME, get_current_user_and_session
-from app.core.rate_limit import enforce_login_rate_limit, login_limiter
+from app.core.rate_limit import enforce_login_rate_limit, get_client_ip, login_limiter
 from app.core.templates import templates
 from app.models.user import UserRole
 from app.services.auth_service import (
@@ -41,7 +41,7 @@ def post_login(
     db: Session = Depends(get_db),
 ):
     """Authenticate credentials, rate-limit, and establish a new 14-day session."""
-    client_ip = request.client.host if request.client else "127.0.0.1"
+    client_ip = get_client_ip(request)
     allowed, retry_after = login_limiter.check_allowed(client_ip)
     if not allowed:
         return templates.TemplateResponse(

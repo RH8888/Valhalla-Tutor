@@ -26,6 +26,7 @@ class Settings(BaseSettings):
 
     # Security Configuration
     SECRET_KEY: str = "dev-secret-key-please-change-in-production-min-32-chars"
+    TRUSTED_PROXIES: str = "127.0.0.1,::1,172.16.0.0/12,10.0.0.0/8"
 
     # Uploads Configuration
     UPLOAD_DIR: str = "uploads"
