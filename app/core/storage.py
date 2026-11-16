@@ -53,22 +53,36 @@ def save_uploaded_file(
             detail=f"File content type '{content_type}' is not allowed.",
         )
 
-    # Read contents and check size
-    contents = file.file.read()
-    if len(contents) > max_size:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File exceeds maximum allowed size of {max_size // (1024 * 1024)} MB.",
-        )
-
     folder_path = get_upload_base_path() / subfolder
     folder_path.mkdir(parents=True, exist_ok=True)
 
     safe_filename = f"{uuid.uuid4().hex}{ext}"
     target_path = folder_path / safe_filename
 
-    with open(target_path, "wb") as f:
-        f.write(contents)
+    # Stream chunks and enforce max size incrementally without buffering entire file in memory
+    chunk_size = 64 * 1024
+    total_bytes = 0
+
+    try:
+        with open(target_path, "wb") as f:
+            while True:
+                chunk = file.file.read(chunk_size)
+                if not chunk:
+                    break
+                total_bytes += len(chunk)
+                if total_bytes > max_size:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"File exceeds maximum allowed size of {max_size // (1024 * 1024)} MB.",
+                    )
+                f.write(chunk)
+    except Exception:
+        if target_path.exists():
+            try:
+                target_path.unlink()
+            except OSError:
+                pass
+        raise
 
     relative_path = f"{subfolder}/{safe_filename}"
     return relative_path, original_filename
