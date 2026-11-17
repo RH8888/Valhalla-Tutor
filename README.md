@@ -24,16 +24,23 @@ Review and adjust variables in `.env` if necessary.
 
 ### 2. Running with Docker Compose
 
-Start the PostgreSQL 16 database and web service:
+For production deployment instructions on Ubuntu behind Nginx with SSL, consult [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+For production-mode containers:
 ```bash
-docker compose up -d
+docker compose up -d --build
+```
+
+For local development with hot-reload and code volume mounting:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
 
 Check health:
 - Liveness: `curl http://localhost:8000/health`
 - Database Readiness: `curl http://localhost:8000/health/db`
 
-Database backups are automatically mounted to `./backups` with persistent volume `postgres_data`.
+Database backups are mounted to `./backups`, database data persists in `postgres_data`, and uploads persist in `uploads_data`.
 
 ### 3. Local Development Setup
 
