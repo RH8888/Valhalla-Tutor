@@ -5,7 +5,7 @@
 {% block content %}
 <div class="min-h-[70vh] flex flex-col justify-center items-center py-6 sm:py-12 px-3 sm:px-6 lg:px-8">
     <div class="sm:mx-auto sm:w-full sm:max-w-md text-center mb-6">
-        <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Sign In to Your Account</h2>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{{ _('sign_in') }}</h2>
         <p class="mt-2 text-xs sm:text-sm text-slate-600">Enter your credentials to access your study portal</p>
     </div>
 
@@ -19,7 +19,7 @@
 
         <form method="POST" action="/auth/login" class="space-y-5">
             <div>
-                <label for="identifier" class="block text-sm font-semibold text-slate-700">Username or Email</label>
+                <label for="identifier" class="block text-sm font-semibold text-slate-700">{{ _('username') }} / {{ _('email_address') }}</label>
                 <div class="mt-1">
                     <input id="identifier" name="identifier" type="text" autocomplete="username" required
                         value="{{ identifier or '' }}"
@@ -29,7 +29,7 @@
             </div>
 
             <div>
-                <label for="password" class="block text-sm font-semibold text-slate-700">Password</label>
+                <label for="password" class="block text-sm font-semibold text-slate-700">{{ _('password') }}</label>
                 <div class="mt-1">
                     <input id="password" name="password" type="password" autocomplete="current-password" required
                         class="appearance-none block w-full px-3 py-2.5 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base sm:text-sm">
@@ -39,7 +39,7 @@
             <div>
                 <button type="submit"
                     class="w-full min-h-[48px] flex items-center justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150">
-                    Sign In
+                    {{ _('sign_in') }}
                 </button>
             </div>
         </form>

@@ -4,6 +4,13 @@ from typing import Optional
 from fastapi.templating import Jinja2Templates
 
 from app.core.timezone import to_local
+from app.core.i18n import (
+    jinja_date_format,
+    jinja_get_locale,
+    jinja_is_rtl,
+    jinja_persian_digits,
+    jinja_translate,
+)
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -31,5 +38,12 @@ def format_chat_time(dt: Optional[datetime], tz_name: Optional[str] = None) -> s
 
 templates.env.filters["local_dt"] = format_local_dt
 templates.env.filters["chat_time"] = format_chat_time
+templates.env.filters["t"] = jinja_translate
+templates.env.filters["fa_digits"] = jinja_persian_digits
+templates.env.filters["smart_date"] = jinja_date_format
+
+templates.env.globals["_"] = jinja_translate
+templates.env.globals["get_locale"] = jinja_get_locale
+templates.env.globals["is_rtl"] = jinja_is_rtl
 
 

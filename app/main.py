@@ -96,6 +96,27 @@ if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
+@app.get("/set-language", summary="Switch interface language")
+def set_language(request: Request, lang: str = "en", redirect_url: str = "/"):
+    from app.core.i18n import DEFAULT_LOCALE, LOCALE_COOKIE_NAME, SUPPORTED_LOCALES
+    from app.routers.tutor import is_safe_redirect_url
+
+    if lang not in SUPPORTED_LOCALES:
+        lang = DEFAULT_LOCALE
+
+    target_url = redirect_url if (redirect_url and is_safe_redirect_url(redirect_url)) else "/"
+    response = RedirectResponse(url=target_url, status_code=303)
+    response.set_cookie(
+        key=LOCALE_COOKIE_NAME,
+        value=lang,
+        max_age=31536000,
+        httponly=False,
+        samesite="lax",
+        path="/",
+    )
+    return response
+
+
 @app.get("/", summary="Root index")
 def root_index(request: Request):
     from app.core.dependencies import SESSION_COOKIE_NAME
