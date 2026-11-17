@@ -37,6 +37,7 @@
     <!-- Move Task Section -->
     <div class="pt-4 border-t border-slate-200">
         <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Move Task</h4>
+        {% if not assignment.is_completed %}
         <form method="POST" action="/tutor/plans/assignments/{{ assignment.id }}/move" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
             <div>
@@ -66,6 +67,9 @@
                 </button>
             </div>
         </form>
+        {% else %}
+        <p class="text-xs text-slate-400 italic">Completed tasks cannot be moved or have their subject changed. Reset completion status first if needed.</p>
+        {% endif %}
     </div>
 
     {% if assignment.is_completed %}

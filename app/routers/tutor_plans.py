@@ -533,6 +533,12 @@ def post_move_assignment(
     if not assignment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
+    if assignment.is_completed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot move or change the subject of a completed assignment. Reset its completion status first.",
+        )
+
     plan_id = assignment.study_plan_id
     parsed_date = date.fromisoformat(new_date)
     try:

@@ -591,6 +591,14 @@ def update_assignment(
     if assignment.study_plan and assignment.study_plan.status == PlanStatus.ARCHIVED:
         raise PlanValidationError("Cannot modify assignments in an archived study plan.")
 
+    if assignment.is_completed:
+        if (scheduled_date is not None and scheduled_date != assignment.scheduled_date) or (
+            subject_id is not None and subject_id != assignment.subject_id
+        ):
+            raise PlanValidationError(
+                "Cannot move or change the subject of a completed assignment. Reset its completion status first."
+            )
+
     if title is not None:
         clean_title = title.strip()
         if not clean_title:
