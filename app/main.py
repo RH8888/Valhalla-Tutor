@@ -33,6 +33,42 @@ app = FastAPI(
     debug=settings.DEBUG,
 )
 
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+
+    security_headers = {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "SAMEORIGIN",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Content-Security-Policy": (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; "
+            "img-src 'self' data: https:; "
+            "font-src 'self' data: https:; "
+            "connect-src 'self'; "
+            "media-src 'self'; "
+            "object-src 'none'; "
+            "frame-ancestors 'self'; "
+            "base-uri 'self'; "
+            "form-action 'self';"
+        ),
+    }
+
+    for header_name, header_value in security_headers.items():
+        if header_name not in response.headers:
+            response.headers[header_name] = header_value
+
+    # HSTS: Only when HTTPS is guaranteed in production deployment
+    is_production = settings.ENVIRONMENT.lower() == "production"
+    is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto", "").lower() == "https"
+    if is_production and is_https and "Strict-Transport-Security" not in response.headers:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+    return response
+
 # Include core routers
 app.include_router(health.router)
 app.include_router(auth.router)
