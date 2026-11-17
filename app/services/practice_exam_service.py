@@ -386,25 +386,35 @@ def get_student_booklet_state(
             b_attempt.locked_at = exp
             db.commit()
 
-    # Fetch answers entered so far
-    answers = (
-        db.query(StudentPracticeAnswer)
-        .filter(StudentPracticeAnswer.attempt_id == attempt.id)
-        .all()
-    )
-    answers_map = {a.question_number: a.selected_choice for a in answers}
+    is_unlocked = b_attempt is not None and not b_attempt.is_locked
+    is_completed_attempt = attempt.status == "COMPLETED" and b_attempt is not None
+    can_access_questions = is_unlocked or is_completed_attempt
 
-    # Questions in this booklet range
-    questions = (
-        db.query(PracticeExamQuestion)
-        .filter(
-            PracticeExamQuestion.practice_exam_id == attempt.practice_exam_id,
-            PracticeExamQuestion.question_number >= booklet.question_start,
-            PracticeExamQuestion.question_number <= booklet.question_end,
+    if can_access_questions:
+        answers = (
+            db.query(StudentPracticeAnswer)
+            .filter(
+                StudentPracticeAnswer.attempt_id == attempt.id,
+                StudentPracticeAnswer.question_number >= booklet.question_start,
+                StudentPracticeAnswer.question_number <= booklet.question_end,
+            )
+            .all()
         )
-        .order_by(PracticeExamQuestion.question_number)
-        .all()
-    )
+        answers_map = {a.question_number: a.selected_choice for a in answers}
+
+        questions = (
+            db.query(PracticeExamQuestion)
+            .filter(
+                PracticeExamQuestion.practice_exam_id == attempt.practice_exam_id,
+                PracticeExamQuestion.question_number >= booklet.question_start,
+                PracticeExamQuestion.question_number <= booklet.question_end,
+            )
+            .order_by(PracticeExamQuestion.question_number)
+            .all()
+        )
+    else:
+        answers_map = {}
+        questions = []
 
     remaining_seconds = 0
     if b_attempt and attempt.is_timed and b_attempt.expires_at and not b_attempt.is_locked:
