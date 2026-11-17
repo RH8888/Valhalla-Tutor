@@ -4,7 +4,11 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.dependencies import SESSION_COOKIE_NAME, get_current_user_and_session
+from app.core.dependencies import (
+    SESSION_COOKIE_NAME,
+    get_current_user_and_session,
+    verify_csrf_token,
+)
 from app.core.rate_limit import enforce_login_rate_limit, get_client_ip, login_limiter
 from app.core.templates import templates
 from app.models.user import UserRole
@@ -82,7 +86,7 @@ def post_login(
     return resp
 
 
-@router.post("/logout")
+@router.post("/logout", dependencies=[Depends(verify_csrf_token)])
 def post_logout(
     request: Request,
     db: Session = Depends(get_db),
@@ -93,6 +97,8 @@ def post_logout(
         revoke_session(db, token)
 
     resp = RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+    if request.headers.get("HX-Request"):
+        resp.headers["HX-Redirect"] = "/auth/login"
     resp.delete_cookie(
         key=SESSION_COOKIE_NAME,
         path="/",
