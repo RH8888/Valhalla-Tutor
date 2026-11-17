@@ -688,19 +688,29 @@ def complete_assignment(
     performed_by_id: Optional[uuid.UUID] = None,
 ) -> PlanAssignment:
     """Mark an assignment completed with fresh server timestamp and audit record."""
-    assignment = get_assignment(db, assignment_id, student_id=student_id)
+    assignment = (
+        db.query(PlanAssignment)
+        .filter(PlanAssignment.id == assignment_id)
+        .with_for_update()
+        .first()
+    )
     if not assignment:
         raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
 
     if assignment.student_id != student_id:
         raise PlanValidationError("Unauthorized: assignment does not belong to this student.")
 
+    if actual_duration_minutes is not None and actual_duration_minutes <= 0:
+        raise PlanValidationError("Actual duration must be a positive number of minutes.")
+
+    # Idempotent completion: if already completed, preserve original completed_at, duration, and audit history
+    if assignment.is_completed:
+        return assignment
+
     if assignment.study_plan and assignment.study_plan.status == PlanStatus.ARCHIVED:
         raise PlanValidationError("Cannot complete assignments in an archived plan.")
 
     if actual_duration_minutes is not None:
-        if actual_duration_minutes <= 0:
-            raise PlanValidationError("Actual duration must be a positive number of minutes.")
         final_actual = actual_duration_minutes
     else:
         final_actual = assignment.recommended_duration_minutes if assignment.recommended_duration_minutes > 0 else 30
