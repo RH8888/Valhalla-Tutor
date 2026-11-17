@@ -127,6 +127,91 @@
         </div>
     </div>
     {% endif %}
+
+    <!-- Academic Platform Hub Navigation -->
+    <div class="pt-6 border-t border-slate-200">
+        <div class="mb-4">
+            <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 block">Navigation Hub</span>
+            <h3 class="text-xl font-black text-slate-900 tracking-tight">Academic Centers</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Quick access to all areas of your academic platform.</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <!-- Study Planning Domain -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 flex flex-col justify-between hover:border-indigo-200 transition">
+                <div>
+                    <div class="flex items-center space-x-2.5 mb-2">
+                        <span class="text-2xl">🎯</span>
+                        <h4 class="font-bold text-slate-900 text-base">Study Planning</h4>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-4 leading-relaxed">View your active timetable, review historical plan iterations, and inspect completion timestamps.</p>
+                </div>
+                <div class="space-y-1.5 pt-3 border-t border-slate-100 text-xs font-semibold">
+                    <a href="/student/plan" class="flex items-center justify-between text-indigo-600 hover:text-indigo-800 p-1 rounded transition">
+                        <span>Current 14-Day Plan</span>
+                        <span>&rarr;</span>
+                    </a>
+                    <a href="/student/plans/history" class="flex items-center justify-between text-slate-600 hover:text-slate-900 p-1 rounded transition">
+                        <span>Plan Archives</span>
+                        <span>&rarr;</span>
+                    </a>
+                    <a href="/student/history" class="flex items-center justify-between text-slate-600 hover:text-slate-900 p-1 rounded transition">
+                        <span>Task Completion Log</span>
+                        <span>&rarr;</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Assessments Domain -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 flex flex-col justify-between hover:border-indigo-200 transition">
+                <div>
+                    <div class="flex items-center space-x-2.5 mb-2">
+                        <span class="text-2xl">✍️</span>
+                        <h4 class="font-bold text-slate-900 text-base">Assessments & Exams</h4>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-4 leading-relaxed">Take timed or untimed practice exams, view registered test sessions, and inspect historical performance.</p>
+                </div>
+                <div class="space-y-1.5 pt-3 border-t border-slate-100 text-xs font-semibold">
+                    <a href="/student/practice-exams" class="flex items-center justify-between text-indigo-600 hover:text-indigo-800 p-1 rounded transition">
+                        <span>Practice Exams</span>
+                        <span>&rarr;</span>
+                    </a>
+                    <a href="/student/exams" class="flex items-center justify-between text-slate-600 hover:text-slate-900 p-1 rounded transition">
+                        <span>External Exams</span>
+                        <span>&rarr;</span>
+                    </a>
+                    <a href="/student/historical-exams" class="flex items-center justify-between text-slate-600 hover:text-slate-900 p-1 rounded transition">
+                        <span>Historical Results & Reports</span>
+                        <span>&rarr;</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Curriculum & Tutor Support Domain -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 flex flex-col justify-between hover:border-indigo-200 transition">
+                <div>
+                    <div class="flex items-center space-x-2.5 mb-2">
+                        <span class="text-2xl">📚</span>
+                        <h4 class="font-bold text-slate-900 text-base">Curriculum & Support</h4>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-4 leading-relaxed">Explore subjects and resources in your track, track analytics, and communicate with your tutor.</p>
+                </div>
+                <div class="space-y-1.5 pt-3 border-t border-slate-100 text-xs font-semibold">
+                    <a href="/student/curriculum" class="flex items-center justify-between text-indigo-600 hover:text-indigo-800 p-1 rounded transition">
+                        <span>My Curriculum</span>
+                        <span>&rarr;</span>
+                    </a>
+                    <a href="/student/exams/analytics" class="flex items-center justify-between text-slate-600 hover:text-slate-900 p-1 rounded transition">
+                        <span>Performance Analytics</span>
+                        <span>&rarr;</span>
+                    </a>
+                    <a href="/student/chat" class="flex items-center justify-between text-slate-600 hover:text-slate-900 p-1 rounded transition">
+                        <span>Tutor Chat</span>
+                        <span>&rarr;</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 

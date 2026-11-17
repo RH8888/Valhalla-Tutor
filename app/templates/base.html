@@ -30,50 +30,185 @@
             {% if current_user and current_user.role == "TUTOR" %}
             <a href="/tutor/students"
                 class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Students</a>
-            <a href="/tutor/calendar"
-                class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Calendar</a>
-            <a href="/tutor/scheduler"
-                class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Weekly Scheduler</a>
+            <div class="relative group inline-block text-left">
+                <button type="button" class="inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-indigo-600 py-1 transition">
+                    <span>Schedule</span>
+                    <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 transition-transform group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div class="absolute left-0 top-full pt-1.5 w-52 z-50 hidden group-hover:block group-focus-within:block">
+                    <div class="bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 overflow-hidden">
+                        <a href="/tutor/calendar" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
+                            <span class="mr-2.5 text-base">📅</span>
+                            <div>
+                                <div class="font-bold">Calendar & Meetings</div>
+                                <div class="text-[10px] text-slate-400 font-normal">Monthly & daily schedule</div>
+                            </div>
+                        </a>
+                        <a href="/tutor/scheduler" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
+                            <span class="mr-2.5 text-base">⏰</span>
+                            <div>
+                                <div class="font-bold">Weekly Scheduler</div>
+                                <div class="text-[10px] text-slate-400 font-normal">Recurring availability slots</div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="relative group inline-block text-left">
+                <button type="button" class="inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-indigo-600 py-1 transition">
+                    <span>Assessments</span>
+                    <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 transition-transform group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div class="absolute left-0 top-full pt-1.5 w-56 z-50 hidden group-hover:block group-focus-within:block">
+                    <div class="bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 overflow-hidden">
+                        <a href="/tutor/exams" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
+                            <span class="mr-2.5 text-base">📝</span>
+                            <div>
+                                <div class="font-bold">External Exams</div>
+                                <div class="text-[10px] text-slate-400 font-normal">Exam series & test sessions</div>
+                            </div>
+                        </a>
+                        <a href="/tutor/practice-exams" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
+                            <span class="mr-2.5 text-base">✍️</span>
+                            <div>
+                                <div class="font-bold">Practice Exams</div>
+                                <div class="text-[10px] text-slate-400 font-normal">Booklets & mock assessments</div>
+                            </div>
+                        </a>
+                        <a href="/tutor/historical-exams" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
+                            <span class="mr-2.5 text-base">📊</span>
+                            <div>
+                                <div class="font-bold">Historical Results</div>
+                                <div class="text-[10px] text-slate-400 font-normal">Past scores & report cards</div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="relative group inline-block text-left">
+                <button type="button" class="inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-indigo-600 py-1 transition">
+                    <span>Curriculum</span>
+                    <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 transition-transform group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div class="absolute left-0 top-full pt-1.5 w-52 z-50 hidden group-hover:block group-focus-within:block">
+                    <div class="bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 overflow-hidden">
+                        <a href="/tutor/tracks" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
+                            <span class="mr-2.5 text-base">🧭</span>
+                            <div>
+                                <div class="font-bold">Academic Tracks</div>
+                                <div class="text-[10px] text-slate-400 font-normal">Fields & grade programs</div>
+                            </div>
+                        </a>
+                        <a href="/tutor/subjects" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
+                            <span class="mr-2.5 text-base">📚</span>
+                            <div>
+                                <div class="font-bold">Subjects</div>
+                                <div class="text-[10px] text-slate-400 font-normal">Course subject directory</div>
+                            </div>
+                        </a>
+                        <a href="/tutor/videos" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
+                            <span class="mr-2.5 text-base">🎬</span>
+                            <div>
+                                <div class="font-bold">Video Courses</div>
+                                <div class="text-[10px] text-slate-400 font-normal">Educational video library</div>
+                            </div>
+                        </a>
+                        <a href="/tutor/books" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
+                            <span class="mr-2.5 text-base">📖</span>
+                            <div>
+                                <div class="font-bold">Textbooks</div>
+                                <div class="text-[10px] text-slate-400 font-normal">Reference books & resources</div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
             <a href="/tutor/messages"
                 class="inline-flex items-center text-sm font-medium text-slate-600 hover:text-indigo-600 transition">
                 <span>Messages</span>
                 <span id="tutor-unread-badge" hx-get="/tutor/messages/unread-count" hx-trigger="load, every 15s" hx-swap="outerHTML"></span>
             </a>
-            <a href="/tutor/exams" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">External
-                Exams</a>
-            <a href="/tutor/practice-exams"
-                class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Practice Exams</a>
-            <a href="/tutor/historical-exams"
-                class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Historical Results</a>
-            <a href="/tutor/tracks" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Academic
-                Tracks</a>
-            <a href="/tutor/subjects"
-                class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Subjects</a>
-            <a href="/tutor/videos"
-                class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Videos</a>
-            <a href="/tutor/books" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Books</a>
             {% elif current_user and current_user.role == "STUDENT" %}
             <a href="/student/dashboard"
                 class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Dashboard</a>
+            <div class="relative group inline-block text-left">
+                <button type="button" class="inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-indigo-600 py-1 transition">
+                    <span>Study Plans</span>
+                    <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 transition-transform group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div class="absolute left-0 top-full pt-1.5 w-56 z-50 hidden group-hover:block group-focus-within:block">
+                    <div class="bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 overflow-hidden">
+                        <a href="/student/plan" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
+                            <span class="mr-2.5 text-base">🎯</span>
+                            <div>
+                                <div class="font-bold">Current 14-Day Plan</div>
+                                <div class="text-[10px] text-slate-400 font-normal">Active assignments & tasks</div>
+                            </div>
+                        </a>
+                        <a href="/student/plans/history" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
+                            <span class="mr-2.5 text-base">🗂️</span>
+                            <div>
+                                <div class="font-bold">Plan Archives</div>
+                                <div class="text-[10px] text-slate-400 font-normal">Past study plan iterations</div>
+                            </div>
+                        </a>
+                        <a href="/student/history" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
+                            <span class="mr-2.5 text-base">📜</span>
+                            <div>
+                                <div class="font-bold">Completion History</div>
+                                <div class="text-[10px] text-slate-400 font-normal">All logged & finished tasks</div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="relative group inline-block text-left">
+                <button type="button" class="inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-indigo-600 py-1 transition">
+                    <span>Assessments</span>
+                    <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 transition-transform group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div class="absolute left-0 top-full pt-1.5 w-56 z-50 hidden group-hover:block group-focus-within:block">
+                    <div class="bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 overflow-hidden">
+                        <a href="/student/practice-exams" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
+                            <span class="mr-2.5 text-base">✍️</span>
+                            <div>
+                                <div class="font-bold">Practice Exams</div>
+                                <div class="text-[10px] text-slate-400 font-normal">Booklet tests & instant grading</div>
+                            </div>
+                        </a>
+                        <a href="/student/exams" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
+                            <span class="mr-2.5 text-base">📝</span>
+                            <div>
+                                <div class="font-bold">External Exams</div>
+                                <div class="text-[10px] text-slate-400 font-normal">Registered exam series</div>
+                            </div>
+                        </a>
+                        <a href="/student/historical-exams" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
+                            <span class="mr-2.5 text-base">📊</span>
+                            <div>
+                                <div class="font-bold">Historical Results</div>
+                                <div class="text-[10px] text-slate-400 font-normal">Score records & reports</div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <a href="/student/curriculum" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">My Curriculum</a>
             <a href="/student/chat"
                 class="inline-flex items-center text-sm font-medium text-slate-600 hover:text-indigo-600 transition">
                 <span>Chat</span>
                 <span id="student-unread-badge" hx-get="/student/chat/unread-count" hx-trigger="load, every 15s" hx-swap="outerHTML"></span>
             </a>
-            <a href="/student/exams"
-                class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">External Exams</a>
-            <a href="/student/practice-exams"
-                class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Practice Exams</a>
-            <a href="/student/historical-exams"
-                class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Historical Results</a>
-            <a href="/student/plan" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Study
-                Plan</a>
-            <a href="/student/plans/history"
-                class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Plan History</a>
-            <a href="/student/history"
-                class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Completion History</a>
-            <a href="/student/curriculum" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">My
-                Curriculum</a>
             {% endif %}
         </div>
         <div class="flex items-center space-x-4">
