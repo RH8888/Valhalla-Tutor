@@ -1,5 +1,6 @@
 import uuid
 from typing import List, Optional
+from urllib.parse import unquote, urlsplit
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -312,6 +313,60 @@ def post_reset_student_password(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
 
 
+def is_safe_redirect_url(url: Optional[str]) -> bool:
+    """Validate that redirect destination is a safe local application path.
+    
+    Rejects external URLs, protocol-relative URLs (//example.com), backslash-based bypasses,
+    and malformed or percent-encoded attempts.
+    """
+    if not url or not isinstance(url, str):
+        return False
+
+    url = url.strip()
+    if not url:
+        return False
+
+    if any(ord(c) < 32 or ord(c) == 127 for c in url):
+        return False
+
+    if "\\" in url:
+        return False
+
+    try:
+        unquoted = unquote(url)
+    except Exception:
+        return False
+
+    if "\\" in unquoted:
+        return False
+
+    if not url.startswith("/") or url.startswith("//"):
+        return False
+
+    if not unquoted.startswith("/") or unquoted.startswith("//"):
+        return False
+
+    try:
+        parsed = urlsplit(url)
+        parsed_unquoted = urlsplit(unquoted)
+    except Exception:
+        return False
+
+    if parsed.scheme or parsed_unquoted.scheme:
+        return False
+
+    if parsed.netloc or parsed_unquoted.netloc:
+        return False
+
+    if not parsed.path.startswith("/") or parsed.path.startswith("//"):
+        return False
+
+    if not parsed_unquoted.path.startswith("/") or parsed_unquoted.path.startswith("//"):
+        return False
+
+    return True
+
+
 @router.post("/assignments/{assignment_id}/reset-completion")
 def post_reset_assignment_completion(
     assignment_id: uuid.UUID,
@@ -338,7 +393,8 @@ def post_reset_assignment_completion(
             f'<div id="assignment-status-{assignment_id}" class="text-xs text-amber-700 font-bold bg-amber-50 px-2 py-1 rounded border border-amber-200">Reset to Pending ✓</div>'
         )
 
-    target_url = redirect_url or f"/tutor/students/{student_id}?msg=Assignment completion was reset."
+    default_redirect = f"/tutor/students/{student_id}?msg=Assignment completion was reset."
+    target_url = redirect_url if (redirect_url and is_safe_redirect_url(redirect_url)) else default_redirect
     return RedirectResponse(url=target_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
