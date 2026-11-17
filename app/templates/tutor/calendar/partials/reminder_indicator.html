@@ -12,7 +12,7 @@
     </button>
 
     {% if count > 0 %}
-        <div id="reminders-dropdown-menu" class="hidden absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden divide-y divide-slate-100">
+        <div id="reminders-dropdown-menu" class="hidden absolute right-0 mt-2 w-72 sm:w-80 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden divide-y divide-slate-100">
             <div class="px-4 py-2.5 bg-slate-50 flex items-center justify-between">
                 <span class="text-xs font-bold text-slate-800">Upcoming Meeting Reminders</span>
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700">{{ count }} new</span>

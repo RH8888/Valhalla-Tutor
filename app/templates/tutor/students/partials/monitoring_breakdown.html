@@ -22,36 +22,38 @@
 
 <!-- 14-Day Daily Completion Progress -->
 <div class="space-y-3 pt-2 border-t border-slate-100">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
         <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Daily Schedule Progress (14 Days)</h4>
         <span class="text-[11px] text-slate-500">Scheduled workload adherence</span>
     </div>
-    <div class="grid grid-cols-7 sm:grid-cols-14 gap-1.5 text-center">
-        {% for day in pdata.daily_progress %}
-        <div class="p-2 rounded-xl border text-[11px] transition
-            {% if day.is_today %}
-                bg-indigo-50 border-indigo-300 ring-2 ring-indigo-400/30
-            {% elif day.is_past and day.completed_tasks < day.total_tasks %}
-                bg-rose-50 border-rose-200 text-rose-900
-            {% elif day.total_tasks > 0 and day.completed_tasks == day.total_tasks %}
-                bg-emerald-50 border-emerald-200 text-emerald-900
-            {% else %}
-                bg-slate-50 border-slate-200 text-slate-700
-            {% endif %}">
-            <span class="block font-black text-[10px] text-slate-500">D{{ day.day_num }}</span>
-            <span class="block font-bold text-xs mt-0.5">{{ day.date.strftime('%d') }}</span>
-            <span class="block text-[10px] font-bold mt-1
-                {% if day.total_tasks > 0 and day.completed_tasks == day.total_tasks %}
-                    text-emerald-700
+    <div class="overflow-x-auto pb-1" style="-webkit-overflow-scrolling: touch;">
+        <div class="min-w-[460px] sm:min-w-0 grid grid-cols-14 gap-1.5 text-center">
+            {% for day in pdata.daily_progress %}
+            <div class="p-1.5 sm:p-2 rounded-xl border text-[11px] transition
+                {% if day.is_today %}
+                    bg-indigo-50 border-indigo-300 ring-2 ring-indigo-400/30
                 {% elif day.is_past and day.completed_tasks < day.total_tasks %}
-                    text-rose-600
+                    bg-rose-50 border-rose-200 text-rose-900
+                {% elif day.total_tasks > 0 and day.completed_tasks == day.total_tasks %}
+                    bg-emerald-50 border-emerald-200 text-emerald-900
                 {% else %}
-                    text-slate-600
+                    bg-slate-50 border-slate-200 text-slate-700
                 {% endif %}">
-                {{ day.completed_tasks }}/{{ day.total_tasks }}
-            </span>
+                <span class="block font-black text-[10px] text-slate-500">D{{ day.day_num }}</span>
+                <span class="block font-bold text-xs mt-0.5">{{ day.date.strftime('%d') }}</span>
+                <span class="block text-[10px] font-bold mt-1
+                    {% if day.total_tasks > 0 and day.completed_tasks == day.total_tasks %}
+                        text-emerald-700
+                    {% elif day.is_past and day.completed_tasks < day.total_tasks %}
+                        text-rose-600
+                    {% else %}
+                        text-slate-600
+                    {% endif %}">
+                    {{ day.completed_tasks }}/{{ day.total_tasks }}
+                </span>
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
     </div>
 </div>
 

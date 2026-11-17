@@ -1,11 +1,11 @@
 <!-- Recent Completed Tasks with Reset Option -->
-<div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
-    <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+<div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 space-y-4">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
         <div>
             <h3 class="text-base font-black text-slate-900">Recent Completed Tasks</h3>
             <p class="text-xs text-slate-500 mt-0.5">Audit log preserved when resetting accidental completions.</p>
         </div>
-        <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+        <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 self-start sm:self-auto">
             {{ monitoring.recent_completed|length }} recorded
         </span>
     </div>

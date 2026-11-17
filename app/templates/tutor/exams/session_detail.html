@@ -21,26 +21,26 @@
                 <p class="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded inline-block mt-1 italic">Reason: {{ session.skip_reason }}</p>
             {% endif %}
         </div>
-        <div class="flex items-center space-x-2">
+        <div class="flex flex-wrap items-center gap-2">
             <a href="/tutor/exams/sessions/{{ session.id }}/compare" class="px-3 py-1.5 border border-indigo-200 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition">
                 📊 Group Comparison
             </a>
             {% if session.status == 'SCHEDULED' %}
-                <form method="POST" action="/tutor/exams/sessions/{{ session.id }}/skip" onsubmit="return confirm('Skip this exam occurrence (No Exam)?');">
+                <form method="POST" action="/tutor/exams/sessions/{{ session.id }}/skip" onsubmit="return confirm('Skip this exam occurrence (No Exam)?');" class="inline">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                     <input type="hidden" name="reason" value="Holiday / Postponed">
                     <button type="submit" class="px-3 py-1.5 border border-amber-300 rounded-lg text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 transition">
                         No Exam
                     </button>
                 </form>
-                <form method="POST" action="/tutor/exams/sessions/{{ session.id }}/cancel" onsubmit="return confirm('Cancel this occurrence?');">
+                <form method="POST" action="/tutor/exams/sessions/{{ session.id }}/cancel" onsubmit="return confirm('Cancel this occurrence?');" class="inline">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                     <button type="submit" class="px-3 py-1.5 border border-red-300 rounded-lg text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 transition">
                         Cancel
                     </button>
                 </form>
             {% elif session.status in ['SKIPPED', 'CANCELLED'] %}
-                <form method="POST" action="/tutor/exams/sessions/{{ session.id }}/restore">
+                <form method="POST" action="/tutor/exams/sessions/{{ session.id }}/restore" class="inline">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                     <button type="submit" class="px-3 py-1.5 border border-emerald-300 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition">
                         Restore Occurrence
@@ -48,7 +48,7 @@
                 </form>
             {% endif %}
             <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
-                {{ analytics.participant_count }} Student Submissions
+                {{ analytics.participant_count }} Submissions
             </span>
         </div>
     </div>

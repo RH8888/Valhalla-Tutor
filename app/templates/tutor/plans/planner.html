@@ -5,7 +5,7 @@
 {% block content %}
 <div class="space-y-6 max-w-[1440px] mx-auto pb-16">
     <!-- Top Action Bar -->
-    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <div class="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
             <div class="flex items-center space-x-3 flex-wrap gap-y-2">
                 <a href="/tutor/students/{{ student.id }}/plans" class="text-sm font-semibold text-slate-500 hover:text-slate-800">&larr; Plans</a>
@@ -209,32 +209,32 @@
         </table>
     </div>
 
-    <!-- Add Task Modal (Optimized for iPad & Pencil) -->
-    <div id="add-task-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto border border-slate-200">
-            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
+    <!-- Add Task Modal (Optimized for Mobile & iPad) -->
+    <div id="add-task-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs hidden flex items-center justify-center p-3 sm:p-4">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-xl w-full max-h-[92vh] overflow-y-auto border border-slate-200">
+            <div class="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
                 <div>
-                    <h3 class="text-lg font-black text-slate-900" id="modal-title">Add Study Task</h3>
+                    <h3 class="text-base sm:text-lg font-black text-slate-900" id="modal-title">Add Study Task</h3>
                     <p class="text-xs text-slate-500 mt-0.5" id="modal-subtitle">Configure assignment details and duration</p>
                 </div>
-                <button type="button" onclick="closeAddTaskModal()" class="text-slate-400 hover:text-slate-600 text-2xl p-1 rounded-lg leading-none">&times;</button>
+                <button type="button" onclick="closeAddTaskModal()" class="text-slate-400 hover:text-slate-600 text-2xl p-1 rounded-lg leading-none min-h-[44px] min-w-[44px] flex items-center justify-center">&times;</button>
             </div>
 
             <!-- Task Type Tabs -->
-            <div class="px-6 pt-4">
+            <div class="px-4 sm:px-6 pt-4">
                 <div class="flex rounded-xl bg-slate-100 p-1 space-x-1 text-xs font-bold text-slate-600">
                     <button type="button" id="tab-btn-video" onclick="switchTaskTab('VIDEO')"
-                        class="flex-1 py-2 rounded-lg text-center transition bg-white text-indigo-700 shadow-xs flex items-center justify-center space-x-1">
+                        class="flex-1 min-h-[40px] py-2 rounded-lg text-center transition bg-white text-indigo-700 shadow-xs flex items-center justify-center space-x-1">
                         <span>🎥</span>
                         <span>Video Course</span>
                     </button>
                     <button type="button" id="tab-btn-test" onclick="switchTaskTab('TEST')"
-                        class="flex-1 py-2 rounded-lg text-center transition hover:text-slate-900 flex items-center justify-center space-x-1">
+                        class="flex-1 min-h-[40px] py-2 rounded-lg text-center transition hover:text-slate-900 flex items-center justify-center space-x-1">
                         <span>📝</span>
                         <span>Book / Tests</span>
                     </button>
                     <button type="button" id="tab-btn-custom" onclick="switchTaskTab('CUSTOM')"
-                        class="flex-1 py-2 rounded-lg text-center transition hover:text-slate-900 flex items-center justify-center space-x-1">
+                        class="flex-1 min-h-[40px] py-2 rounded-lg text-center transition hover:text-slate-900 flex items-center justify-center space-x-1">
                         <span>📌</span>
                         <span>Custom Task</span>
                     </button>
@@ -242,7 +242,7 @@
             </div>
 
             <!-- Forms Container -->
-            <div class="p-6">
+            <div class="p-4 sm:p-6">
                 <!-- FORM 1: VIDEO ASSIGNMENT -->
                 <form id="form-video" method="POST" action="/tutor/plans/{{ plan.id }}/assignments" class="space-y-4">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">

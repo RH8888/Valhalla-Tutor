@@ -1,6 +1,6 @@
-<div class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" id="meeting-modal-backdrop">
-    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all" onclick="event.stopPropagation()">
-        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+<div class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4" id="meeting-modal-backdrop">
+    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all my-4" onclick="event.stopPropagation()">
+        <div class="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
             <h3 class="text-base font-bold text-slate-900">
                 {% if is_edit %}Edit Meeting Details{% else %}Schedule New Meeting{% endif %}
             </h3>
@@ -8,7 +8,7 @@
         </div>
 
         {% if error %}
-            <div class="mx-6 mt-4 p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 font-medium">
+            <div class="mx-4 sm:mx-6 mt-4 p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 font-medium">
                 ⚠️ {{ error }}
             </div>
         {% endif %}
@@ -17,7 +17,7 @@
               action="{% if is_edit %}/tutor/meetings/{{ meeting.id }}/edit{% else %}/tutor/meetings{% endif %}"
               hx-post="{% if is_edit %}/tutor/meetings/{{ meeting.id }}/edit{% else %}/tutor/meetings{% endif %}"
               hx-target="#modal-container"
-              class="p-6 space-y-4 text-xs">
+              class="p-4 sm:p-6 space-y-4 text-xs">
             <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
 
             <!-- Student Selection -->

@@ -8,9 +8,9 @@
     {% include "partials/tutor_schedule_tabs.html" %}
 
     <!-- Header Controls -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <div class="flex items-center space-x-4">
-            <h1 class="text-2xl font-bold tracking-tight text-slate-900" id="calendar-title">{{ cal.title }}</h1>
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between sm:justify-start gap-2.5 sm:space-x-4">
+            <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900" id="calendar-title">{{ cal.title }}</h1>
             <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-semibold">
                 <a href="/tutor/calendar?view=month&date={{ cal.current_date.strftime('%Y-%m-%d') }}"
                    hx-get="/tutor/calendar?view=month&date={{ cal.current_date.strftime('%Y-%m-%d') }}"
@@ -36,7 +36,7 @@
             </div>
         </div>
 
-        <div class="flex items-center space-x-3">
+        <div class="flex flex-wrap items-center justify-between sm:justify-end gap-2.5">
             <div class="inline-flex items-center space-x-1 border border-slate-200 rounded-lg p-1 bg-white">
                 <a href="/tutor/calendar?view={{ view }}&date={{ cal.prev_date }}"
                    hx-get="/tutor/calendar?view={{ view }}&date={{ cal.prev_date }}"
@@ -66,7 +66,7 @@
             <button type="button"
                     hx-get="/tutor/meetings/new?date={{ cal.current_date.strftime('%Y-%m-%d') }}"
                     hx-target="#modal-container"
-                    class="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition">
+                    class="inline-flex items-center justify-center min-h-[40px] px-3.5 sm:px-4 py-2 border border-transparent rounded-lg shadow-sm text-xs sm:text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition">
                 + Schedule Meeting
             </button>
         </div>

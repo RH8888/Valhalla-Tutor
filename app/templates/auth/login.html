@@ -3,13 +3,13 @@
 {% block title %}Sign In &mdash; Valhalla Tutor{% endblock %}
 
 {% block content %}
-<div class="min-h-[70vh] flex flex-col justify-center items-center py-12 sm:px-6 lg:px-8">
+<div class="min-h-[70vh] flex flex-col justify-center items-center py-6 sm:py-12 px-3 sm:px-6 lg:px-8">
     <div class="sm:mx-auto sm:w-full sm:max-w-md text-center mb-6">
-        <h2 class="text-3xl font-extrabold text-slate-900 tracking-tight">Sign In to Your Account</h2>
-        <p class="mt-2 text-sm text-slate-600">Enter your credentials to access your study portal</p>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Sign In to Your Account</h2>
+        <p class="mt-2 text-xs sm:text-sm text-slate-600">Enter your credentials to access your study portal</p>
     </div>
 
-    <div class="w-full max-w-md bg-white py-8 px-6 shadow-md rounded-xl border border-slate-200">
+    <div class="w-full max-w-md bg-white py-6 sm:py-8 px-4 sm:px-6 shadow-md rounded-2xl border border-slate-200">
         {% if error %}
             <div class="mb-5 p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 flex items-center space-x-2">
                 <span>⚠️</span>
@@ -24,7 +24,7 @@
                     <input id="identifier" name="identifier" type="text" autocomplete="username" required
                         value="{{ identifier or '' }}"
                         placeholder="e.g. tutor or student@valhalla.local"
-                        class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        class="appearance-none block w-full px-3 py-2.5 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base sm:text-sm">
                 </div>
             </div>
 
@@ -32,13 +32,13 @@
                 <label for="password" class="block text-sm font-semibold text-slate-700">Password</label>
                 <div class="mt-1">
                     <input id="password" name="password" type="password" autocomplete="current-password" required
-                        class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        class="appearance-none block w-full px-3 py-2.5 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base sm:text-sm">
                 </div>
             </div>
 
             <div>
                 <button type="submit"
-                    class="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150">
+                    class="w-full min-h-[48px] flex items-center justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150">
                     Sign In
                 </button>
             </div>
