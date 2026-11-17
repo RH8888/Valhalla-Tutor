@@ -345,23 +345,28 @@ def publish_study_plan(db: Session, plan_id: uuid.UUID, tutor_id: Optional[uuid.
     if not plan:
         raise PlanNotFoundError(f"Plan with id {plan_id} not found.")
 
+    # Serialize concurrent publication requests for this student by acquiring an exclusive row lock on the student
+    db.query(User).filter(User.id == plan.student_id).with_for_update().first()
+
+    # Refresh plan state in case it was modified while waiting for the lock
+    db.refresh(plan)
+
     if plan.status == PlanStatus.ARCHIVED:
         raise PlanValidationError("Cannot publish an archived study plan. Archived plans cannot be reactivated.")
     if plan.status != PlanStatus.DRAFT:
         raise PlanValidationError(f"Cannot publish a study plan with status '{plan.status}'. Only DRAFT plans can be published.")
 
-    # Archive any existing published plan for the student
-    existing_query = (
+    # Archive any existing published plan for the student across all tutors
+    existing_published = (
         db.query(StudyPlan)
         .filter(
             StudyPlan.student_id == plan.student_id,
             StudyPlan.status == PlanStatus.PUBLISHED,
             StudyPlan.id != plan_id,
         )
+        .with_for_update()
+        .all()
     )
-    if tutor_id is not None:
-        existing_query = existing_query.filter(StudyPlan.tutor_id == tutor_id)
-    existing_published = existing_query.all()
     for p in existing_published:
         p.status = PlanStatus.ARCHIVED
 

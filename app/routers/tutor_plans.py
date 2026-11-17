@@ -361,6 +361,8 @@ def post_publish_plan(
         plan = publish_study_plan(db, plan_id, tutor_id=current_user.id)
     except PlanNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
+    except PlanValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return RedirectResponse(
         url=f"/tutor/plans/{plan.id}",
         status_code=status.HTTP_303_SEE_OTHER,

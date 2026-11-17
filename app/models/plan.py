@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import date, datetime
 from typing import TYPE_CHECKING, List, Optional
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, String, UniqueConstraint, Uuid
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, String, UniqueConstraint, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.timezone import now_utc
@@ -32,6 +32,13 @@ class StudyPlan(Base):
     __table_args__ = (
         CheckConstraint("end_date >= start_date", name="ck_study_plans_date_range"),
         UniqueConstraint("id", "student_id", name="uq_study_plans_id_student"),
+        Index(
+            "uq_study_plans_student_published",
+            "student_id",
+            unique=True,
+            postgresql_where=text("status = 'PUBLISHED'"),
+            sqlite_where=text("status = 'PUBLISHED'"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
