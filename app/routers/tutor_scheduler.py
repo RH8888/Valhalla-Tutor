@@ -130,33 +130,36 @@ async def post_generate_schedule(
 ):
     form_data = await request.form()
     target_week_str = form_data.get("target_week_start")
-    if target_week_str:
-        target_week = datetime.strptime(str(target_week_str), "%Y-%m-%d").date()
-    else:
-        target_week = get_target_week_start(tz_name=current_user.timezone)
+    try:
+        if target_week_str:
+            target_week = datetime.strptime(str(target_week_str), "%Y-%m-%d").date()
+        else:
+            target_week = get_target_week_start(tz_name=current_user.timezone)
 
-    selected_student_ids = form_data.getlist("selected_students")
-    student_selections = []
+        selected_student_ids = form_data.getlist("selected_students")
+        student_selections = []
 
-    for s_id_str in selected_student_ids:
-        s_id = uuid.UUID(s_id_str)
-        days = form_data.getlist(f"days_{s_id_str}")
-        if not days:
-            days = ["saturday"]
-        dur = int(form_data.get(f"duration_{s_id_str}", 60))
-        m_type_str = str(form_data.get(f"type_{s_id_str}", "ONLINE"))
-        m_type = MeetingType.OFFLINE if m_type_str == "OFFLINE" else MeetingType.ONLINE
-        url = form_data.get(f"url_{s_id_str}")
-        loc = form_data.get(f"loc_{s_id_str}")
+        for s_id_str in selected_student_ids:
+            s_id = uuid.UUID(s_id_str)
+            days = form_data.getlist(f"days_{s_id_str}")
+            if not days:
+                days = ["saturday"]
+            dur = int(form_data.get(f"duration_{s_id_str}", 60))
+            m_type_str = str(form_data.get(f"type_{s_id_str}", "ONLINE"))
+            m_type = MeetingType.OFFLINE if m_type_str == "OFFLINE" else MeetingType.ONLINE
+            url = form_data.get(f"url_{s_id_str}")
+            loc = form_data.get(f"loc_{s_id_str}")
 
-        student_selections.append({
-            "student_id": s_id,
-            "days": days,
-            "duration_minutes": dur,
-            "meeting_type": m_type,
-            "meeting_url": str(url) if url else None,
-            "location": str(loc) if loc else None,
-        })
+            student_selections.append({
+                "student_id": s_id,
+                "days": days,
+                "duration_minutes": dur,
+                "meeting_type": m_type,
+                "meeting_url": str(url) if url else None,
+                "location": str(loc) if loc else None,
+            })
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date, student ID, or duration in schedule request.")
 
     daily_availability = {}
     first_avail_start = "14:00"
@@ -289,7 +292,10 @@ def post_update_proposal_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    p_date = datetime.strptime(scheduled_date, "%Y-%m-%d").date()
+    try:
+        p_date = datetime.strptime(scheduled_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid scheduled date format.")
     m_type = MeetingType.OFFLINE if meeting_type == "OFFLINE" else MeetingType.ONLINE
 
     try:

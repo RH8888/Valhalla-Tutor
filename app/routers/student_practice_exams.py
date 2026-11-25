@@ -1,4 +1,5 @@
 import uuid
+from urllib.parse import quote
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
@@ -74,7 +75,7 @@ def post_start_practice_exam(
         )
     except (PracticeExamValidationError, PracticeExamNotFoundError) as exc:
         return RedirectResponse(
-            url=f"/student/practice-exams?err={str(exc)}",
+            url=f"/student/practice-exams?err={quote(str(exc), safe='')}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
@@ -90,8 +91,10 @@ def download_student_practice_booklet(
     if not booklet:
         raise HTTPException(status_code=404, detail="Booklet not found.")
 
-    # 1. Authorization: check student assignment/eligibility for booklet's practice exam
+    # 1. Authorization: check student assignment/eligibility and active state for booklet's practice exam
     exam = booklet.practice_exam
+    if not exam.is_active:
+        raise HTTPException(status_code=403, detail="This practice exam is not currently active.")
     has_direct_assignment = any(a.student_id == current_user.id for a in exam.assignments)
     is_eligible = current_user.grade == exam.grade and current_user.academic_track_id == exam.academic_track_id
     if not (has_direct_assignment or is_eligible):
@@ -124,9 +127,11 @@ def download_student_practice_booklet(
 
     # 3. Check that the requested booklet is unlocked for that attempt
     try:
-        state = get_student_booklet_state(db, attempt.id, booklet.id)
+        state = get_student_booklet_state(db, attempt.id, booklet.id, student_id=current_user.id)
     except PracticeExamNotFoundError:
         raise HTTPException(status_code=404, detail="Booklet or attempt not found.")
+    except PracticeExamValidationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
 
     b_attempt = state.get("booklet_attempt")
     if not b_attempt:
@@ -172,10 +177,8 @@ def get_booklet_runner(
     current_session: UserSession = Depends(get_current_session),
 ):
     try:
-        state = get_student_booklet_state(db, attempt_id, booklet_id)
+        state = get_student_booklet_state(db, attempt_id, booklet_id, student_id=current_user.id)
         attempt = state["attempt"]
-        if attempt.student_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Unauthorized access to this attempt.")
 
         # 1. If attempt is completed, redirect to results page
         if attempt.status == "COMPLETED":
@@ -241,6 +244,8 @@ def get_booklet_runner(
                 "current_session": current_session,
             },
         )
+    except PracticeExamValidationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
     except PracticeExamNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 
@@ -315,19 +320,35 @@ async def post_save_booklet_answers(
             body = await request.json()
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid JSON body.")
+        if not isinstance(body, dict):
+            raise HTTPException(status_code=400, detail="Invalid JSON payload.")
         if "question_number" in body:
             return await post_save_single_answer(request, attempt_id, booklet_id, db, current_user, current_session)
-        answers = {int(k): (int(v) if v is not None else None) for k, v in body.get("answers", {}).items()}
+        raw_answers = body.get("answers", {})
+        if not isinstance(raw_answers, dict):
+            raise HTTPException(status_code=400, detail="answers must be an object.")
+        try:
+            answers = {int(k): (int(v) if v is not None else None) for k, v in raw_answers.items()}
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="Question numbers and choices must be integers.")
         try:
             submit_booklet_answers(db, current_user, attempt_id, booklet_id, answers, advance_to_next=False)
             return JSONResponse(status_code=200, content={"status": "ok"})
         except PracticeExamLockedError as exc:
             return JSONResponse(status_code=423, content={"status": "locked", "detail": str(exc)})
+        except PracticeExamNotFoundError as exc:
+            return JSONResponse(status_code=404, content={"status": "error", "detail": str(exc)})
         except PracticeExamValidationError as exc:
-            return JSONResponse(status_code=400, content={"status": "error", "detail": str(exc)})
+            code = 403 if "Unauthorized" in str(exc) else 400
+            return JSONResponse(status_code=code, content={"status": "error", "detail": str(exc)})
 
     form_data = await request.form()
-    state = get_student_booklet_state(db, attempt_id, booklet_id)
+    try:
+        state = get_student_booklet_state(db, attempt_id, booklet_id, student_id=current_user.id)
+    except PracticeExamNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except PracticeExamValidationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
     questions = state["questions"]
 
     answers: Dict[int, Optional[int]] = {}
@@ -350,7 +371,16 @@ async def post_save_booklet_answers(
         )
     except PracticeExamLockedError as exc:
         return RedirectResponse(
-            url=f"/student/practice-exams/attempts/{attempt_id}/booklets/{booklet_id}?err={str(exc)}",
+            url=f"/student/practice-exams/attempts/{attempt_id}/booklets/{booklet_id}?err={quote(str(exc), safe='')}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except PracticeExamNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except PracticeExamValidationError as exc:
+        if "Unauthorized" in str(exc):
+            raise HTTPException(status_code=403, detail=str(exc))
+        return RedirectResponse(
+            url=f"/student/practice-exams/attempts/{attempt_id}/booklets/{booklet_id}?err={quote(str(exc), safe='')}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
@@ -381,7 +411,12 @@ async def post_submit_booklet_and_advance(
             answers = {}
     else:
         form_data = await request.form()
-        state = get_student_booklet_state(db, attempt_id, booklet_id)
+        try:
+            state = get_student_booklet_state(db, attempt_id, booklet_id, student_id=current_user.id)
+        except PracticeExamNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+        except PracticeExamValidationError as exc:
+            raise HTTPException(status_code=403, detail=str(exc))
         for q in state["questions"]:
             val = form_data.get(f"q_{q.question_number}")
             answers[q.question_number] = int(val) if val and str(val).isdigit() else None
@@ -408,7 +443,21 @@ async def post_submit_booklet_and_advance(
         if is_json:
             return JSONResponse(status_code=423, content={"status": "locked", "detail": str(exc)})
         return RedirectResponse(
-            url=f"/student/practice-exams/attempts/{attempt_id}/booklets/{booklet_id}?err={str(exc)}",
+            url=f"/student/practice-exams/attempts/{attempt_id}/booklets/{booklet_id}?err={quote(str(exc), safe='')}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except PracticeExamNotFoundError as exc:
+        if is_json:
+            return JSONResponse(status_code=404, content={"status": "error", "detail": str(exc)})
+        raise HTTPException(status_code=404, detail=str(exc))
+    except PracticeExamValidationError as exc:
+        if is_json:
+            code = 403 if "Unauthorized" in str(exc) else 400
+            return JSONResponse(status_code=code, content={"status": "error", "detail": str(exc)})
+        if "Unauthorized" in str(exc):
+            raise HTTPException(status_code=403, detail=str(exc))
+        return RedirectResponse(
+            url=f"/student/practice-exams/attempts/{attempt_id}/booklets/{booklet_id}?err={quote(str(exc), safe='')}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
@@ -422,14 +471,18 @@ def get_practice_results_page(
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
+    attempt = db.query(StudentPracticeAttempt).filter(StudentPracticeAttempt.id == attempt_id).first()
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Attempt not found.")
+    if attempt.student_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Unauthorized access to results.")
+
     try:
         data = get_practice_exam_detailed_results(db, attempt_id)
     except PracticeExamValidationError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
     except PracticeExamNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    if data["attempt"].student_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Unauthorized access to results.")
 
     return templates.TemplateResponse(
         request=request,

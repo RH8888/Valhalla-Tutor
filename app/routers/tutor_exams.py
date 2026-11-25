@@ -2,6 +2,7 @@ import json
 import uuid
 from datetime import date
 from typing import Dict, List, Optional
+from urllib.parse import quote
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -183,12 +184,13 @@ def post_create_exam(
             url=f"/tutor/exams/{exam.id}?msg=Exam definition created successfully",
             status_code=status.HTTP_303_SEE_OTHER,
         )
-    except ExamValidationError as exc:
+    except (ValueError, ExamValidationError) as exc:
+        err_msg = "Invalid date or numeric recurrence value." if isinstance(exc, ValueError) else str(exc)
         return templates.TemplateResponse(
             request=request,
             name="tutor/exams/create_exam.html",
             context={
-                "error": str(exc),
+                "error": err_msg,
                 "title": title,
                 "description": description,
                 "first_exam_date": first_exam_date,
@@ -287,14 +289,15 @@ def post_edit_exam(
             url=f"/tutor/exams/{exam_id}?msg=Exam updated successfully",
             status_code=status.HTTP_303_SEE_OTHER,
         )
-    except (ExamValidationError, ExamNotFoundError) as exc:
+    except (ValueError, ExamValidationError, ExamNotFoundError) as exc:
+        err_msg = "Invalid date or numeric recurrence value." if isinstance(exc, ValueError) else str(exc)
         exam = get_exam_by_id(db, exam_id)
         return templates.TemplateResponse(
             request=request,
             name="tutor/exams/edit_exam.html",
             context={
                 "exam": exam,
-                "error": str(exc),
+                "error": err_msg,
                 "current_user": current_user,
                 "current_session": current_session,
             },
@@ -422,7 +425,7 @@ def post_generate_schedule(
         )
     except ExamValidationError as exc:
         return RedirectResponse(
-            url=f"/tutor/exams/{exam_id}?err={exc}",
+            url=f"/tutor/exams/{exam_id}?err={quote(str(exc), safe='')}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
@@ -480,7 +483,7 @@ def post_add_manual_session(
         )
     except (ValueError, ExamValidationError) as exc:
         return RedirectResponse(
-            url=f"/tutor/exams/{exam_id}?err={exc}",
+            url=f"/tutor/exams/{exam_id}?err={quote(str(exc), safe='')}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
@@ -785,19 +788,19 @@ async def post_correct_result(
     notes = form_data.get("notes")
     reason = form_data.get("correction_reason")
 
-    group_data = []
-    for gr in result.group_results:
-        key = gr.reporting_group_id or gr.id
-        pct_val = form_data.get(f"group_{key}_percentage") or form_data.get(f"group_{gr.id}_percentage")
-        if pct_val is not None and str(pct_val).strip():
-            group_data.append({
-                "reporting_group_id": gr.reporting_group_id,
-                "group_title": gr.group_title,
-                "percentage": float(pct_val),
-                "included_subject_names": gr.included_subject_names,
-            })
-
     try:
+        group_data = []
+        for gr in result.group_results:
+            key = gr.reporting_group_id or gr.id
+            pct_val = form_data.get(f"group_{key}_percentage") or form_data.get(f"group_{gr.id}_percentage")
+            if pct_val is not None and str(pct_val).strip():
+                group_data.append({
+                    "reporting_group_id": gr.reporting_group_id,
+                    "group_title": gr.group_title,
+                    "percentage": float(pct_val),
+                    "included_subject_names": gr.included_subject_names,
+                })
+
         clean_rank = int(rank_raw) if rank_raw and str(rank_raw).strip() else None
         res = tutor_correct_exam_result(
             db,
@@ -812,9 +815,10 @@ async def post_correct_result(
             url=f"/tutor/exams/sessions/{res.exam_session_id}?msg=Result corrected successfully",
             status_code=status.HTTP_303_SEE_OTHER,
         )
-    except ExamValidationError as exc:
+    except (ValueError, ExamValidationError) as exc:
+        err_msg = "Please provide valid numeric percentage and rank values." if isinstance(exc, ValueError) else str(exc)
         return RedirectResponse(
-            url=f"/tutor/exams/sessions/{result.exam_session_id}?err={exc}",
+            url=f"/tutor/exams/sessions/{result.exam_session_id}?err={quote(err_msg, safe='')}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
@@ -867,7 +871,7 @@ def post_delete_series(
         )
     except ExamValidationError as exc:
         return RedirectResponse(
-            url=f"/tutor/exams/{exam_id}?err={exc}",
+            url=f"/tutor/exams/{exam_id}?err={quote(str(exc), safe='')}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
@@ -907,7 +911,7 @@ def post_delete_session(
         )
     except ExamValidationError as exc:
         return RedirectResponse(
-            url=f"/tutor/exams/{exam_id}?err={exc}",
+            url=f"/tutor/exams/{exam_id}?err={quote(str(exc), safe='')}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
@@ -921,11 +925,14 @@ async def post_bulk_session_action(
     form_data = await request.form()
     action = form_data.get("bulk_action")
     session_ids_raw = form_data.getlist("session_ids")
-    session_ids = [uuid.UUID(str(sid)) for sid in session_ids_raw if sid]
     reason = form_data.get("reason")
     exam_id_raw = form_data.get("exam_id")
 
     redirect_url = f"/tutor/exams/{exam_id_raw}" if exam_id_raw else "/tutor/exams"
+    try:
+        session_ids = [uuid.UUID(str(sid)) for sid in session_ids_raw if sid]
+    except ValueError:
+        return RedirectResponse(url=f"{redirect_url}?err=Invalid+occurrence+identifier", status_code=status.HTTP_303_SEE_OTHER)
 
     if not session_ids:
         return RedirectResponse(url=f"{redirect_url}?err=No occurrences selected", status_code=status.HTTP_303_SEE_OTHER)
@@ -960,7 +967,7 @@ def post_extend_series_schedule(
             status_code=status.HTTP_303_SEE_OTHER,
         )
     except (ValueError, ExamValidationError) as exc:
-        return RedirectResponse(url=f"/tutor/exams/{exam_id}?err={exc}", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=f"/tutor/exams/{exam_id}?err={quote(str(exc), safe='')}", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/{exam_id}/students/bulk-remove")
@@ -972,7 +979,10 @@ async def post_bulk_remove_students(
 ):
     form_data = await request.form()
     student_ids_raw = form_data.getlist("student_ids")
-    student_ids = [uuid.UUID(str(sid)) for sid in student_ids_raw if sid]
+    try:
+        student_ids = [uuid.UUID(str(sid)) for sid in student_ids_raw if sid]
+    except ValueError:
+        return RedirectResponse(url=f"/tutor/exams/{exam_id}?err=Invalid+student+identifier", status_code=status.HTTP_303_SEE_OTHER)
     if not student_ids:
         return RedirectResponse(url=f"/tutor/exams/{exam_id}?err=No students selected", status_code=status.HTTP_303_SEE_OTHER)
 

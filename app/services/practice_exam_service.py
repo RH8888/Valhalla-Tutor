@@ -188,17 +188,15 @@ def configure_practice_exam_questions(
             "Cannot reconfigure questions for a practice exam with existing student attempts."
         )
 
-    # Remove existing questions to allow clean reconfiguration
-    for q in list(exam.questions):
-        db.delete(q)
-    db.flush()
-
     track_subject_ids = {s.id for s in exam.track.subjects}
-    created_questions = []
+    valid_group_ids = {rg.id for rg in exam.reporting_groups}
+    parsed_questions: List[Tuple[int, int, uuid.UUID, Optional[uuid.UUID]]] = []
     seen_numbers: Set[int] = set()
 
     for item in question_definitions:
         q_num = int(item["question_number"])
+        if q_num < 1:
+            raise PracticeExamValidationError(f"Question number {q_num} must be at least 1.")
         if q_num in seen_numbers:
             raise PracticeExamValidationError(f"Duplicate question number {q_num} in exam configuration.")
         seen_numbers.add(q_num)
@@ -214,7 +212,18 @@ def configure_practice_exam_questions(
             raise PracticeExamValidationError(f"Subject '{sub_name}' is not in track '{exam.track.name}'.")
 
         group_id = uuid.UUID(str(item["reporting_group_id"])) if item.get("reporting_group_id") else None
+        if group_id is not None and group_id not in valid_group_ids:
+            raise PracticeExamValidationError("Reporting group does not belong to this practice exam.")
 
+        parsed_questions.append((q_num, choice, sub_id, group_id))
+
+    # Remove existing questions only after every incoming definition has passed validation
+    for q in list(exam.questions):
+        db.delete(q)
+    db.flush()
+
+    created_questions = []
+    for q_num, choice, sub_id, group_id in parsed_questions:
         question = PracticeExamQuestion(
             practice_exam_id=exam.id,
             question_number=q_num,
@@ -288,6 +297,8 @@ def start_practice_attempt(
     exam = get_practice_exam_by_id(db, practice_exam_id)
     if not exam:
         raise PracticeExamNotFoundError(f"Practice exam with id {practice_exam_id} not found.")
+    if not exam.is_active:
+        raise PracticeExamValidationError("This practice exam is not currently active.")
 
     has_direct_assignment = any(a.student_id == student.id for a in exam.assignments)
     is_eligible = student.grade == exam.grade and student.academic_track_id == exam.academic_track_id
@@ -356,11 +367,14 @@ def get_student_booklet_state(
     db: Session,
     attempt_id: uuid.UUID,
     booklet_id: uuid.UUID,
+    student_id: Optional[uuid.UUID] = None,
 ) -> Dict[str, Any]:
     """Retrieve booklet questions, current timer state, and enforce server-side expiration."""
     attempt = db.query(StudentPracticeAttempt).filter(StudentPracticeAttempt.id == attempt_id).first()
     if not attempt:
         raise PracticeExamNotFoundError("Attempt not found.")
+    if student_id is not None and attempt.student_id != student_id:
+        raise PracticeExamValidationError("Unauthorized access to this practice exam attempt.")
 
     booklet = db.query(PracticeExamBooklet).filter(PracticeExamBooklet.id == booklet_id).first()
     if not booklet:
@@ -536,12 +550,9 @@ def submit_booklet_answers(
     advance_to_next: bool = False,
 ) -> Dict[str, Any]:
     """Save answers for questions in a booklet and optionally lock/advance to next booklet."""
-    state = get_student_booklet_state(db, attempt_id, booklet_id)
+    state = get_student_booklet_state(db, attempt_id, booklet_id, student_id=student.id)
     attempt = state["attempt"]
     booklet = state["booklet"]
-
-    if attempt.student_id != student.id:
-        raise PracticeExamValidationError("Unauthorized access to this practice exam attempt.")
 
     # Concurrency control: atomically lock the booklet attempt row to prevent writes after expiration/lock
     b_attempt = (
@@ -670,15 +681,19 @@ def submit_booklet_answers(
         else:
             attempt.status = "COMPLETED"
             attempt.completed_at = now
-            db.commit()
-            calculate_practice_exam_results(db, attempt.id)
+            db.flush()
+            calculate_practice_exam_results(db, attempt.id, commit=True)
             return {"advanced": False, "completed": True, "next_booklet_id": None}
 
     db.commit()
     return {"advanced": False, "completed": False, "next_booklet_id": None}
 
 
-def calculate_practice_exam_results(db: Session, attempt_id: uuid.UUID) -> StudentPracticeAttempt:
+def calculate_practice_exam_results(
+    db: Session,
+    attempt_id: uuid.UUID,
+    commit: bool = True,
+) -> StudentPracticeAttempt:
     """Calculate correct, incorrect, unanswered, and percentages per group and overall."""
     attempt = (
         db.query(StudentPracticeAttempt)
@@ -730,8 +745,11 @@ def calculate_practice_exam_results(db: Session, attempt_id: uuid.UUID) -> Stude
     attempt.total_incorrect = total_incorrect
     attempt.total_unanswered = total_unanswered
     attempt.overall_percentage = overall_pct
-    db.commit()
-    db.refresh(attempt)
+    if commit:
+        db.commit()
+        db.refresh(attempt)
+    else:
+        db.flush()
     return attempt
 
 

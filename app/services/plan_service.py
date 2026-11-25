@@ -10,7 +10,7 @@ from app.models.book import Book, BookChapter
 from app.models.course import Course, CourseChapter
 from app.models.plan import CompletionAuditAction, CompletionAuditLog, PlanAssignment, PlanStatus, StudyPlan, TaskType
 from app.models.subject import Subject
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.services.academic_service import get_student_effective_subjects
 from app.services.resource_service import normalize_grade
 
@@ -278,7 +278,7 @@ def create_study_plan(
     title: Optional[str] = None,
 ) -> StudyPlan:
     """Create a new 14-day study plan in DRAFT status."""
-    student = db.query(User).filter(User.id == student_id).first()
+    student = db.query(User).filter(User.id == student_id, User.role == UserRole.STUDENT).first()
     if not student:
         raise ValueError(f"Student with id {student_id} not found.")
 
@@ -304,19 +304,29 @@ def get_study_plan(
     plan_id: uuid.UUID,
     tutor_id: Optional[uuid.UUID] = None,
     student_id: Optional[uuid.UUID] = None,
+    exclude_drafts: bool = False,
 ) -> Optional[StudyPlan]:
     query = db.query(StudyPlan).filter(StudyPlan.id == plan_id)
     if tutor_id is not None:
         query = query.filter(StudyPlan.tutor_id == tutor_id)
     if student_id is not None:
         query = query.filter(StudyPlan.student_id == student_id)
+    if exclude_drafts:
+        query = query.filter(StudyPlan.status != PlanStatus.DRAFT)
     return query.first()
 
 
-def list_student_plans(db: Session, student_id: uuid.UUID, tutor_id: Optional[uuid.UUID] = None) -> List[StudyPlan]:
+def list_student_plans(
+    db: Session,
+    student_id: uuid.UUID,
+    tutor_id: Optional[uuid.UUID] = None,
+    exclude_drafts: bool = False,
+) -> List[StudyPlan]:
     query = db.query(StudyPlan).filter(StudyPlan.student_id == student_id)
     if tutor_id is not None:
         query = query.filter(StudyPlan.tutor_id == tutor_id)
+    if exclude_drafts:
+        query = query.filter(StudyPlan.status != PlanStatus.DRAFT)
     return (
         query
         .order_by(desc(StudyPlan.start_date), desc(StudyPlan.created_at))
@@ -369,6 +379,9 @@ def publish_study_plan(db: Session, plan_id: uuid.UUID, tutor_id: Optional[uuid.
     )
     for p in existing_published:
         p.status = PlanStatus.ARCHIVED
+    # Flush archival updates before publishing the new plan so partial unique index uq_study_plans_student_published is not violated
+    if existing_published:
+        db.flush()
 
     plan.status = PlanStatus.PUBLISHED
     db.commit()
@@ -459,6 +472,8 @@ def create_assignment(
         chapter = db.query(CourseChapter).filter(CourseChapter.id == course_chapter_id).first()
         if not course or not chapter:
             raise PlanValidationError("Selected course or chapter not found.")
+        if chapter.course_id != course.id:
+            raise PlanValidationError("Selected chapter does not belong to the chosen course.")
 
         if course.subject_id != subject_id:
             raise PlanValidationError(f"Course '{course.name}' does not belong to subject '{subject.name}'.")
@@ -471,9 +486,15 @@ def create_assignment(
         course_chapter_snapshot = chapter.name
 
         calc_count = video_count
-        if video_start_num is not None and video_end_num is not None:
+        if video_start_num is not None or video_end_num is not None:
+            if video_start_num is None or video_end_num is None:
+                raise PlanValidationError("Both starting and ending video numbers are required when specifying a range.")
             if video_start_num < 1 or video_end_num < video_start_num:
                 raise PlanValidationError("Invalid video number range.")
+            if video_end_num > chapter.video_count:
+                raise PlanValidationError(
+                    f"Ending video number ({video_end_num}) exceeds available videos ({chapter.video_count}) in chapter '{chapter.name}'."
+                )
             calc_count = video_end_num - video_start_num + 1
 
         if not calc_count or calc_count <= 0:
@@ -491,6 +512,8 @@ def create_assignment(
         bchapter = db.query(BookChapter).filter(BookChapter.id == book_chapter_id).first()
         if not book or not bchapter:
             raise PlanValidationError("Selected book or chapter not found.")
+        if bchapter.book_id != book.id:
+            raise PlanValidationError("Selected chapter does not belong to the chosen book.")
 
         if book.subject_id != subject_id:
             raise PlanValidationError(f"Book '{book.title}' does not belong to subject '{subject.name}'.")
@@ -647,6 +670,8 @@ def delete_assignment(db: Session, assignment_id: uuid.UUID, tutor_id: Optional[
     assignment = get_assignment(db, assignment_id, tutor_id=tutor_id)
     if not assignment:
         raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
+    if assignment.study_plan and assignment.study_plan.status == PlanStatus.ARCHIVED:
+        raise PlanValidationError("Cannot delete assignments from an archived study plan.")
     if assignment.is_completed:
         raise PlanValidationError("Cannot delete a completed assignment. Reset its completion status first.")
     db.delete(assignment)
@@ -663,6 +688,8 @@ def reorder_assignment(
     assignment = get_assignment(db, assignment_id, tutor_id=tutor_id)
     if not assignment:
         raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
+    if assignment.study_plan and assignment.study_plan.status == PlanStatus.ARCHIVED:
+        raise PlanValidationError("Cannot reorder assignments in an archived study plan.")
 
     cell_assignments = (
         db.query(PlanAssignment)
@@ -752,7 +779,12 @@ def undo_assignment_completion(
     student_id: uuid.UUID,
 ) -> PlanAssignment:
     """Return a completed assignment to pending state and log audit entry."""
-    assignment = get_assignment(db, assignment_id, student_id=student_id)
+    assignment = (
+        db.query(PlanAssignment)
+        .filter(PlanAssignment.id == assignment_id)
+        .with_for_update()
+        .first()
+    )
     if not assignment:
         raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
 
@@ -797,6 +829,8 @@ def reset_assignment_completion(
     assignment = get_assignment(db, assignment_id, tutor_id=tutor_id)
     if not assignment:
         raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
+    if not assignment.is_completed:
+        raise PlanValidationError("Assignment is not marked as completed.")
 
     prev_completed_at = assignment.completed_at
     prev_actual = assignment.actual_duration_minutes

@@ -45,6 +45,17 @@ router = APIRouter(
 )
 
 
+def _cleanup_uploaded_file(rel_path: Optional[str]) -> None:
+    if not rel_path:
+        return
+    try:
+        abs_path = get_absolute_file_path(rel_path)
+        if abs_path.exists() and abs_path.is_file():
+            abs_path.unlink()
+    except (OSError, ValueError):
+        pass
+
+
 @router.get("", response_class=HTMLResponse)
 def get_student_exams_page(
     request: Request,
@@ -104,14 +115,13 @@ def get_submit_result_form(
         (tc for tc in session.track_configs if tc.track_id == current_user.academic_track_id),
         None,
     )
-    if not track_config:
+    grade_track_cfg = get_student_series_grade_track_config(db, session.exam_id, current_user)
+    if not track_config and not grade_track_cfg:
         raise HTTPException(status_code=403, detail="Exam not available for your track.")
 
     effective_subjects = get_student_effective_subjects(current_user)
     effective_ids = {s.id for s in effective_subjects}
     subjects = [sc.subject for sc in track_config.subject_configs if sc.subject_id in effective_ids] if track_config else []
-
-    grade_track_cfg = get_student_series_grade_track_config(db, session.exam_id, current_user)
     reporting_groups = grade_track_cfg.reporting_groups if grade_track_cfg else []
 
     return templates.TemplateResponse(
@@ -152,48 +162,54 @@ async def post_submit_result(
     grade_track_cfg = get_student_series_grade_track_config(db, session.exam_id, current_user)
     reporting_groups = grade_track_cfg.reporting_groups if grade_track_cfg else []
 
-    group_data = []
-    if reporting_groups:
-        for grp in reporting_groups:
-            pct_val = form_data.get(f"group_{grp.id}_percentage")
-            if pct_val is not None and str(pct_val).strip():
-                sub_names = "، ".join(s.name for s in grp.subjects) if grp.subjects else grp.title
-                group_data.append({
-                    "reporting_group_id": grp.id,
-                    "group_title": grp.title,
-                    "percentage": float(pct_val),
-                    "included_subject_names": sub_names,
-                })
-
-    subject_data = []
-    if track_config:
-        for sc in track_config.subject_configs:
-            sub_id = sc.subject_id
-            corr_val = form_data.get(f"correct_{sub_id}")
-            incorr_val = form_data.get(f"incorrect_{sub_id}")
-            pct_val = form_data.get(f"percentage_{sub_id}")
-            if corr_val is not None and pct_val is not None:
-                subject_data.append({
-                    "subject_id": sub_id,
-                    "correct_answers": corr_val,
-                    "incorrect_answers": incorr_val or 0,
-                    "percentage": pct_val,
-                })
-
-    report_card_file = form_data.get("report_card_file")
-    rc_path = None
-    rc_name = None
-    if isinstance(report_card_file, UploadFile) and report_card_file.filename:
-        rc_path, rc_name = save_uploaded_file(
-            file=report_card_file,
-            subfolder="report_cards",
-            allowed_exts=REPORT_CARD_ALLOWED_EXTENSIONS,
-            allowed_mimes=REPORT_CARD_ALLOWED_MIMES,
-            max_size=REPORT_CARD_MAX_SIZE_BYTES,
-        )
-
+    rc_path: Optional[str] = None
+    rc_name: Optional[str] = None
     try:
+        if session.exam.is_archived or not session.exam.is_active:
+            raise ExamValidationError("Cannot submit results for an archived or inactive exam series.")
+        if not track_config and not grade_track_cfg:
+            raise ExamValidationError("You are not configured or eligible for this exam.")
+
+        group_data = []
+        if reporting_groups:
+            for grp in reporting_groups:
+                pct_val = form_data.get(f"group_{grp.id}_percentage")
+                if pct_val is not None and str(pct_val).strip():
+                    sub_names = "، ".join(s.name for s in grp.subjects) if grp.subjects else grp.title
+                    group_data.append({
+                        "reporting_group_id": grp.id,
+                        "group_title": grp.title,
+                        "percentage": float(pct_val),
+                        "included_subject_names": sub_names,
+                    })
+
+        subject_data = []
+        if track_config:
+            for sc in track_config.subject_configs:
+                sub_id = sc.subject_id
+                corr_val = form_data.get(f"correct_{sub_id}")
+                incorr_val = form_data.get(f"incorrect_{sub_id}")
+                pct_val = form_data.get(f"percentage_{sub_id}")
+                if corr_val is not None and pct_val is not None:
+                    subject_data.append({
+                        "subject_id": sub_id,
+                        "correct_answers": corr_val,
+                        "incorrect_answers": incorr_val or 0,
+                        "percentage": pct_val,
+                    })
+
         rank_val = int(overall_rank_raw) if overall_rank_raw and str(overall_rank_raw).strip() else None
+
+        report_card_file = form_data.get("report_card_file")
+        if isinstance(report_card_file, UploadFile) and report_card_file.filename:
+            rc_path, rc_name = save_uploaded_file(
+                file=report_card_file,
+                subfolder="report_cards",
+                allowed_exts=REPORT_CARD_ALLOWED_EXTENSIONS,
+                allowed_mimes=REPORT_CARD_ALLOWED_MIMES,
+                max_size=REPORT_CARD_MAX_SIZE_BYTES,
+            )
+
         submit_student_exam_result(
             db,
             student=current_user,
@@ -209,7 +225,11 @@ async def post_submit_result(
             url="/student/exams?msg=Exam results submitted successfully",
             status_code=status.HTTP_303_SEE_OTHER,
         )
-    except (ExamValidationError, DuplicateExamResultError) as exc:
+    except (ValueError, ExamValidationError, DuplicateExamResultError, HTTPException) as exc:
+        _cleanup_uploaded_file(rc_path)
+        detail_msg = exc.detail if isinstance(exc, HTTPException) else str(exc)
+        if isinstance(exc, ValueError):
+            detail_msg = "Please enter valid numeric scores and rank values."
         effective_subjects = get_student_effective_subjects(current_user)
         effective_ids = {s.id for s in effective_subjects}
         subjects = [sc.subject for sc in track_config.subject_configs if sc.subject_id in effective_ids] if track_config else []
@@ -220,12 +240,15 @@ async def post_submit_result(
                 "session": session,
                 "subjects": subjects,
                 "reporting_groups": reporting_groups,
-                "error": str(exc),
+                "error": detail_msg,
                 "current_user": current_user,
                 "current_session": current_session,
             },
             status_code=status.HTTP_400_BAD_REQUEST,
         )
+    except Exception:
+        _cleanup_uploaded_file(rc_path)
+        raise
 
 
 @router.get("/results/{result_id}/edit", response_class=HTMLResponse)
@@ -323,56 +346,61 @@ async def post_edit_result(
     overall_rank_raw = form_data.get("overall_rank")
     notes = form_data.get("notes")
 
-    # If result has group_results, parse group_data
-    group_data = []
-    if result.group_results:
-        for gr in result.group_results:
-            key = gr.reporting_group_id or gr.id
-            pct_val = form_data.get(f"group_{key}_percentage")
-            if pct_val is None:
-                pct_val = form_data.get(f"group_{gr.id}_percentage")
-            if pct_val is not None and str(pct_val).strip():
-                group_data.append({
-                    "reporting_group_id": gr.reporting_group_id,
-                    "group_title": gr.group_title,
-                    "percentage": float(pct_val),
-                    "included_subject_names": gr.included_subject_names,
-                })
-
     track_config = next(
         (tc for tc in result.exam_session.track_configs if tc.track_id == current_user.academic_track_id),
         None,
     )
 
-    subject_data = []
-    if track_config and not group_data:
-        for sc in track_config.subject_configs:
-            sub_id = sc.subject_id
-            corr_val = form_data.get(f"correct_{sub_id}")
-            incorr_val = form_data.get(f"incorrect_{sub_id}")
-            pct_val = form_data.get(f"percentage_{sub_id}")
-            if corr_val is not None and pct_val is not None:
-                subject_data.append({
-                    "subject_id": sub_id,
-                    "correct_answers": corr_val,
-                    "incorrect_answers": incorr_val or 0,
-                    "percentage": pct_val,
-                })
-
-    report_card_file = form_data.get("report_card_file")
-    rc_path = None
-    rc_name = None
-    if isinstance(report_card_file, UploadFile) and report_card_file.filename:
-        rc_path, rc_name = save_uploaded_file(
-            file=report_card_file,
-            subfolder="report_cards",
-            allowed_exts=REPORT_CARD_ALLOWED_EXTENSIONS,
-            allowed_mimes=REPORT_CARD_ALLOWED_MIMES,
-            max_size=REPORT_CARD_MAX_SIZE_BYTES,
-        )
-
+    old_rc_path = result.report_card_file_path
+    rc_path: Optional[str] = None
+    rc_name: Optional[str] = None
     try:
+        if session and session.exam and (session.exam.is_archived or not session.exam.is_active):
+            raise ExamValidationError("Cannot edit results for an archived or inactive exam series.")
+
+        # If result has group_results, parse group_data
+        group_data = []
+        if result.group_results:
+            for gr in result.group_results:
+                key = gr.reporting_group_id or gr.id
+                pct_val = form_data.get(f"group_{key}_percentage")
+                if pct_val is None:
+                    pct_val = form_data.get(f"group_{gr.id}_percentage")
+                if pct_val is not None and str(pct_val).strip():
+                    group_data.append({
+                        "reporting_group_id": gr.reporting_group_id,
+                        "group_title": gr.group_title,
+                        "percentage": float(pct_val),
+                        "included_subject_names": gr.included_subject_names,
+                    })
+
+        subject_data = []
+        if track_config and not group_data:
+            for sc in track_config.subject_configs:
+                sub_id = sc.subject_id
+                corr_val = form_data.get(f"correct_{sub_id}")
+                incorr_val = form_data.get(f"incorrect_{sub_id}")
+                pct_val = form_data.get(f"percentage_{sub_id}")
+                if corr_val is not None and pct_val is not None:
+                    subject_data.append({
+                        "subject_id": sub_id,
+                        "correct_answers": corr_val,
+                        "incorrect_answers": incorr_val or 0,
+                        "percentage": pct_val,
+                    })
+
         rank_val = int(overall_rank_raw) if overall_rank_raw and str(overall_rank_raw).strip() else None
+
+        report_card_file = form_data.get("report_card_file")
+        if isinstance(report_card_file, UploadFile) and report_card_file.filename:
+            rc_path, rc_name = save_uploaded_file(
+                file=report_card_file,
+                subfolder="report_cards",
+                allowed_exts=REPORT_CARD_ALLOWED_EXTENSIONS,
+                allowed_mimes=REPORT_CARD_ALLOWED_MIMES,
+                max_size=REPORT_CARD_MAX_SIZE_BYTES,
+            )
+
         update_student_exam_result(
             db,
             student=current_user,
@@ -384,11 +412,17 @@ async def post_edit_result(
             report_card_file_path=rc_path,
             report_card_file_name=rc_name,
         )
+        if rc_path and old_rc_path and old_rc_path != rc_path:
+            _cleanup_uploaded_file(old_rc_path)
         return RedirectResponse(
             url="/student/exams?msg=Exam results updated successfully",
             status_code=status.HTTP_303_SEE_OTHER,
         )
-    except (ExamValidationError, ExamResultNotFoundError) as exc:
+    except (ValueError, ExamValidationError, ExamResultNotFoundError, HTTPException) as exc:
+        _cleanup_uploaded_file(rc_path)
+        detail_msg = exc.detail if isinstance(exc, HTTPException) else str(exc)
+        if isinstance(exc, ValueError):
+            detail_msg = "Please enter valid numeric scores and rank values."
         sub_res_map = {sr.subject_id: sr for sr in result.subject_results}
         subjects = [sc.subject for sc in track_config.subject_configs] if track_config else []
         return templates.TemplateResponse(
@@ -400,12 +434,15 @@ async def post_edit_result(
                 "group_results": result.group_results,
                 "subjects": subjects,
                 "sub_res_map": sub_res_map,
-                "error": str(exc),
+                "error": detail_msg,
                 "current_user": current_user,
                 "current_session": current_session,
             },
             status_code=status.HTTP_400_BAD_REQUEST,
         )
+    except Exception:
+        _cleanup_uploaded_file(rc_path)
+        raise
 
 
 @router.get("/analytics", response_class=HTMLResponse)

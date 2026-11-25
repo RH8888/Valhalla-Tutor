@@ -146,6 +146,24 @@ def delete_subject(db: Session, subject_id: uuid.UUID) -> None:
     if student_count:
         raise SubjectInUseError(f"Subject '{subject.name}' is referenced by {len(student_count)} student customization(s).")
 
+    # Check references in study plans, external exams, and practice exams (RESTRICT FKs)
+    from app.models.exam import ExamSubjectConfiguration, StudentExamSubjectResult
+    from app.models.plan import PlanAssignment
+    from app.models.practice_exam import PracticeExamQuestion
+
+    plan_assignment_count = db.query(PlanAssignment).filter(PlanAssignment.subject_id == subject_id).count()
+    if plan_assignment_count > 0:
+        raise SubjectInUseError(f"Subject '{subject.name}' is referenced by {plan_assignment_count} study plan assignment(s).")
+
+    exam_cfg_count = db.query(ExamSubjectConfiguration).filter(ExamSubjectConfiguration.subject_id == subject_id).count()
+    exam_res_count = db.query(StudentExamSubjectResult).filter(StudentExamSubjectResult.subject_id == subject_id).count()
+    if exam_cfg_count > 0 or exam_res_count > 0:
+        raise SubjectInUseError(f"Subject '{subject.name}' is referenced by external exam configuration or results.")
+
+    practice_q_count = db.query(PracticeExamQuestion).filter(PracticeExamQuestion.subject_id == subject_id).count()
+    if practice_q_count > 0:
+        raise SubjectInUseError(f"Subject '{subject.name}' is referenced by {practice_q_count} practice exam question(s).")
+
     db.delete(subject)
     db.commit()
 

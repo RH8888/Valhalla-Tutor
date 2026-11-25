@@ -1,5 +1,6 @@
 import uuid
 from typing import List, Optional
+from urllib.parse import quote
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -160,7 +161,7 @@ def post_delete_subject(
         )
     except (SubjectInUseError, SubjectNotFoundError) as exc:
         return RedirectResponse(
-            url=f"/tutor/subjects?err={str(exc)}",
+            url=f"/tutor/subjects?err={quote(str(exc), safe='')}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 

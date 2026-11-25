@@ -1,6 +1,7 @@
 import uuid
 from datetime import date, datetime, time, timedelta
 from typing import List, Optional, Tuple
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, joinedload
@@ -36,6 +37,17 @@ class MeetingOverlapError(MeetingServiceError):
     def __init__(self, message: str, conflicting_meeting: Optional[TutorMeeting] = None):
         super().__init__(message)
         self.conflicting_meeting = conflicting_meeting
+
+
+def _validate_meeting_url(meeting_url: Optional[str]) -> Optional[str]:
+    """Ensure meeting URL, if provided, uses an explicit http or https scheme."""
+    clean_url = meeting_url.strip() if meeting_url and meeting_url.strip() else None
+    if not clean_url:
+        return None
+    parsed = urlsplit(clean_url)
+    if parsed.scheme.lower() not in ("http", "https") or not parsed.netloc:
+        raise MeetingValidationError("Meeting URL must start with http:// or https://.")
+    return clean_url
 
 
 def calculate_utc_datetimes(
@@ -145,7 +157,7 @@ def create_meeting(
             conflicting_meeting=conflict,
         )
 
-    clean_url = meeting_url.strip() if meeting_url else None
+    clean_url = _validate_meeting_url(meeting_url)
     clean_location = location.strip() if location else None
     clean_notes = notes.strip() if notes else None
 
@@ -283,7 +295,7 @@ def update_meeting_details(
     if meeting_type:
         meeting.meeting_type = meeting_type
     if meeting_url is not None:
-        meeting.meeting_url = meeting_url.strip() if meeting_url.strip() else None
+        meeting.meeting_url = _validate_meeting_url(meeting_url)
     if location is not None:
         meeting.location = location.strip() if location.strip() else None
     if notes is not None:

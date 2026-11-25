@@ -458,7 +458,10 @@ def post_create_assignment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    parsed_date = date.fromisoformat(scheduled_date)
+    try:
+        parsed_date = date.fromisoformat(scheduled_date)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid scheduled date format.")
     try:
         create_assignment(
             db=db,
@@ -573,7 +576,10 @@ def post_move_assignment(
         )
 
     plan_id = assignment.study_plan_id
-    parsed_date = date.fromisoformat(new_date)
+    try:
+        parsed_date = date.fromisoformat(new_date)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid target date format.")
     try:
         update_assignment(
             db=db,

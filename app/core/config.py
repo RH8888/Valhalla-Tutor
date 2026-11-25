@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     APP_NAME: str = "Valhalla Tutor"
     ENVIRONMENT: str = "development"
-    DEBUG: bool = True
+    DEBUG: bool = False
 
     # Timezone Configuration: Default is Asia/Tehran, but user timezones remain configurable
     DEFAULT_TIMEZONE: str = "Asia/Tehran"

@@ -1,5 +1,6 @@
 import uuid
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 from fastapi import APIRouter, Depends, Form, File, HTTPException, Request, Response, UploadFile, status
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -188,6 +189,7 @@ async def post_upload_booklet(
     if not exam:
         raise HTTPException(status_code=404, detail="Practice exam not found.")
 
+    rel_path: Optional[str] = None
     try:
         rel_path, orig_name = save_uploaded_file(
             file=file,
@@ -206,16 +208,33 @@ async def post_upload_booklet(
             question_end=question_end,
             duration_minutes=duration_minutes,
         )
+        success_msg = quote(f"PDF booklet '{title}' uploaded successfully", safe="")
         return RedirectResponse(
-            url=f"/tutor/practice-exams/{exam.id}?msg=PDF booklet '{title}' uploaded successfully",
+            url=f"/tutor/practice-exams/{exam.id}?msg={success_msg}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
     except (HTTPException, PracticeExamValidationError) as exc:
-        detail_msg = exc.detail if hasattr(exc, "detail") else str(exc)
+        if rel_path:
+            try:
+                abs_path = get_absolute_file_path(rel_path)
+                if abs_path.exists() and abs_path.is_file():
+                    abs_path.unlink()
+            except (OSError, ValueError):
+                pass
+        detail_msg = str(exc.detail) if hasattr(exc, "detail") else str(exc)
         return RedirectResponse(
-            url=f"/tutor/practice-exams/{exam.id}?err={detail_msg}",
+            url=f"/tutor/practice-exams/{exam.id}?err={quote(detail_msg, safe='')}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
+    except Exception:
+        if rel_path:
+            try:
+                abs_path = get_absolute_file_path(rel_path)
+                if abs_path.exists() and abs_path.is_file():
+                    abs_path.unlink()
+            except (OSError, ValueError):
+                pass
+        raise
 
 
 @router.get("/{exam_id}/download-booklet/{booklet_id}")
@@ -260,7 +279,7 @@ def post_create_reporting_group(
         )
     except (PracticeExamValidationError, PracticeExamNotFoundError) as exc:
         return RedirectResponse(
-            url=f"/tutor/practice-exams/{exam_id}?err={str(exc)}",
+            url=f"/tutor/practice-exams/{exam_id}?err={quote(str(exc), safe='')}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
@@ -284,27 +303,27 @@ async def post_configure_questions(
     missing_subject = []
     missing_choice = []
 
-    for q_num in range(1, total_q_max + 1):
-        choice_val = form_data.get(f"q_{q_num}_choice")
-        subj_val = form_data.get(f"q_{q_num}_subject")
-        group_val = form_data.get(f"q_{q_num}_group")
-
-        has_choice = bool(choice_val and str(choice_val).strip())
-        has_subject = bool(subj_val and str(subj_val).strip())
-
-        if has_choice and has_subject:
-            q_defs.append({
-                "question_number": q_num,
-                "correct_choice": int(choice_val),
-                "subject_id": uuid.UUID(str(subj_val)),
-                "reporting_group_id": uuid.UUID(str(group_val)) if group_val and str(group_val).strip() else None,
-            })
-        elif has_choice and not has_subject:
-            missing_subject.append(q_num)
-        elif has_subject and not has_choice:
-            missing_choice.append(q_num)
-
     try:
+        for q_num in range(1, total_q_max + 1):
+            choice_val = form_data.get(f"q_{q_num}_choice")
+            subj_val = form_data.get(f"q_{q_num}_subject")
+            group_val = form_data.get(f"q_{q_num}_group")
+
+            has_choice = bool(choice_val and str(choice_val).strip())
+            has_subject = bool(subj_val and str(subj_val).strip())
+
+            if has_choice and has_subject:
+                q_defs.append({
+                    "question_number": q_num,
+                    "correct_choice": int(choice_val),
+                    "subject_id": uuid.UUID(str(subj_val)),
+                    "reporting_group_id": uuid.UUID(str(group_val)) if group_val and str(group_val).strip() else None,
+                })
+            elif has_choice and not has_subject:
+                missing_subject.append(q_num)
+            elif has_subject and not has_choice:
+                missing_choice.append(q_num)
+
         if missing_subject:
             q_list = ", ".join(f"#{q}" for q in missing_subject[:5])
             more = f" and {len(missing_subject) - 5} more" if len(missing_subject) > 5 else ""
@@ -321,9 +340,10 @@ async def post_configure_questions(
             url=f"/tutor/practice-exams/{exam_id}?msg=Configured answer keys and scoring for {len(q_defs)} questions",
             status_code=status.HTTP_303_SEE_OTHER,
         )
-    except PracticeExamValidationError as exc:
+    except (ValueError, PracticeExamValidationError) as exc:
+        err_msg = "Invalid question choice or identifier." if isinstance(exc, ValueError) else str(exc)
         return RedirectResponse(
-            url=f"/tutor/practice-exams/{exam_id}?err={str(exc)}",
+            url=f"/tutor/practice-exams/{exam_id}?err={quote(err_msg, safe='')}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
@@ -338,7 +358,13 @@ async def post_assign_practice_exam(
 ):
     form_data = await request.form()
     student_ids_raw = form_data.getlist("student_ids")
-    student_ids = [uuid.UUID(str(sid)) for sid in student_ids_raw if sid]
+    try:
+        student_ids = [uuid.UUID(str(sid)) for sid in student_ids_raw if sid]
+    except ValueError:
+        return RedirectResponse(
+            url=f"/tutor/practice-exams/{exam_id}?err={quote('Invalid student identifier.', safe='')}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
 
     try:
         assign_practice_exam_to_students(db, exam_id, student_ids)
@@ -348,6 +374,11 @@ async def post_assign_practice_exam(
         )
     except PracticeExamNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+    except PracticeExamValidationError as exc:
+        return RedirectResponse(
+            url=f"/tutor/practice-exams/{exam_id}?err={quote(str(exc), safe='')}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
 
 
 @router.get("/attempts/{attempt_id}", response_class=HTMLResponse)

@@ -66,12 +66,26 @@ def test_login_rate_limiting(client: TestClient, tutor_user: User):
     assert "Too many failed login attempts" in blocked_resp.text
 
 
+def test_logout_requires_csrf(client: TestClient, db_session: Session, tutor_session):
+    raw_token, session_rec = tutor_session
+    client.cookies.set(SESSION_COOKIE_NAME, raw_token)
+
+    response = client.post(
+        "/auth/logout",
+        follow_redirects=False,
+    )
+    assert response.status_code == 403
+    db_session.refresh(session_rec)
+    assert session_rec.is_revoked is False
+
+
 def test_logout(client: TestClient, db_session: Session, tutor_session):
     raw_token, session_rec = tutor_session
     client.cookies.set(SESSION_COOKIE_NAME, raw_token)
 
     response = client.post(
         "/auth/logout",
+        data={"csrf_token": session_rec.csrf_token},
         follow_redirects=False,
     )
     assert response.status_code == 303

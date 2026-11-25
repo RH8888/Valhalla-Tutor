@@ -1,8 +1,10 @@
 import json
+import math
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 from sqlalchemy import desc
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.timezone import now_utc, today_local
@@ -52,6 +54,18 @@ class ExamResultNotFoundError(Exception):
 
 class DuplicateExamResultError(Exception):
     pass
+
+
+def _validate_percentage(raw_val: Any, subject_label: Optional[str] = None) -> float:
+    """Parse and validate a finite exam percentage within [0.0, 100.0]."""
+    prefix = f"Percentage for subject '{subject_label}'" if subject_label else "Percentage"
+    try:
+        pct = float(raw_val)
+    except (ValueError, TypeError):
+        raise ExamValidationError(f"{prefix} must be a valid number.")
+    if not math.isfinite(pct) or pct < 0.0 or pct > 100.0:
+        raise ExamValidationError(f"{prefix} must be between 0 and 100.")
+    return pct
 
 
 def log_exam_audit(
@@ -529,6 +543,7 @@ def create_exam_session(
     sequence_order: Optional[int] = None,
     submission_deadline: Optional[datetime] = None,
     allow_late_submission: bool = True,
+    commit: bool = True,
 ) -> ExamSession:
     exam = get_exam_by_id(db, exam_id)
     if not exam:
@@ -613,9 +628,12 @@ def create_exam_session(
         if not existing_ass:
             db.add(ExternalExamAssignment(exam_session_id=session.id, student_id=sa.student_id))
 
-    db.commit()
-    db.refresh(session)
-    return get_exam_session_by_id(db, session.id)
+    if commit:
+        db.commit()
+        db.refresh(session)
+        return get_exam_session_by_id(db, session.id)
+    db.flush()
+    return session
 
 
 def update_exam_session(
@@ -636,24 +654,13 @@ def update_exam_session(
         if len(track_subjects_map) == 0:
             raise ExamValidationError("At least one academic track must be configured for the exam.")
 
-        # Remove existing configurations and recreate
-        for tc in list(session.track_configs):
-            db.delete(tc)
-        db.flush()
-
+        validated_tracks = []
         for track_id, subject_ids in track_subjects_map.items():
             track = get_track_by_id(db, track_id)
             if not track:
                 raise ExamValidationError(f"Academic track with id {track_id} not found.")
             if not subject_ids:
                 raise ExamValidationError(f"At least one subject must be selected for track '{track.name}'.")
-
-            track_config = ExamTrackConfiguration(
-                exam_session_id=session.id,
-                track_id=track.id,
-            )
-            db.add(track_config)
-            db.flush()
 
             track_valid_subject_ids = {s.id for s in track.subjects}
             for sub_id in subject_ids:
@@ -663,13 +670,29 @@ def update_exam_session(
                     raise ExamValidationError(
                         f"Subject '{sub_name}' is not valid for academic track '{track.name}'."
                     )
+            validated_tracks.append((track.id, list(subject_ids)))
+
+        # Remove existing configurations only after all replacements are validated
+        for tc in list(session.track_configs):
+            db.delete(tc)
+        db.flush()
+
+        for track_id, subject_ids in validated_tracks:
+            track_config = ExamTrackConfiguration(
+                exam_session_id=session.id,
+                track_id=track_id,
+            )
+            db.add(track_config)
+            db.flush()
+
+            for sub_id in subject_ids:
                 subj_config = ExamSubjectConfiguration(
                     exam_track_config_id=track_config.id,
                     subject_id=sub_id,
                 )
                 db.add(subj_config)
 
-    for sa in exam.series_assignments:
+    for sa in session.exam.series_assignments:
         existing_ass = db.query(ExternalExamAssignment).filter(
             ExternalExamAssignment.exam_session_id == session.id,
             ExternalExamAssignment.student_id == sa.student_id,
@@ -768,6 +791,7 @@ def generate_series_sessions(
     for idx, d in enumerate(dates):
         if d in existing_dates:
             continue
+        existing_dates.add(d)
         session = create_exam_session(
             db,
             exam_id=exam.id,
@@ -775,6 +799,7 @@ def generate_series_sessions(
             sequence_order=idx + 1,
             status="SCHEDULED",
             is_manually_added=False,
+            commit=False,
         )
         audit = ExamSessionAudit(
             exam_session_id=session.id,
@@ -786,6 +811,8 @@ def generate_series_sessions(
         created_sessions.append(session)
 
     db.commit()
+    for s in created_sessions:
+        db.refresh(s)
     return created_sessions
 
 
@@ -916,6 +943,7 @@ def update_future_recurrence(
     for idx, d in enumerate(new_dates):
         if d in preserved_dates:
             continue
+        preserved_dates.add(d)
         session = create_exam_session(
             db,
             exam_id=exam.id,
@@ -923,6 +951,7 @@ def update_future_recurrence(
             sequence_order=idx + 1,
             status="SCHEDULED",
             is_manually_added=False,
+            commit=False,
         )
         audit = ExamSessionAudit(
             exam_session_id=session.id,
@@ -934,6 +963,8 @@ def update_future_recurrence(
         created.append(session)
 
     db.commit()
+    for s in created:
+        db.refresh(s)
     return created
 
 
@@ -1038,6 +1069,7 @@ def extend_exam_recurrence(
             exam_date=d,
             sequence_order=start_order + idx,
             status="SCHEDULED",
+            commit=False,
         )
         log_exam_audit(db, "OCCURRENCE", session.id, "CREATED", actor_id=actor_id, exam_id=exam.id, reason="Schedule extended")
         created.append(session)
@@ -1053,6 +1085,8 @@ def extend_exam_recurrence(
         new_value=str(new_last_exam_date),
     )
     db.commit()
+    for s in created:
+        db.refresh(s)
     return created
 
 
@@ -1080,10 +1114,13 @@ def bulk_add_manual_sessions(
             title=t,
             status="SCHEDULED",
             is_manually_added=True,
+            commit=False,
         )
         log_exam_audit(db, "OCCURRENCE", sess.id, "MANUAL_ADDED", actor_id=actor_id, exam_id=exam.id, reason="Bulk manual add")
         created.append(sess)
     db.commit()
+    for s in created:
+        db.refresh(s)
     return created
 
 
@@ -1139,8 +1176,10 @@ def get_student_available_exams(db: Session, student: User) -> Dict[str, Any]:
             "status": s.status,
         }
 
-        # Skipped and cancelled occurrences must NOT appear as active upcoming exams
+        # Skipped, cancelled, archived, or inactive occurrences must NOT appear as open exams
         if s.status in ("SKIPPED", "CANCELLED") and not student_result:
+            continue
+        if (s.exam.is_archived or not s.exam.is_active) and not student_result:
             continue
 
         if s.date >= today and student_result is None and s.status == "SCHEDULED":
@@ -1227,6 +1266,8 @@ def submit_student_exam_result(
 
     if session.status in ("SKIPPED", "CANCELLED"):
         raise ExamValidationError("Cannot submit results for a skipped or cancelled exam occurrence.")
+    if session.exam and (session.exam.is_archived or not session.exam.is_active) and not is_tutor_override:
+        raise ExamValidationError("Cannot submit results for an archived or inactive exam series.")
 
     now = now_utc()
     is_late = False
@@ -1247,10 +1288,9 @@ def submit_student_exam_result(
         (tc for tc in session.track_configs if tc.track_id == student.academic_track_id),
         None,
     )
-    if not track_config and not session.exam.grade_track_configs:
-        raise ExamValidationError("This exam is not available for your academic track.")
-
     grade_track_cfg = get_student_series_grade_track_config(db, session.exam_id, student)
+    if not track_config and not grade_track_cfg:
+        raise ExamValidationError("This exam is not available for your academic track or grade.")
 
     if group_percentages:
         group_data = group_data or []
@@ -1288,10 +1328,13 @@ def submit_student_exam_result(
 
     parsed_group_items = []
     if group_data:
+        valid_rg_ids = {rg.id for rg in grade_track_cfg.reporting_groups} if grade_track_cfg else set()
         for grp in group_data:
             rg_id = grp.get("reporting_group_id") or grp.get("group_id")
             if isinstance(rg_id, str):
                 rg_id = uuid.UUID(rg_id)
+            if rg_id is not None and rg_id not in valid_rg_ids:
+                raise ExamValidationError("Invalid reporting group for your grade and academic track.")
             g_title = (grp.get("group_title") or grp.get("title") or "").strip()
             if not g_title and rg_id:
                 rg_obj = db.query(ExamReportingGroup).get(rg_id)
@@ -1299,12 +1342,7 @@ def submit_student_exam_result(
                     g_title = rg_obj.title
             if not g_title:
                 raise ExamValidationError("Reporting group title cannot be empty.")
-            try:
-                pct = float(grp.get("percentage", 0.0))
-            except (ValueError, TypeError):
-                raise ExamValidationError("Percentage must be a valid number.")
-            if pct < 0.0 or pct > 100.0:
-                raise ExamValidationError("Percentage must be between 0 and 100.")
+            pct = _validate_percentage(grp.get("percentage", 0.0))
 
             parsed_group_items.append((rg_id, g_title, pct, grp.get("included_subject_names")))
 
@@ -1336,12 +1374,7 @@ def submit_student_exam_result(
             if correct < 0 or incorrect < 0:
                 raise ExamValidationError("Correct and incorrect counts must be non-negative integers.")
 
-            try:
-                percentage = float(item.get("percentage", 0.0))
-            except (ValueError, TypeError):
-                raise ExamValidationError("Percentage must be a valid number.")
-            if percentage < 0.0 or percentage > 100.0:
-                raise ExamValidationError("Percentage must be between 0 and 100.")
+            percentage = _validate_percentage(item.get("percentage", 0.0))
 
             parsed_subject_items.append((sub_id, correct, incorrect, percentage))
 
@@ -1383,7 +1416,11 @@ def submit_student_exam_result(
         db.add(subject_result)
 
     log_exam_audit(db, "RESULT", result.id, "SUBMITTED", actor_id=student.id, exam_id=session.exam_id)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise DuplicateExamResultError("Results have already been submitted for this exam occurrence.")
     return get_student_exam_result_by_id(db, result.id)
 
 
@@ -1474,7 +1511,13 @@ def tutor_correct_exam_result(
 
     result.is_tutor_corrected = True
     if overall_rank is not None:
-        result.overall_rank = overall_rank
+        try:
+            clean_rank = int(overall_rank)
+            if clean_rank <= 0:
+                raise ValueError()
+        except (ValueError, TypeError):
+            raise ExamValidationError("Overall rank must be a positive integer if provided.")
+        result.overall_rank = clean_rank
     if notes is not None:
         result.notes = notes
 
@@ -1483,10 +1526,9 @@ def tutor_correct_exam_result(
         for gid, pct in group_percentages.items():
             group_data.append({"reporting_group_id": gid, "percentage": pct})
 
+    parsed_groups_corr = None
     if group_data is not None:
-        for gr in list(result.group_results):
-            db.delete(gr)
-        db.flush()
+        parsed_groups_corr = []
         for grp in group_data:
             rg_id = grp.get("reporting_group_id") or grp.get("group_id")
             if isinstance(rg_id, str):
@@ -1496,29 +1538,47 @@ def tutor_correct_exam_result(
                 rg_obj = db.query(ExamReportingGroup).get(rg_id)
                 if rg_obj:
                     g_title = rg_obj.title
-            pct = float(grp.get("percentage", 0.0))
-            if pct < 0.0 or pct > 100.0:
-                raise ExamValidationError("Percentage must be between 0 and 100.")
+            if not g_title:
+                raise ExamValidationError("Reporting group title cannot be empty.")
+            pct = _validate_percentage(grp.get("percentage", 0.0))
+            parsed_groups_corr.append((rg_id, g_title, pct, grp.get("included_subject_names")))
+
+    parsed_subjects_corr = None
+    if subject_data is not None:
+        parsed_subjects_corr = []
+        for item in subject_data:
+            sub_id = item.get("subject_id")
+            if isinstance(sub_id, str):
+                sub_id = uuid.UUID(sub_id)
+            try:
+                correct = int(item.get("correct_answers", 0))
+                incorrect = int(item.get("incorrect_answers", 0))
+            except (ValueError, TypeError):
+                raise ExamValidationError("Correct and incorrect answers must be valid integers.")
+            if correct < 0 or incorrect < 0:
+                raise ExamValidationError("Correct and incorrect counts must be non-negative integers.")
+            pct = _validate_percentage(item.get("percentage", 0.0))
+            parsed_subjects_corr.append((sub_id, correct, incorrect, pct))
+
+    if parsed_groups_corr is not None:
+        for gr in list(result.group_results):
+            db.delete(gr)
+        db.flush()
+        for rg_id, g_title, pct, inc_names in parsed_groups_corr:
             group_res = StudentExamGroupResult(
                 student_exam_result_id=result.id,
                 reporting_group_id=rg_id,
                 group_title=g_title,
                 percentage=pct,
-                included_subject_names=grp.get("included_subject_names"),
+                included_subject_names=inc_names,
             )
             db.add(group_res)
 
-    if subject_data is not None:
+    if parsed_subjects_corr is not None:
         for sr in list(result.subject_results):
             db.delete(sr)
         db.flush()
-        for item in subject_data:
-            sub_id = item.get("subject_id")
-            if isinstance(sub_id, str):
-                sub_id = uuid.UUID(sub_id)
-            correct = int(item.get("correct_answers", 0))
-            incorrect = int(item.get("incorrect_answers", 0))
-            pct = float(item.get("percentage", 0.0))
+        for sub_id, correct, incorrect, pct in parsed_subjects_corr:
             db.add(StudentExamSubjectResult(
                 student_exam_result_id=result.id,
                 subject_id=sub_id,
@@ -1574,6 +1634,8 @@ def update_student_exam_result(
     if session:
         if session.status in ("SKIPPED", "CANCELLED") and not is_tutor_override:
             raise ExamValidationError("Cannot edit results for a skipped or cancelled exam occurrence.")
+        if session.exam and (session.exam.is_archived or not session.exam.is_active) and not is_tutor_override:
+            raise ExamValidationError("Cannot edit results for an archived or inactive exam series.")
 
         now = now_utc()
         s_deadline = session.submission_deadline
@@ -1618,23 +1680,33 @@ def update_student_exam_result(
 
     new_groups = []
     if group_data is not None:
-        for gr in list(result.group_results):
-            db.delete(gr)
-        db.flush()
+        if len(group_data) == 0 and not subject_data:
+            raise ExamValidationError("At least one subject or group result must be submitted.")
+        grade_track_cfg = get_student_series_grade_track_config(db, session.exam_id, student) if session else None
+        valid_rg_ids = {rg.id for rg in grade_track_cfg.reporting_groups} if grade_track_cfg else {gr.reporting_group_id for gr in result.group_results if gr.reporting_group_id}
+        parsed_update_groups = []
         for grp in group_data:
             g_title = (grp.get("group_title") or grp.get("title") or "").strip()
-            pct = float(grp.get("percentage", 0.0))
-            if pct < 0.0 or pct > 100.0:
-                raise ExamValidationError("Percentage must be between 0 and 100.")
+            if not g_title:
+                raise ExamValidationError("Reporting group title cannot be empty.")
+            pct = _validate_percentage(grp.get("percentage", 0.0))
             rg_id = grp.get("reporting_group_id")
             if isinstance(rg_id, str):
                 rg_id = uuid.UUID(rg_id)
+            if rg_id is not None and valid_rg_ids and rg_id not in valid_rg_ids:
+                raise ExamValidationError("Invalid reporting group for your grade and academic track.")
+            parsed_update_groups.append((rg_id, g_title, pct, grp.get("included_subject_names")))
+
+        for gr in list(result.group_results):
+            db.delete(gr)
+        db.flush()
+        for rg_id, g_title, pct, inc_names in parsed_update_groups:
             group_res = StudentExamGroupResult(
                 student_exam_result_id=result.id,
                 reporting_group_id=rg_id,
                 group_title=g_title,
                 percentage=pct,
-                included_subject_names=grp.get("included_subject_names"),
+                included_subject_names=inc_names,
             )
             db.add(group_res)
             new_groups.append({"title": g_title, "pct": pct})
@@ -1643,16 +1715,45 @@ def update_student_exam_result(
 
     new_subjects = []
     if subject_data is not None:
-        for sr in list(result.subject_results):
-            db.delete(sr)
-        db.flush()
+        if len(subject_data) == 0 and not group_data:
+            raise ExamValidationError("At least one subject or group result must be submitted.")
+        track_config = (
+            next((tc for tc in session.track_configs if tc.track_id == student.academic_track_id), None)
+            if session
+            else None
+        )
+        configured_subject_ids = {sc.subject_id for sc in track_config.subject_configs} if track_config else set()
+        effective_subject_ids = {s.id for s in get_student_effective_subjects(student)}
+        allowed_subject_ids = configured_subject_ids.intersection(effective_subject_ids) if configured_subject_ids else effective_subject_ids
+
+        seen_subjects: Set[uuid.UUID] = set()
+        parsed_update_subjects = []
         for item in subject_data:
             sub_id = item.get("subject_id")
             if isinstance(sub_id, str):
                 sub_id = uuid.UUID(sub_id)
-            correct = int(item.get("correct_answers", 0))
-            incorrect = int(item.get("incorrect_answers", 0))
-            percentage = float(item.get("percentage", 0.0))
+            if not sub_id or (allowed_subject_ids and sub_id not in allowed_subject_ids and not is_tutor_override):
+                sub = get_subject_by_id(db, sub_id) if sub_id else None
+                sub_name = sub.name if sub else str(sub_id)
+                raise ExamValidationError(f"Subject '{sub_name}' is not allowed for your track in this exam.")
+            if sub_id in seen_subjects:
+                raise ExamValidationError("Duplicate subject entry in submitted results.")
+            seen_subjects.add(sub_id)
+
+            try:
+                correct = int(item.get("correct_answers", 0))
+                incorrect = int(item.get("incorrect_answers", 0))
+            except (ValueError, TypeError):
+                raise ExamValidationError("Correct and incorrect answers must be valid integers.")
+            if correct < 0 or incorrect < 0:
+                raise ExamValidationError("Correct and incorrect counts must be non-negative integers.")
+            percentage = _validate_percentage(item.get("percentage", 0.0))
+            parsed_update_subjects.append((sub_id, correct, incorrect, percentage))
+
+        for sr in list(result.subject_results):
+            db.delete(sr)
+        db.flush()
+        for sub_id, correct, incorrect, percentage in parsed_update_subjects:
             subject_result = StudentExamSubjectResult(
                 student_exam_result_id=result.id,
                 subject_id=sub_id,
@@ -2340,13 +2441,7 @@ def create_historical_exam_result(
         s_name = str(item.get("subject_name", "")).strip()
         if not s_name:
             continue
-        try:
-            pct = float(item.get("percentage", 0.0))
-        except (ValueError, TypeError):
-            raise ExamValidationError(f"Percentage for subject '{s_name}' must be a valid number.")
-
-        if pct < 0.0 or pct > 100.0:
-            raise ExamValidationError(f"Percentage for subject '{s_name}' must be between 0 and 100.")
+        pct = _validate_percentage(item.get("percentage", 0.0), subject_label=s_name)
 
         sub_rec = HistoricalExamSubjectResult(
             historical_exam_result_id=hist_result.id,
@@ -2600,10 +2695,22 @@ def get_exam_series_analytics(db: Session, exam_id: uuid.UUID) -> Dict[str, Any]
     )
 
     total_submitted = len(all_results)
-    # Total assignments across all past/completed sessions
-    total_expected = sum(len(s.assignments) for s in exam.sessions if s.date <= today and s.status == "SCHEDULED")
-    missing_count = max(0, total_expected - total_submitted)
-    submission_rate = round((total_submitted / total_expected * 100), 1) if total_expected > 0 else 100.0
+    expected_sessions = [s for s in exam.sessions if s.date <= today and s.status == "SCHEDULED"]
+    expected_pairs = {
+        (s.id, a.student_id)
+        for s in expected_sessions
+        for a in s.assignments
+    }
+    total_expected = len(expected_pairs)
+    if total_expected > 0:
+        submitted_expected = sum(
+            1 for r in all_results if (r.exam_session_id, r.student_id) in expected_pairs
+        )
+        missing_count = max(0, total_expected - submitted_expected)
+        submission_rate = round((submitted_expected / total_expected * 100), 1)
+    else:
+        missing_count = 0
+        submission_rate = 100.0
 
     group_percentages: Dict[str, List[float]] = {}
     ranks: List[int] = []

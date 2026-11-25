@@ -127,33 +127,34 @@ async def post_create_historical_exam(
     current_session: UserSession = Depends(get_current_session),
 ):
     form_data = await request.form()
-    parsed_date = date.fromisoformat(exam_date)
-
-    # Collect subject scores from form fields: sub_{id}_name and sub_{id}_pct
-    subject_scores = []
-    for key, val in form_data.items():
-        if key.startswith("sub_pct_") and val:
-            sub_id = key.replace("sub_pct_", "")
-            sub_name = form_data.get(f"sub_name_{sub_id}")
-            if sub_name:
-                subject_scores.append({
-                    "subject_name": str(sub_name),
-                    "percentage": float(val),
-                })
-
-    file_path = None
-    file_name = None
-    if report_card_file and report_card_file.filename:
-        file_path, file_name = save_uploaded_file(
-            file=report_card_file,
-            subfolder="report_cards",
-            allowed_exts=REPORT_CARD_ALLOWED_EXTENSIONS,
-            allowed_mimes=REPORT_CARD_ALLOWED_MIMES,
-            max_size=REPORT_CARD_MAX_SIZE_BYTES,
-        )
-
+    file_path: Optional[str] = None
+    file_name: Optional[str] = None
     try:
+        parsed_date = date.fromisoformat(exam_date)
+
+        # Collect subject scores from form fields: sub_{id}_name and sub_{id}_pct
+        subject_scores = []
+        for key, val in form_data.items():
+            if key.startswith("sub_pct_") and val:
+                sub_id = key.replace("sub_pct_", "")
+                sub_name = form_data.get(f"sub_name_{sub_id}")
+                if sub_name:
+                    subject_scores.append({
+                        "subject_name": str(sub_name),
+                        "percentage": float(val),
+                    })
+
         rank_val = int(overall_rank) if overall_rank and str(overall_rank).strip() else None
+
+        if report_card_file and report_card_file.filename:
+            file_path, file_name = save_uploaded_file(
+                file=report_card_file,
+                subfolder="report_cards",
+                allowed_exts=REPORT_CARD_ALLOWED_EXTENSIONS,
+                allowed_mimes=REPORT_CARD_ALLOWED_MIMES,
+                max_size=REPORT_CARD_MAX_SIZE_BYTES,
+            )
+
         create_historical_exam_result(
             db=db,
             student_id=student_id,
@@ -171,11 +172,23 @@ async def post_create_historical_exam(
             url=f"/tutor/historical-exams?student_id={student_id}&msg=Historical exam result recorded successfully",
             status_code=status.HTTP_303_SEE_OTHER,
         )
-    except (ExamValidationError, HTTPException) as exc:
+    except (ValueError, ExamValidationError, HTTPException) as exc:
+        if file_path:
+            try:
+                abs_path = get_absolute_file_path(file_path)
+                if abs_path.exists() and abs_path.is_file():
+                    abs_path.unlink()
+            except (OSError, ValueError):
+                pass
         students = list_students(db)
         tracks = list_tracks(db)
         subjects = list_subjects(db)
-        detail_msg = exc.detail if hasattr(exc, "detail") else str(exc)
+        if isinstance(exc, HTTPException):
+            detail_msg = str(exc.detail)
+        elif isinstance(exc, ValueError):
+            detail_msg = "Please provide a valid date, numeric percentages, and rank."
+        else:
+            detail_msg = str(exc)
         return templates.TemplateResponse(
             request=request,
             name="tutor/historical_exams/create.html",
@@ -191,3 +204,12 @@ async def post_create_historical_exam(
             },
             status_code=status.HTTP_400_BAD_REQUEST,
         )
+    except Exception:
+        if file_path:
+            try:
+                abs_path = get_absolute_file_path(file_path)
+                if abs_path.exists() and abs_path.is_file():
+                    abs_path.unlink()
+            except (OSError, ValueError):
+                pass
+        raise

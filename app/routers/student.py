@@ -172,7 +172,7 @@ def get_student_plans_history(
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
-    all_plans = list_student_plans(db, current_user.id)
+    all_plans = list_student_plans(db, current_user.id, exclude_drafts=True)
     plans_data = []
     for p in all_plans:
         total_tasks = len(p.assignments)
@@ -208,7 +208,7 @@ def get_student_plan_detail(
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
-    plan = get_study_plan(db, plan_id, student_id=current_user.id)
+    plan = get_study_plan(db, plan_id, student_id=current_user.id, exclude_drafts=True)
     if not plan:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
 

@@ -27,11 +27,15 @@ from app.routers import (
     student_chat,
 )
 
+_is_production = settings.ENVIRONMENT.lower() == "production"
 app = FastAPI(
     title=settings.APP_NAME,
     description="Academic Planner and Tracking System for Tutor and Students",
     version="0.1.0",
     debug=settings.DEBUG,
+    docs_url=None if _is_production else "/docs",
+    redoc_url=None if _is_production else "/redoc",
+    openapi_url=None if _is_production else "/openapi.json",
 )
 
 
@@ -158,12 +162,14 @@ def root_index(request: Request):
                     return RedirectResponse(url="/tutor/students", status_code=303)
                 else:
                     return RedirectResponse(url="/student/dashboard", status_code=303)
-    return {
+    payload = {
         "app": settings.APP_NAME,
         "environment": settings.ENVIRONMENT,
         "version": "0.1.0",
-        "docs": "/docs",
         "health": "/health",
         "health_db": "/health/db",
     }
+    if not _is_production:
+        payload["docs"] = "/docs"
+    return payload
 

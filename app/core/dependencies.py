@@ -1,3 +1,4 @@
+import secrets
 from typing import Optional, Tuple
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
@@ -84,7 +85,7 @@ async def verify_csrf_token(
             form = await request.form()
             token = form.get("csrf_token")
 
-    if not token or token != session_obj.csrf_token:
+    if not token or not secrets.compare_digest(token, session_obj.csrf_token):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid or missing CSRF token",

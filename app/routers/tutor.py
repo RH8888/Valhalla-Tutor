@@ -1,6 +1,6 @@
 import uuid
 from typing import List, Optional
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -24,6 +24,7 @@ from app.services.academic_service import (
     reset_student_subjects_to_track,
 )
 from app.services.plan_service import (
+    PlanValidationError,
     get_assignment,
     get_assignment_audit_logs,
     get_student_monitoring_data,
@@ -211,7 +212,7 @@ def post_update_student_grade(
         )
     except Exception as exc:
         return RedirectResponse(
-            url=f"/tutor/students/{student_id}?err={str(exc)}",
+            url=f"/tutor/students/{student_id}?err={quote(str(exc), safe='')}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
@@ -231,7 +232,7 @@ def post_assign_student_track(
         )
     except Exception as exc:
         return RedirectResponse(
-            url=f"/tutor/students/{student_id}?err={str(exc)}",
+            url=f"/tutor/students/{student_id}?err={quote(str(exc), safe='')}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
@@ -250,7 +251,7 @@ def post_customize_student_subjects(
         )
     except Exception as exc:
         return RedirectResponse(
-            url=f"/tutor/students/{student_id}?err={str(exc)}",
+            url=f"/tutor/students/{student_id}?err={quote(str(exc), safe='')}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
@@ -268,7 +269,7 @@ def post_reset_student_subjects(
         )
     except Exception as exc:
         return RedirectResponse(
-            url=f"/tutor/students/{student_id}?err={str(exc)}",
+            url=f"/tutor/students/{student_id}?err={quote(str(exc), safe='')}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
@@ -381,12 +382,15 @@ def post_reset_assignment_completion(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
     student_id = assignment.student_id
-    updated_assignment = reset_assignment_completion(
-        db=db,
-        assignment_id=assignment_id,
-        tutor_id=current_user.id,
-        note=note,
-    )
+    try:
+        reset_assignment_completion(
+            db=db,
+            assignment_id=assignment_id,
+            tutor_id=current_user.id,
+            note=note,
+        )
+    except PlanValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
     if request.headers.get("HX-Request"):
         return HTMLResponse(

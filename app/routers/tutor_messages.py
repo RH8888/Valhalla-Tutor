@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 from typing import Optional
+from urllib.parse import quote
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
@@ -235,7 +236,7 @@ def load_older_tutor_messages(
 
     btn_html = ""
     if has_older and older_messages:
-        next_before = older_messages[0].created_at.isoformat()
+        next_before = quote(older_messages[0].created_at.isoformat(), safe="")
         btn_html = f'''<div class="text-center py-2" id="load-older-wrapper">
             <button hx-get="/tutor/messages/{conversation_id}/older?before={next_before}"
                     hx-target="#older-messages-slot"
