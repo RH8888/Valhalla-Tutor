@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}My 14-Day Study Plan &mdash; Valhalla Tutor{% endblock %}
+{% block title %}{{ _('My 14-Day Study Plan') }} &mdash; {{ _('app_name') }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6 max-w-[1440px] mx-auto pb-16">
@@ -11,82 +11,79 @@
     <div
         class="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-            <div class="flex items-center space-x-3">
+            <div class="flex items-center gap-3 flex-wrap">
                 <h1 class="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
-                    {% if is_archived %}Archived Study Plan{% else %}My 14-Day Study Plan{% endif %}
+                    {% if is_archived %}{{ _('Archived Study Plan') }}{% else %}{{ _('My 14-Day Study Plan') }}{% endif %}
                 </h1>
                 {% if is_archived %}
                 <span
                     class="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                    Archived &bull; Read-Only
+                    {{ _('archived_read_only_badge') }}
                 </span>
                 {% else %}
                 <span
                     class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                    Active Plan
+                    {{ _('active_plan_badge') }}
                 </span>
                 {% endif %}
             </div>
             <p class="text-xs sm:text-sm text-slate-500 mt-1">
-                <strong>{{ plan.title }}</strong> &bull; {{ plan.start_date.strftime('%a, %b %d') }} &mdash; {{
-                plan.end_date.strftime('%a, %b %d, %Y') }} (14 Days)
+                <strong>{{ plan.title }}</strong> &bull; {{ plan.start_date | smart_date_short }} &mdash; {{ plan.end_date | smart_date }} {{ _('plan_14_days_suffix') }}
             </p>
         </div>
 
-        <div class="flex items-center space-x-3 sm:space-x-4 flex-wrap gap-y-2">
+        <div class="flex items-center gap-3 sm:gap-4 flex-wrap">
             <!-- Progress Counter -->
             <div class="px-3 sm:px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-center">
-                <span class="block text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">Completed Tasks</span>
-                <span class="text-sm sm:text-base font-black text-slate-900">{{ completed_count }} / {{ total_assignments_count
-                    }}</span>
+                <span class="block text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">{{ _('Completed Tasks') }}</span>
+                <span class="text-sm sm:text-base font-black text-slate-900 tnum">{{ completed_count | fa_digits }} / {{ total_assignments_count | fa_digits }}</span>
             </div>
 
             <!-- Total Plan Duration -->
             <div class="px-3 sm:px-4 py-2 bg-indigo-50 border border-indigo-200 rounded-xl text-center">
-                <span class="block text-[10px] sm:text-[11px] font-bold text-indigo-600 uppercase tracking-wider">Total Study
-                    Hours</span>
-                <span class="text-sm sm:text-base font-black text-indigo-950">{{ plan_total_formatted }}</span>
+                <span class="block text-[10px] sm:text-[11px] font-bold text-indigo-600 uppercase tracking-wider">{{ _('Total Study Hours') }}</span>
+                <span class="text-sm sm:text-base font-black text-indigo-950 tnum">{{ plan_total | fa_duration }}</span>
             </div>
         </div>
     </div>
 
     <!-- Mobile swipe indicator -->
     <div class="md:hidden px-3.5 py-2 bg-indigo-50/80 border border-indigo-200/60 rounded-xl flex items-center justify-between text-xs text-indigo-700 font-medium">
-        <span>👉 Swipe horizontally across subjects</span>
-        <span class="text-xs font-bold text-indigo-800">14 Days &times; {{ effective_subjects|length }} Subjects</span>
+        <span>{{ '👈' if is_rtl() else '👉' }} {{ _('swipe_horizontally_subjects') }}</span>
+        <span class="text-xs font-bold text-indigo-800 tnum">{{ (14 | fa_digits) }} {{ _('days_label') }} &times; {{ effective_subjects|length | fa_digits }} {{ _('subjects_count_label') }}</span>
     </div>
 
     {% if is_archived %}
     <div
-        class="p-4 bg-slate-100 border border-slate-200 rounded-2xl flex items-center justify-between text-xs text-slate-700">
-        <div class="flex items-center space-x-2">
+        class="p-4 bg-slate-100 border border-slate-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-700">
+        <div class="flex items-center gap-2">
             <span>🔒</span>
-            <span><strong>Read-Only Mode:</strong> This study plan is archived. Task assignments and completion records
-                are preserved for your review.</span>
+            <span><strong>{{ _('read_only_mode') }}</strong> {{ _('archived_plan_review_note') }}</span>
         </div>
-        <a href="/student/plans/history" class="text-indigo-600 font-bold hover:text-indigo-800">
-            &larr; Back to Plan History
+        <a href="/student/plans/history" class="inline-flex items-center gap-1 text-indigo-600 font-bold hover:text-indigo-800 shrink-0">
+            <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+            <span>{{ _('back_to_plan_history') }}</span>
         </a>
     </div>
     {% endif %}
 
     <!-- 14-Day Student Timetable Grid -->
     <div class="bg-white shadow-sm rounded-2xl border border-slate-200 overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
-        <table class="min-w-full divide-y divide-slate-200 text-left border-collapse">
+        <table class="min-w-full divide-y divide-slate-200 text-start border-collapse">
             <thead class="bg-slate-50 sticky top-0 z-10 shadow-xs">
                 <tr>
                     <th scope="col"
-                        class="py-4 px-4 w-44 min-w-[176px] text-xs font-bold text-slate-700 uppercase tracking-wider border-r border-slate-200 bg-slate-100">
-                        Date &amp; Weekday
+                        class="py-4 px-4 w-44 min-w-[176px] text-xs font-bold text-slate-700 uppercase tracking-wider border-e border-slate-200 bg-slate-100 text-start">
+                        {{ _('Date & Weekday') }}
                     </th>
                     {% for subj in effective_subjects %}
                     <th scope="col"
-                        class="py-4 px-4 min-w-[240px] text-xs font-bold text-slate-800 uppercase tracking-wider border-r border-slate-200 last:border-r-0">
-                        <div class="flex items-center justify-between">
+                        class="py-4 px-4 min-w-[240px] text-xs font-bold text-slate-800 uppercase tracking-wider border-e border-slate-200 last:border-e-0 text-start">
+                        <div class="flex items-center justify-between gap-2">
                             <span class="text-sm font-black text-slate-900">{{ subj.name }}</span>
                             <span
-                                class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
-                                {{ subject_totals_formatted[subj.id] }}
+                                class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 tnum">
+                                {{ subject_totals[subj.id] | fa_duration }}
                             </span>
                         </div>
                     </th>
@@ -97,25 +94,25 @@
                 {% for d in days %}
                 <tr class="hover:bg-slate-50/60 transition">
                     <!-- Day / Date Column -->
-                    <td class="py-4 px-4 align-top border-r border-slate-200 bg-slate-50/50">
-                        <div class="font-extrabold text-sm text-slate-900">Day {{ loop.index }}</div>
-                        <div class="text-xs font-medium text-slate-600 mt-0.5">{{ d.strftime('%a, %b %d') }}</div>
+                    <td class="py-4 px-4 align-top border-e border-slate-200 bg-slate-50/50">
+                        <div class="font-extrabold text-sm text-slate-900">{{ _('day_label') }} {{ loop.index | fa_digits }}</div>
+                        <div class="text-xs font-medium text-slate-600 mt-0.5">{{ d | smart_weekday }} &bull; {{ d | smart_date_short }}</div>
                         <div class="mt-2.5">
                             <span
-                                class="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-bold {% if daily_totals[d] > 0 %}bg-indigo-100 text-indigo-800 border border-indigo-200{% else %}bg-slate-100 text-slate-400{% endif %}">
-                                ⏱️ {{ daily_totals_formatted[d] }}
+                                class="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-bold tnum {% if daily_totals[d] > 0 %}bg-indigo-100 text-indigo-800 border border-indigo-200{% else %}bg-slate-100 text-slate-400{% endif %}">
+                                ⏱️ {{ daily_totals[d] | fa_duration }}
                             </span>
                         </div>
                         {% if external_exams_by_day and external_exams_by_day.get(d) %}
                             {% for ex_sess in external_exams_by_day.get(d) %}
                                 <div class="mt-2 p-2 rounded-lg bg-purple-50 border border-purple-200 text-purple-900 text-xs shadow-xs">
-                                    <div class="font-extrabold flex items-center space-x-1">
+                                    <div class="font-extrabold flex items-center gap-1">
                                         <span>📝</span>
                                         <span>{{ ex_sess.exam.title }}</span>
                                     </div>
                                     {% if ex_sess.title %}<div class="text-[10px] text-purple-700 mt-0.5">{{ ex_sess.title }}</div>{% endif %}
                                     <span class="inline-block mt-1 text-[9px] uppercase font-bold bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded">
-                                        External Exam Event
+                                        {{ _('external_exam_event') }}
                                     </span>
                                 </div>
                             {% endfor %}
@@ -125,14 +122,14 @@
                     <!-- Subject Cells -->
                     {% for subj in effective_subjects %}
                     {% set cell_tasks = assignments_by_cell.get((d, subj.id), []) %}
-                    <td class="p-3 align-top border-r border-slate-200 last:border-r-0 min-h-[100px]">
+                    <td class="p-3 align-top border-e border-slate-200 last:border-e-0 min-h-[100px]">
                         <div class="space-y-2">
                             {% for task in cell_tasks %}
                             {% set assignment = task %}
                             {% include "student/partials/task_card.html" %}
                             {% else %}
                             <div class="p-3 text-center text-xs text-slate-300 italic">
-                                No tasks
+                                {{ _('no_tasks_cell') }}
                             </div>
                             {% endfor %}
                         </div>

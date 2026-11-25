@@ -15,6 +15,7 @@ from app.core.dependencies import (
     verify_csrf_token,
 )
 from app.core.templates import templates
+from app.core.i18n import get_locale_from_request, to_persian_digits
 from app.models.book import Book, BookChapter
 from app.models.course import Course, CourseChapter
 from app.models.plan import PlanAssignment, PlanStatus, StudyPlan, TaskType
@@ -170,10 +171,13 @@ def get_plan_view(
 def get_resources_for_subject(
     plan_id: uuid.UUID,
     subject_id: uuid.UUID,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Return JSON or HTML snippet of courses and books for a subject filtered by student grade."""
+    locale = get_locale_from_request(request)
+    is_fa = locale == "fa"
     plan = get_study_plan(db, plan_id, tutor_id=current_user.id)
     student = plan.student if plan else None
     student_grade = student.grade if student else None
@@ -182,7 +186,8 @@ def get_resources_for_subject(
     books = list_books(db, subject_id=subject_id, grade=student_grade) if student_grade else []
 
     if not student_grade:
-        msg = '<option value="">-- Student has no grade assigned (Assign grade in profile) --</option>'
+        no_grade_txt = "-- پایه تحصیلی دانش‌آموز تعیین نشده است (در پروفایل ثبت کنید) --" if is_fa else "-- Student has no grade assigned (Assign grade in profile) --"
+        msg = f'<option value="">{no_grade_txt}</option>'
         return HTMLResponse(
             f"""
             <div id="course-options-container" hx-swap-oob="innerHTML:#course-select">{msg}</div>
@@ -195,20 +200,25 @@ def get_resources_for_subject(
             f'<option value="{html.escape(str(c.id), quote=True)}">{html.escape(c.teacher_name or "")} - {html.escape(c.name or "")}</option>'
             for c in courses
         ])
-        course_select = f'<option value="">-- Select Course / Teacher --</option>{course_options}'
+        sel_course_txt = "-- انتخاب دوره / مدرس --" if is_fa else "-- Select Course / Teacher --"
+        course_select = f'<option value="">{sel_course_txt}</option>{course_options}'
     else:
         escaped_grade = html.escape(str(student_grade))
-        course_select = f'<option value="">-- No courses available for Grade {escaped_grade} --</option>'
+        no_course_txt = f"-- دوره‌ای برای پایه {to_persian_digits(escaped_grade)} موجود نیست --" if is_fa else f"-- No courses available for Grade {escaped_grade} --"
+        course_select = f'<option value="">{no_course_txt}</option>'
 
     if books:
+        grade_lbl = lambda g: f"پایه {to_persian_digits(g)}" if is_fa else f"Grade {g}"
         book_options = "".join([
-            f'<option value="{html.escape(str(b.id), quote=True)}">{html.escape(b.title or "")} (Grade {html.escape(str(b.grade) if b.grade else "")})</option>'
+            f'<option value="{html.escape(str(b.id), quote=True)}">{html.escape(b.title or "")} ({grade_lbl(html.escape(str(b.grade) if b.grade else ""))})</option>'
             for b in books
         ])
-        book_select = f'<option value="">-- Select Book --</option>{book_options}'
+        sel_book_txt = "-- انتخاب کتاب --" if is_fa else "-- Select Book --"
+        book_select = f'<option value="">{sel_book_txt}</option>{book_options}'
     else:
         escaped_grade = html.escape(str(student_grade))
-        book_select = f'<option value="">-- No books available for Grade {escaped_grade} --</option>'
+        no_book_txt = f"-- کتابی برای پایه {to_persian_digits(escaped_grade)} موجود نیست --" if is_fa else f"-- No books available for Grade {escaped_grade} --"
+        book_select = f'<option value="">{no_book_txt}</option>'
 
     return HTMLResponse(
         f"""
@@ -222,23 +232,27 @@ def get_resources_for_subject(
 def get_chapters_for_course(
     plan_id: uuid.UUID,
     course_id: uuid.UUID,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    locale = get_locale_from_request(request)
+    is_fa = locale == "fa"
     plan = get_study_plan(db, plan_id, tutor_id=current_user.id)
     if not plan:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
 
     course = db.query(Course).filter(Course.id == course_id).first()
     if not course:
-        return HTMLResponse('<option value="">-- No chapters --</option>')
+        return HTMLResponse(f'<option value="">{"-- فصلی وجود ندارد --" if is_fa else "-- No chapters --"}</option>')
 
-    options = ['<option value="">-- Select Chapter --</option>']
+    options = [f'<option value="">{"-- انتخاب فصل --" if is_fa else "-- Select Chapter --"}</option>']
     for ch in course.chapters:
         ch_id = html.escape(str(ch.id), quote=True)
         v_count = html.escape(str(ch.video_count), quote=True)
         ch_name = html.escape(ch.name or "")
-        options.append(f'<option value="{ch_id}" data-videos="{v_count}">{ch_name} ({ch.video_count} videos)</option>')
+        vid_label = f"{to_persian_digits(ch.video_count)} ویدیو" if is_fa else f"{ch.video_count} videos"
+        options.append(f'<option value="{ch_id}" data-videos="{v_count}">{ch_name} ({vid_label})</option>')
     return HTMLResponse("".join(options))
 
 
@@ -246,48 +260,57 @@ def get_chapters_for_course(
 def get_chapters_for_book(
     plan_id: uuid.UUID,
     book_id: uuid.UUID,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    locale = get_locale_from_request(request)
+    is_fa = locale == "fa"
     plan = get_study_plan(db, plan_id, tutor_id=current_user.id)
     if not plan:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
 
     book = db.query(Book).filter(Book.id == book_id).first()
     if not book:
-        return HTMLResponse('<option value="">-- No chapters --</option>')
+        return HTMLResponse(f'<option value="">{"-- فصلی وجود ندارد --" if is_fa else "-- No chapters --"}</option>')
 
-    options = ['<option value="">-- Select Chapter --</option>']
+    options = [f'<option value="">{"-- انتخاب فصل --" if is_fa else "-- Select Chapter --"}</option>']
     for ch in book.chapters:
         ch_id = html.escape(str(ch.id), quote=True)
         t_count = html.escape(str(ch.test_count), quote=True)
         ch_title = html.escape(ch.title or "")
-        options.append(f'<option value="{ch_id}" data-tests="{t_count}">{ch_title} ({ch.test_count} tests)</option>')
+        test_label = f"{to_persian_digits(ch.test_count)} تست" if is_fa else f"{ch.test_count} tests"
+        options.append(f'<option value="{ch_id}" data-tests="{t_count}">{ch_title} ({test_label})</option>')
     return HTMLResponse("".join(options))
 
 
 @router.get("/plans/{plan_id}/estimate-video", response_class=HTMLResponse)
 def get_video_estimate_badge(
     plan_id: uuid.UUID,
+    request: Request,
     course_id: Optional[uuid.UUID] = Query(None),
     video_count: int = Query(1),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    locale = get_locale_from_request(request)
+    is_fa = locale == "fa"
     plan = get_study_plan(db, plan_id, tutor_id=current_user.id)
     if not plan or not course_id:
         return HTMLResponse("")
 
     est = estimate_video_duration(db, plan.student_id, course_id, video_count, tutor_id=current_user.id)
     if est.is_historical and est.suggested_duration_minutes:
+        lbl = "تخمین هوشمند سوابق:" if is_fa else "Historical Estimate:"
+        mins_txt = f"{to_persian_digits(est.suggested_duration_minutes)} دقیقه" if is_fa else f"{est.suggested_duration_minutes} minutes"
         return HTMLResponse(
             f"""
-            <div class="mt-2 p-2.5 rounded-lg bg-indigo-50 border border-indigo-200 text-xs text-indigo-900 flex items-start space-x-2">
+            <div class="mt-2 p-2.5 rounded-lg bg-indigo-50 border border-indigo-200 text-xs text-indigo-900 flex items-start gap-2">
                 <span class="text-indigo-600 font-bold">📊</span>
                 <div>
-                    <span class="font-semibold text-indigo-800">Historical Estimate:</span>
-                    <span>{est.suggested_duration_minutes} minutes</span>
-                    <p class="text-indigo-600 mt-0.5">{est.basis_text}</p>
+                    <span class="font-semibold text-indigo-800">{lbl}</span>
+                    <span>{mins_txt}</span>
+                    <p class="text-indigo-600 mt-0.5">{to_persian_digits(est.basis_text) if is_fa else est.basis_text}</p>
                 </div>
             </div>
             <script>
@@ -297,10 +320,11 @@ def get_video_estimate_badge(
             </script>
             """
         )
+    no_hist_txt = "ℹ️ هنوز سابقه‌ای از ویدیوهای تکمیل‌شده این دوره ثبت نشده است. زمان را دستی وارد کنید." if is_fa else "ℹ️ No completed video history for this course yet. Enter duration manually."
     return HTMLResponse(
-        """
+        f"""
         <div class="mt-2 p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600">
-            <span>ℹ️ No completed video history for this course yet. Enter duration manually.</span>
+            <span>{no_hist_txt}</span>
         </div>
         """
     )
@@ -309,30 +333,36 @@ def get_video_estimate_badge(
 @router.get("/plans/{plan_id}/estimate-test", response_class=HTMLResponse)
 def get_test_estimate_badge(
     plan_id: uuid.UUID,
+    request: Request,
     book_id: Optional[uuid.UUID] = Query(None),
     test_start: int = Query(1),
     test_end: int = Query(1),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    locale = get_locale_from_request(request)
+    is_fa = locale == "fa"
     plan = get_study_plan(db, plan_id, tutor_id=current_user.id)
     if not plan or not book_id:
         return HTMLResponse("")
 
     test_count = test_end - test_start + 1
     if test_count <= 0:
-        return HTMLResponse('<div class="mt-2 p-2 rounded bg-amber-50 text-xs text-amber-700">Invalid test range: end test must be >= start test.</div>')
+        err_txt = "بازه تست نامعتبر است: شماره پایان باید بزرگتر یا مساوی شماره شروع باشد." if is_fa else "Invalid test range: end test must be >= start test."
+        return HTMLResponse(f'<div class="mt-2 p-2 rounded bg-amber-50 text-xs text-amber-700">{err_txt}</div>')
 
     est = estimate_test_duration(db, plan.student_id, book_id, test_count, tutor_id=current_user.id)
     if est.is_historical and est.suggested_duration_minutes:
+        lbl = "تخمین هوشمند سوابق:" if is_fa else "Historical Estimate:"
+        mins_txt = f"{to_persian_digits(est.suggested_duration_minutes)} دقیقه ({to_persian_digits(test_count)} تست)" if is_fa else f"{est.suggested_duration_minutes} minutes ({test_count} tests)"
         return HTMLResponse(
             f"""
-            <div class="mt-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start space-x-2">
+            <div class="mt-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
                 <span class="text-amber-600 font-bold">📊</span>
                 <div>
-                    <span class="font-semibold text-amber-800">Historical Estimate:</span>
-                    <span>{est.suggested_duration_minutes} minutes ({test_count} tests)</span>
-                    <p class="text-amber-600 mt-0.5">{est.basis_text}</p>
+                    <span class="font-semibold text-amber-800">{lbl}</span>
+                    <span>{mins_txt}</span>
+                    <p class="text-amber-600 mt-0.5">{to_persian_digits(est.basis_text) if is_fa else est.basis_text}</p>
                 </div>
             </div>
             <script>
@@ -342,10 +372,11 @@ def get_test_estimate_badge(
             </script>
             """
         )
+    no_hist_txt = f"ℹ️ {to_persian_digits(test_count)} تست انتخاب شده است. هنوز سابقه‌ای برای این کتاب ثبت نشده؛ زمان را دستی وارد کنید." if is_fa else f"ℹ️ {test_count} test(s) assigned. No completed history for this book yet; enter duration manually."
     return HTMLResponse(
         f"""
         <div class="mt-2 p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600">
-            <span>ℹ️ {test_count} test(s) assigned. No completed history for this book yet; enter duration manually.</span>
+            <span>{no_hist_txt}</span>
         </div>
         """
     )

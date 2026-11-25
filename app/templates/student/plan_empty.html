@@ -1,22 +1,23 @@
 {% extends "base.html" %}
 
-{% block title %}My 14-Day Study Plan &mdash; Valhalla Tutor{% endblock %}
+{% block title %}{{ _('My 14-Day Study Plan') }} &mdash; {{ _('app_name') }}{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto my-12 text-center bg-white p-10 rounded-3xl shadow-sm border border-slate-200 space-y-4">
+<div class="max-w-2xl mx-auto my-12 text-center bg-white p-6 sm:p-10 rounded-3xl shadow-sm border border-slate-200 space-y-4">
     <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-3xl mx-auto">
         📅
     </div>
-    <h2 class="text-xl font-black text-slate-900">No Active Study Plan Yet</h2>
+    <h2 class="text-xl font-black text-slate-900">{{ _('No Active Study Plan Yet') }}</h2>
     <p class="text-sm text-slate-500 max-w-md mx-auto">
-        Your tutor hasn't published an active 14-day study plan for you yet. Once published, your assignments, recommended study hours, and schedule will appear right here.
+        {{ _("Your tutor hasn't published an active 14-day study plan for you yet. Once published, your assignments, recommended study hours, and schedule will appear right here.") }}
     </p>
-    <div class="pt-4 flex items-center justify-center space-x-3">
-        <a href="/student/curriculum" class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow transition">
-            Explore My Curriculum &rarr;
+    <div class="pt-4 flex items-center justify-center gap-3 flex-wrap">
+        <a href="/student/curriculum" class="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow transition">
+            <span>{{ _('Explore My Curriculum') }}</span>
+            <svg class="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
         </a>
         <a href="/student/plans/history" class="inline-flex items-center px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-bold transition">
-            View Past Plans
+            {{ _('View Past Plans') }}
         </a>
     </div>
 </div>

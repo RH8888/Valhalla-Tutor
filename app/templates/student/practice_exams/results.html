@@ -1,29 +1,32 @@
 {% extends "base.html" %}
-{% block title %}Practice Exam Results - Valhalla Tutor{% endblock %}
+{% block title %}{{ _('Practice Exam Results') }} - {{ _('app_name') }}{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto space-y-6">
     <div class="border-b border-slate-200 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-            <div class="flex items-center space-x-3">
-                <a href="/student/practice-exams" class="text-sm text-slate-500 hover:text-slate-800 transition">&larr; Back to Practice Exams</a>
+            <div class="flex items-center gap-3 flex-wrap">
+                <a href="/student/practice-exams" class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 transition">
+                    <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                    <span>{{ _('back_to_practice_exams') }}</span>
+                </a>
                 {% if exam.allow_retake %}
                 <form method="POST" action="/student/practice-exams/{{ exam.id }}/start" class="inline">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                     <button type="submit" class="px-2.5 py-1 text-xs font-semibold rounded-md bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition">
-                        🔄 Retake Exam
+                        🔄 {{ _('retake_exam_btn') }}
                     </button>
                 </form>
                 {% endif %}
             </div>
-            <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-1">{{ exam.title }} &mdash; Results</h1>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-1">{{ exam.title }} &mdash; {{ _('results_suffix') }}</h1>
             <p class="text-sm text-slate-500">
-                Completed on: <strong class="text-slate-800">{{ attempt.completed_at.strftime('%Y-%m-%d %H:%M') if attempt.completed_at else 'Recently' }}</strong>
+                {{ _('completed_at_prefix') }} <strong class="text-slate-800">{{ attempt.completed_at | local_dt if attempt.completed_at else _('recently_label') }}</strong>
             </p>
         </div>
-        <div class="text-right">
-            <span class="text-xs uppercase font-semibold text-slate-500 block">Overall Percentage</span>
-            <span class="text-3xl font-extrabold text-indigo-600">{{ "%.1f"|format(data.overall_percentage) }}%</span>
+        <div class="text-start sm:text-end">
+            <span class="text-xs uppercase font-semibold text-slate-500 block">{{ _('Overall Percentage') }}</span>
+            <span class="text-3xl font-extrabold text-indigo-600 tnum">{{ data.overall_percentage | fa_percent(1) }}</span>
         </div>
     </div>
 
@@ -34,50 +37,50 @@
     <!-- Metrics Cards -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
-            <span class="text-xs font-semibold text-slate-500 uppercase block">Total Questions</span>
-            <span class="text-2xl font-bold text-slate-900">{{ data.total_questions }}</span>
+            <span class="text-xs font-semibold text-slate-500 uppercase block">{{ _('Total Questions') }}</span>
+            <span class="text-2xl font-bold text-slate-900 tnum">{{ data.total_questions | fa_digits }}</span>
         </div>
         <div class="bg-white p-4 rounded-xl border border-emerald-100 shadow-sm text-center bg-emerald-50/30">
-            <span class="text-xs font-semibold text-emerald-700 uppercase block">Correct</span>
-            <span class="text-2xl font-bold text-emerald-600">{{ data.total_correct }}</span>
+            <span class="text-xs font-semibold text-emerald-700 uppercase block">{{ _('Correct') }}</span>
+            <span class="text-2xl font-bold text-emerald-600 tnum">{{ data.total_correct | fa_digits }}</span>
         </div>
         <div class="bg-white p-4 rounded-xl border border-red-100 shadow-sm text-center bg-red-50/30">
-            <span class="text-xs font-semibold text-red-700 uppercase block">Incorrect</span>
-            <span class="text-2xl font-bold text-red-600">{{ data.total_incorrect }}</span>
+            <span class="text-xs font-semibold text-red-700 uppercase block">{{ _('Incorrect') }}</span>
+            <span class="text-2xl font-bold text-red-600 tnum">{{ data.total_incorrect | fa_digits }}</span>
         </div>
         <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
-            <span class="text-xs font-semibold text-slate-500 uppercase block">Unanswered</span>
-            <span class="text-2xl font-bold text-slate-500">{{ data.total_unanswered }}</span>
+            <span class="text-xs font-semibold text-slate-500 uppercase block">{{ _('Unanswered') }}</span>
+            <span class="text-2xl font-bold text-slate-500 tnum">{{ data.total_unanswered | fa_digits }}</span>
         </div>
     </div>
 
     <!-- Reporting Groups Table -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="px-6 py-3 border-b border-slate-200 bg-slate-50/50">
-            <h2 class="text-base font-bold text-slate-900">Configured Reporting Groups</h2>
-            <p class="text-xs text-slate-500">Subject combination results configured by your tutor.</p>
+            <h2 class="text-base font-bold text-slate-900">{{ _('Configured Reporting Groups') }}</h2>
+            <p class="text-xs text-slate-500">{{ _('Subject combination results configured by your tutor.') }}</p>
         </div>
         <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm text-slate-600">
+            <table class="w-full text-start text-sm text-slate-600">
                 <thead class="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
                     <tr>
-                        <th class="px-6 py-3">Reporting Group</th>
-                        <th class="px-4 py-3 text-center">Questions</th>
-                        <th class="px-4 py-3 text-center">Correct</th>
-                        <th class="px-4 py-3 text-center">Incorrect</th>
-                        <th class="px-4 py-3 text-center">Unanswered</th>
-                        <th class="px-6 py-3 text-right">Percentage %</th>
+                        <th class="px-6 py-3 text-start">{{ _('Reporting Group') }}</th>
+                        <th class="px-4 py-3 text-center">{{ _('Questions') }}</th>
+                        <th class="px-4 py-3 text-center">{{ _('Correct') }}</th>
+                        <th class="px-4 py-3 text-center">{{ _('Incorrect') }}</th>
+                        <th class="px-4 py-3 text-center">{{ _('Unanswered') }}</th>
+                        <th class="px-6 py-3 text-end">{{ _('Percentage %') }}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                     {% for g in data.reporting_groups %}
                         <tr class="hover:bg-slate-50">
                             <td class="px-6 py-3 font-semibold text-slate-900">{{ g.name }}</td>
-                            <td class="px-4 py-3 text-center">{{ g.total }}</td>
-                            <td class="px-4 py-3 text-center text-emerald-600 font-semibold">{{ g.correct }}</td>
-                            <td class="px-4 py-3 text-center text-red-600 font-semibold">{{ g.incorrect }}</td>
-                            <td class="px-4 py-3 text-center text-slate-400">{{ g.unanswered }}</td>
-                            <td class="px-6 py-3 text-right font-bold text-indigo-600">{{ "%.1f"|format(g.percentage) }}%</td>
+                            <td class="px-4 py-3 text-center tnum">{{ g.total | fa_digits }}</td>
+                            <td class="px-4 py-3 text-center text-emerald-600 font-semibold tnum">{{ g.correct | fa_digits }}</td>
+                            <td class="px-4 py-3 text-center text-red-600 font-semibold tnum">{{ g.incorrect | fa_digits }}</td>
+                            <td class="px-4 py-3 text-center text-slate-400 tnum">{{ g.unanswered | fa_digits }}</td>
+                            <td class="px-6 py-3 text-end font-bold text-indigo-600 tnum">{{ g.percentage | fa_percent(1) }}</td>
                         </tr>
                     {% endfor %}
                 </tbody>
@@ -88,30 +91,30 @@
     <!-- Individual Subjects Table -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="px-6 py-3 border-b border-slate-200 bg-slate-50/50">
-            <h2 class="text-base font-bold text-slate-900">Individual Subject Breakdown</h2>
-            <p class="text-xs text-slate-500">Score per curriculum subject.</p>
+            <h2 class="text-base font-bold text-slate-900">{{ _('Individual Subject Breakdown') }}</h2>
+            <p class="text-xs text-slate-500">{{ _('Score per curriculum subject.') }}</p>
         </div>
         <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm text-slate-600">
+            <table class="w-full text-start text-sm text-slate-600">
                 <thead class="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
                     <tr>
-                        <th class="px-6 py-3">Subject</th>
-                        <th class="px-4 py-3 text-center">Questions</th>
-                        <th class="px-4 py-3 text-center">Correct</th>
-                        <th class="px-4 py-3 text-center">Incorrect</th>
-                        <th class="px-4 py-3 text-center">Unanswered</th>
-                        <th class="px-6 py-3 text-right">Percentage %</th>
+                        <th class="px-6 py-3 text-start">{{ _('Subject') }}</th>
+                        <th class="px-4 py-3 text-center">{{ _('Questions') }}</th>
+                        <th class="px-4 py-3 text-center">{{ _('Correct') }}</th>
+                        <th class="px-4 py-3 text-center">{{ _('Incorrect') }}</th>
+                        <th class="px-4 py-3 text-center">{{ _('Unanswered') }}</th>
+                        <th class="px-6 py-3 text-end">{{ _('Percentage %') }}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                     {% for s in data.individual_subjects %}
                         <tr class="hover:bg-slate-50">
                             <td class="px-6 py-3 font-medium text-slate-900">{{ s.name }}</td>
-                            <td class="px-4 py-3 text-center">{{ s.total }}</td>
-                            <td class="px-4 py-3 text-center text-emerald-600">{{ s.correct }}</td>
-                            <td class="px-4 py-3 text-center text-red-600">{{ s.incorrect }}</td>
-                            <td class="px-4 py-3 text-center text-slate-400">{{ s.unanswered }}</td>
-                            <td class="px-6 py-3 text-right font-bold text-slate-800">{{ "%.1f"|format(s.percentage) }}%</td>
+                            <td class="px-4 py-3 text-center tnum">{{ s.total | fa_digits }}</td>
+                            <td class="px-4 py-3 text-center text-emerald-600 tnum">{{ s.correct | fa_digits }}</td>
+                            <td class="px-4 py-3 text-center text-red-600 tnum">{{ s.incorrect | fa_digits }}</td>
+                            <td class="px-4 py-3 text-center text-slate-400 tnum">{{ s.unanswered | fa_digits }}</td>
+                            <td class="px-6 py-3 text-end font-bold text-slate-800 tnum">{{ s.percentage | fa_percent(1) }}</td>
                         </tr>
                     {% endfor %}
                 </tbody>

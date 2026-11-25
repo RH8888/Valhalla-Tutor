@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 import os
 
 from app.core.config import settings
@@ -32,6 +33,20 @@ app = FastAPI(
     version="0.1.0",
     debug=settings.DEBUG,
 )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def localized_http_exception_handler(request: Request, exc: StarletteHTTPException):
+    from app.core.i18n import get_locale_from_request, translate
+    locale = get_locale_from_request(request)
+    detail = exc.detail
+    if locale == "fa" and isinstance(detail, str):
+        detail = translate(detail, locale="fa")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": detail},
+        headers=getattr(exc, "headers", None),
+    )
 
 
 @app.middleware("http")
@@ -97,15 +112,26 @@ if os.path.exists(static_dir):
 
 
 @app.get("/set-language", summary="Switch interface language")
-def set_language(request: Request, lang: str = "en", redirect_url: str = "/"):
+def set_language(
+    request: Request,
+    lang: str = "en",
+    redirect_url: str = "/",
+    format: str = "html",
+):
+    from fastapi.responses import JSONResponse
     from app.core.i18n import DEFAULT_LOCALE, LOCALE_COOKIE_NAME, SUPPORTED_LOCALES
     from app.routers.tutor import is_safe_redirect_url
 
     if lang not in SUPPORTED_LOCALES:
         lang = DEFAULT_LOCALE
 
-    target_url = redirect_url if (redirect_url and is_safe_redirect_url(redirect_url)) else "/"
-    response = RedirectResponse(url=target_url, status_code=303)
+    if format == "json" or "application/json" in request.headers.get("accept", ""):
+        response: Response = JSONResponse({"locale": lang, "dir": "rtl" if lang == "fa" else "ltr"})
+    else:
+        target_url = redirect_url if (redirect_url and is_safe_redirect_url(redirect_url)) else "/"
+        response = RedirectResponse(url=target_url, status_code=303)
+
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     response.set_cookie(
         key=LOCALE_COOKIE_NAME,
         value=lang,

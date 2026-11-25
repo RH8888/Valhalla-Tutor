@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Semi-Automatic Weekly Scheduler &mdash; Valhalla Tutor{% endblock %}
+{% block title %}{{ _('Semi-Automatic Weekly Scheduler') }} &mdash; {{ _('app_name') }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6 max-w-5xl mx-auto">
@@ -9,34 +9,36 @@
 
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-bold tracking-tight text-slate-900">Semi-Automatic Weekly Scheduler</h1>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900">{{ _('Semi-Automatic Weekly Scheduler') }}</h1>
             <p class="text-sm text-slate-500 mt-1">
-                Plan and prepare student meetings for the week of <span class="font-bold text-slate-800">{{ target_week_start.strftime('%b %d, %Y') }} (Saturday)</span> through <span class="font-bold text-slate-800">{{ target_week_end.strftime('%b %d, %Y') }} (Friday)</span>.
+                {{ _('scheduler_week_subtitle', start=((target_week_start | smart_date) ~ ' (' ~ (target_week_start | smart_weekday) ~ ')'), end=((target_week_end | smart_date) ~ ' (' ~ (target_week_end | smart_weekday) ~ ')')) }}
             </p>
         </div>
-        <a href="/tutor/calendar" class="inline-flex items-center px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 transition">
-            &larr; Back to Calendar
+        <a href="/tutor/calendar" class="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 transition">
+            <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+            <span>{{ _('Back to Calendar') }}</span>
         </a>
     </div>
 
     <!-- Friday / Thursday Reminder Banner -->
-    <div class="p-4 rounded-xl bg-indigo-50/70 border border-indigo-200/80 flex items-start space-x-3 text-xs text-indigo-900">
+    <div class="p-4 rounded-xl bg-indigo-50/70 border border-indigo-200/80 flex items-start gap-3 text-xs text-indigo-900">
         <span class="text-lg">💡</span>
         <div>
-            <span class="font-bold">Weekly Scheduling Protocol (Asia/Tehran):</span>
+            <span class="font-bold">{{ _('Weekly Scheduling Protocol (Asia/Tehran):') }}</span>
             <p class="mt-0.5 text-indigo-800">
-                Weekly schedules are prepared on <strong>Friday</strong> for the following week. Any meetings planned for <strong>Saturday</strong> should be finalized by <strong>Thursday</strong>. Recommendations are learned from completed sessions.
+                {{ _('Weekly schedules are prepared on Friday for the following week. Any meetings planned for Saturday should be finalized by Thursday. Recommendations are learned from completed sessions.') }}
             </p>
         </div>
     </div>
 
     {% if draft_proposal %}
-        <div class="p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between text-xs text-amber-900">
+        <div class="p-4 rounded-xl bg-amber-50 border border-amber-200 flex flex-wrap items-center justify-between gap-3 text-xs text-amber-900">
             <div>
-                <span class="font-bold">You have an active draft proposal</span> for the week of {{ draft_proposal.target_week_start.strftime('%b %d, %Y') }} with {{ draft_proposal.items|length }} proposed session(s).
+                {{ _('draft_proposal_notice', start=(draft_proposal.target_week_start | smart_date), count=(draft_proposal.items|length | fa_digits)) }}
             </div>
-            <a href="/tutor/scheduler/proposals/{{ draft_proposal.id }}" class="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold shadow-2xs transition">
-                Resume Review &rarr;
+            <a href="/tutor/scheduler/proposals/{{ draft_proposal.id }}" class="inline-flex items-center gap-1 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold shadow-2xs transition">
+                <span>{{ _('Resume Review') }}</span>
+                <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
             </a>
         </div>
     {% endif %}
@@ -46,10 +48,10 @@
         <input type="hidden" name="target_week_start" value="{{ target_week_start.strftime('%Y-%m-%d') }}">
 
         {% if error_message %}
-            <div class="p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-start space-x-3 text-xs text-rose-900">
+            <div class="p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-3 text-xs text-rose-900">
                 <span class="text-lg">⚠️</span>
                 <div>
-                    <span class="font-bold">Scheduling Conflict / Limitation:</span>
+                    <span class="font-bold">{{ _('Scheduling Conflict / Limitation:') }}</span>
                     <p class="mt-0.5 text-rose-800">{{ error_message }}</p>
                 </div>
             </div>
@@ -59,20 +61,20 @@
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                 <div>
-                    <div class="flex items-center space-x-2">
+                    <div class="flex items-center gap-2">
                         <span class="text-base">📅</span>
-                        <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Step 1: Your Day-by-Day Availability Windows</h2>
+                        <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wider">{{ _('Step 1: Your Day-by-Day Availability Windows') }}</h2>
                     </div>
                     <p class="text-xs text-slate-500 mt-0.5">
-                        Specify custom hours for each day, or select "Day Off / No Window" if you do not want sessions on that day.
+                        {{ _('Specify custom hours for each day, or select "Day Off / No Window" if you do not want sessions on that day.') }}
                     </p>
                 </div>
                 <!-- Quick Preset Buttons -->
                 <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
-                    <span class="text-slate-400 font-medium">Presets:</span>
-                    <button type="button" onclick="applyPreset('standard')" class="px-2 py-1 rounded bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 font-semibold transition">Weekdays 14–21, Fri 09–13</button>
-                    <button type="button" onclick="applyPreset('fri_off')" class="px-2 py-1 rounded bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 font-semibold transition">Weekdays 14–21, Fri Off</button>
-                    <button type="button" onclick="applyPreset('allday')" class="px-2 py-1 rounded bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 font-semibold transition">All Days Open</button>
+                    <span class="text-slate-400 font-medium">{{ _('Presets:') }}</span>
+                    <button type="button" onclick="applyPreset('standard')" class="px-2 py-1 rounded bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 font-semibold transition">{{ _('preset_standard') }}</button>
+                    <button type="button" onclick="applyPreset('fri_off')" class="px-2 py-1 rounded bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 font-semibold transition">{{ _('preset_fri_off') }}</button>
+                    <button type="button" onclick="applyPreset('allday')" class="px-2 py-1 rounded bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 font-semibold transition">{{ _('preset_allday') }}</button>
                 </div>
             </div>
 
@@ -80,28 +82,28 @@
                 {% for d in days_info %}
                     <div class="border border-slate-200 rounded-lg p-3 bg-slate-50/50 space-y-2 day-card-{{ d.key }}">
                         <div class="flex items-center justify-between">
-                            <span class="font-bold text-slate-800">{{ d.fa_name }} ({{ d.en_name[:3] }})</span>
-                            <span class="text-[11px] text-slate-500 font-medium">{{ d.date.strftime('%b %d') }}</span>
+                            <span class="font-bold text-slate-800">{{ d.fa_name if is_rtl() else d.en_name }}</span>
+                            <span class="text-[11px] text-slate-500 font-medium tnum">{{ d.date | smart_date_short }}</span>
                         </div>
                         <div>
                             <select name="avail_mode_{{ d.key }}" id="mode_{{ d.key }}" onchange="handleModeChange('{{ d.key }}', this.value)" class="w-full border border-slate-300 rounded px-2 py-1 bg-white text-xs font-medium focus:ring-1 focus:ring-indigo-500">
-                                <option value="custom" {% if d.default_mode == 'custom' %}selected{% endif %}>Specific Window</option>
-                                <option value="none" {% if d.default_mode == 'none' %}selected{% endif %}>Day Off / No Window</option>
-                                <option value="open" {% if d.default_mode == 'open' %}selected{% endif %}>All Day (08:00 - 23:00)</option>
+                                <option value="custom" {% if d.default_mode == 'custom' %}selected{% endif %}>{{ _('specific_window_opt') }}</option>
+                                <option value="none" {% if d.default_mode == 'none' %}selected{% endif %}>{{ _('day_off_opt') }}</option>
+                                <option value="open" {% if d.default_mode == 'open' %}selected{% endif %}>{{ _('all_day_opt') }}</option>
                             </select>
                         </div>
                         <div id="times_{{ d.key }}" class="grid grid-cols-2 gap-1.5 {% if d.default_mode == 'none' %}hidden{% endif %}">
                             <div>
-                                <label class="text-[10px] text-slate-500 block">From</label>
+                                <label class="text-[10px] text-slate-500 block">{{ _('from_label') }}</label>
                                 <input type="time" name="avail_start_{{ d.key }}" id="start_{{ d.key }}" value="{{ d.default_start }}" class="w-full border border-slate-300 rounded px-1.5 py-1 text-[11px] bg-white font-semibold">
                             </div>
                             <div>
-                                <label class="text-[10px] text-slate-500 block">Until</label>
+                                <label class="text-[10px] text-slate-500 block">{{ _('until_label') }}</label>
                                 <input type="time" name="avail_end_{{ d.key }}" id="end_{{ d.key }}" value="{{ d.default_end }}" class="w-full border border-slate-300 rounded px-1.5 py-1 text-[11px] bg-white font-semibold">
                             </div>
                         </div>
                         <div id="off_badge_{{ d.key }}" class="{% if d.default_mode != 'none' %}hidden{% endif %} py-1.5 text-center bg-slate-200/70 rounded text-[11px] font-bold text-slate-600">
-                            🏖️ Day Off (No Sessions)
+                            🏖️ {{ _('day_off_badge') }}
                         </div>
                     </div>
                 {% endfor %}
@@ -109,9 +111,9 @@
         </div>
 
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Step 2: Select Students & Meeting Days</h2>
-                <span class="text-xs text-slate-500">{{ student_preferences|length }} active student(s) available</span>
+            <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2 bg-slate-50">
+                <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wider">{{ _('Step 2: Select Students & Meeting Days') }}</h2>
+                <span class="text-xs text-slate-500">{{ _('active_students_available', count=(student_preferences|length | fa_digits)) }}</span>
             </div>
 
             <div class="p-6 space-y-4 divide-y divide-slate-100">
@@ -120,13 +122,13 @@
                     {% set pref = sp.pref %}
                     <div class="pt-4 first:pt-0 space-y-3">
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                            <label class="flex items-center space-x-3 cursor-pointer">
+                            <label class="flex items-center gap-3 cursor-pointer">
                                 <input type="checkbox" name="selected_students" value="{{ s.id }}" checked class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4">
                                 <div>
                                     <span class="font-bold text-slate-900 text-sm">{{ s.full_name }}</span>
-                                    <span class="text-xs text-slate-500">(@{{ s.username }})</span>
+                                    <span class="text-xs text-slate-500 bidi-ltr" dir="ltr">(@{{ s.username }})</span>
                                     {% if s.grade %}
-                                        <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">G{{ s.grade }}</span>
+                                        <span class="ms-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">{{ _('grade_n', grade=(s.grade | fa_digits)) }}</span>
                                     {% endif %}
                                 </div>
                             </label>
@@ -137,37 +139,37 @@
                                     </span>
                                 {% else %}
                                     <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                                        ⚠️ Manual selection (first two weeks / insufficient history)
+                                        ⚠️ {{ _('manual_selection_note') }}
                                     </span>
                                 {% endif %}
                             </div>
                         </div>
                         <!-- Day selector & options for this student -->
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pl-0 sm:pl-7 text-xs">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 ps-0 sm:ps-7 text-xs">
                             <div class="sm:col-span-2 space-y-1.5">
-                                <span class="font-semibold text-slate-600 block">Select Meeting Day(s) for this week:</span>
+                                <span class="font-semibold text-slate-600 block">{{ _('Select Meeting Day(s) for this week:') }}</span>
                                 <div class="flex flex-wrap gap-1.5">
                                     {% for d in [('saturday', 'Sat'), ('sunday', 'Sun'), ('monday', 'Mon'), ('tuesday', 'Tue'), ('wednesday', 'Wed'), ('thursday', 'Thu'), ('friday', 'Fri')] %}
-                                        <label class="student-day-label-{{ d[0] }} inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 cursor-pointer text-slate-700 font-medium">
+                                        <label class="student-day-label-{{ d[0] }} inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 cursor-pointer text-slate-700 font-medium">
                                             <input type="checkbox" name="days_{{ s.id }}" value="{{ d[0] }}" data-day="{{ d[0] }}" {% if loop.first %}checked{% endif %} class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 text-xs">
-                                            <span>{{ d[1] }}</span>
+                                            <span>{{ (d[0] | smart_weekday) if is_rtl() else d[1] }}</span>
                                         </label>
                                     {% endfor %}
                                 </div>
                             </div>
                             <div class="space-y-2">
                                 <div>
-                                    <span class="font-semibold text-slate-600 block mb-1">Duration & Mode:</span>
-                                    <div class="flex items-center space-x-2">
+                                    <span class="font-semibold text-slate-600 block mb-1">{{ _('Duration & Mode:') }}</span>
+                                    <div class="flex items-center gap-2">
                                         <select name="duration_{{ s.id }}" class="border border-slate-300 rounded px-2 py-1 bg-white text-xs">
-                                            <option value="30">30 min</option>
-                                            <option value="45">45 min</option>
-                                            <option value="60" selected>60 min</option>
-                                            <option value="90">90 min</option>
+                                            <option value="30">{{ 30 | fa_duration }}</option>
+                                            <option value="45">{{ 45 | fa_duration }}</option>
+                                            <option value="60" selected>{{ 60 | fa_duration }}</option>
+                                            <option value="90">{{ 90 | fa_duration }}</option>
                                         </select>
                                         <select name="type_{{ s.id }}" class="border border-slate-300 rounded px-2 py-1 bg-white text-xs">
-                                            <option value="ONLINE" selected>🌐 Online</option>
-                                            <option value="OFFLINE">📍 In-Person</option>
+                                            <option value="ONLINE" selected>🌐 {{ 'ONLINE' | fa_status }}</option>
+                                            <option value="OFFLINE">📍 {{ _('in_person_short') }}</option>
                                         </select>
                                     </div>
                                 </div>
@@ -175,14 +177,15 @@
                         </div>
                     </div>
                 {% else %}
-                    <div class="py-8 text-center text-xs text-slate-400 italic">No active students enrolled.</div>
+                    <div class="py-8 text-center text-xs text-slate-400 italic">{{ _('No active students enrolled.') }}</div>
                 {% endfor %}
             </div>
 
             <div class="px-4 sm:px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <span class="text-xs text-slate-500">The algorithm will check availability, prevent conflicts, and use learned hours.</span>
-                <button type="submit" class="min-h-[44px] px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm transition w-full sm:w-auto text-center">
-                    Generate Suggested Schedule &rarr;
+                <span class="text-xs text-slate-500">{{ _('The algorithm will check availability, prevent conflicts, and use learned hours.') }}</span>
+                <button type="submit" class="min-h-[44px] inline-flex items-center justify-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm transition w-full sm:w-auto text-center">
+                    <span>{{ _('Generate Suggested Schedule') }}</span>
+                    <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                 </button>
             </div>
         </div>

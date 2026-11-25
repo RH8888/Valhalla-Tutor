@@ -1,75 +1,73 @@
 {% extends "base.html" %}
 
-{% block title %}Completion Audit Logs &mdash; Valhalla Tutor{% endblock %}
+{% block title %}{{ _('Completion Audit Logs') }} &mdash; {{ _('app_name') }}{% endblock %}
 
 {% block content %}
 <div class="max-w-3xl mx-auto space-y-6">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-            <h1 class="text-2xl font-black text-slate-900 tracking-tight">Assignment Audit Trail</h1>
+            <h1 class="text-2xl font-black text-slate-900 tracking-tight">{{ _('Assignment Audit Trail') }}</h1>
             <p class="text-sm text-slate-500 mt-1">
-                <strong>{{ assignment.title }}</strong> &bull; {{ assignment.subject.name }} &bull; {{
-                assignment.scheduled_date.strftime('%a, %b %d, %Y') }}
+                <strong>{{ assignment.title }}</strong> &bull; {{ assignment.subject.name }} &bull; {{ assignment.scheduled_date | smart_weekday }}، {{ assignment.scheduled_date | smart_date }}
             </p>
         </div>
         <a href="/tutor/students/{{ assignment.student_id }}"
-            class="text-sm font-bold text-indigo-600 hover:text-indigo-800">
-            &larr; Back to Student Detail
+            class="inline-flex items-center gap-1 text-sm font-bold text-indigo-600 hover:text-indigo-800">
+            <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+            <span>{{ _('back_to_student_detail') }}</span>
         </a>
     </div>
 
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-            <h2 class="text-base font-bold text-slate-900">Recorded Audit Entries ({{ audits|length }})</h2>
-            <span class="text-xs text-slate-400">Strict tutor-only audit log</span>
+        <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-base font-bold text-slate-900">{{ _('recorded_audit_entries', count=(audits|length | fa_digits)) }}</h2>
+            <span class="text-xs text-slate-400">{{ _('Strict tutor-only audit log') }}</span>
         </div>
 
         {% if audits %}
         <div class="divide-y divide-slate-100">
             {% for a in audits %}
-            <div class="p-4 flex items-start justify-between gap-4">
-                <div class="flex items-start space-x-3">
+            <div class="p-4 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div class="flex items-start gap-3">
                     <span class="text-lg">
                         {% if a.action == 'COMPLETED' %}✅{% elif a.action == 'STUDENT_UNDO' %}↺{% else %}🔄{% endif %}
                     </span>
                     <div>
-                        <div class="flex items-center space-x-2">
+                        <div class="flex items-center gap-2 flex-wrap">
                             <span class="font-bold text-xs px-2 py-0.5 rounded-full 
                                 {% if a.action == 'COMPLETED' %}bg-emerald-100 text-emerald-800
                                 {% elif a.action == 'STUDENT_UNDO' %}bg-amber-100 text-amber-800
                                 {% else %}bg-slate-100 text-slate-800{% endif %}">
-                                {% if a.action == 'COMPLETED' %}Student Completed
-                                {% elif a.action == 'STUDENT_UNDO' %}Student Undo
-                                {% else %}Tutor Reset{% endif %}
+                                {% if a.action == 'COMPLETED' %}{{ _('Student Completed') }}
+                                {% elif a.action == 'STUDENT_UNDO' %}{{ _('Student Undo') }}
+                                {% else %}{{ _('Tutor Reset') }}{% endif %}
                             </span>
-                            <span class="text-xs font-semibold text-slate-700">by {{ a.performed_by.full_name }} (@{{
-                                a.performed_by.username }})</span>
+                            <span class="text-xs font-semibold text-slate-700">{{ _('by_user_label', name=a.performed_by.full_name, username=a.performed_by.username) }}</span>
                         </div>
                         {% if a.actual_duration_minutes %}
-                        <p class="text-[11px] text-indigo-700 font-bold mt-1">
-                            Reported study duration: {{ a.actual_duration_minutes }} minutes
+                        <p class="text-[11px] text-indigo-700 font-bold mt-1 tnum">
+                            {{ _('reported_study_duration', dur=(a.actual_duration_minutes | fa_duration)) }}
                         </p>
                         {% endif %}
                         {% if a.note %}
-                        <p class="text-xs text-slate-600 mt-1 italic font-medium">"{{ a.note }}"</p>
+                        <p class="text-xs text-slate-600 mt-1 italic font-medium bidi-auto">"{{ a.note }}"</p>
                         {% endif %}
                         {% if a.recorded_completed_at %}
-                        <p class="text-[11px] text-slate-500 mt-0.5">
-                            Recorded completion timestamp: {{ a.recorded_completed_at.strftime('%Y-%m-%d %H:%M:%S UTC')
-                            }}
+                        <p class="text-[11px] text-slate-500 mt-0.5 tnum">
+                            {{ _('recorded_completion_ts', ts=(a.recorded_completed_at | local_dt)) }}
                         </p>
                         {% endif %}
                     </div>
                 </div>
-                <div class="text-right text-xs text-slate-500 whitespace-nowrap">
-                    {{ a.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                <div class="text-end text-xs text-slate-500 whitespace-nowrap tnum">
+                    {{ a.created_at | local_dt }}
                 </div>
             </div>
             {% endfor %}
         </div>
         {% else %}
         <div class="p-8 text-center text-slate-400 text-sm">
-            No audit records logged for this assignment yet.
+            {{ _('No audit records logged for this assignment yet.') }}
         </div>
         {% endif %}
     </div>

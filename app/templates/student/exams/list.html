@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}My Exams - Valhalla Tutor{% endblock %}
+{% block title %}{{ _('My Exams') }} - {{ _('app_name') }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
@@ -8,11 +8,11 @@
 
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
-            <h1 class="text-2xl font-bold tracking-tight text-slate-900">Exams & Academic Evaluations</h1>
-            <p class="text-sm text-slate-500 mt-1">View scheduled exams for your academic track and record your test results.</p>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900">{{ _('Exams & Academic Evaluations') }}</h1>
+            <p class="text-sm text-slate-500 mt-1">{{ _('View scheduled exams for your academic track and record your test results.') }}</p>
         </div>
-        <a href="/student/exams/analytics" class="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition">
-            📈 View Performance Analytics
+        <a href="/student/exams/analytics" class="inline-flex items-center gap-1.5 px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition">
+            <span>📈 {{ _('view_performance_analytics') }}</span>
         </a>
     </div>
 
@@ -25,16 +25,16 @@
 
     {% if not track_assigned %}
         <div class="bg-amber-50 border border-amber-200 rounded-xl p-6 text-amber-800 text-sm">
-            You do not have an academic track assigned yet. Please contact your tutor to configure your track so that relevant exams can be displayed.
+            {{ _('You do not have an academic track assigned yet. Please contact your tutor to configure your track so that relevant exams can be displayed.') }}
         </div>
     {% else %}
         <!-- Upcoming Exams -->
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
-                <h2 class="text-lg font-semibold text-slate-900 flex items-center space-x-2">
-                    <span>🗓️ Upcoming Exams</span>
+                <h2 class="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                    <span>🗓️ {{ _('Upcoming Exams') }}</span>
                 </h2>
-                <span class="text-xs text-slate-500">{{ upcoming|length }} upcoming</span>
+                <span class="text-xs text-slate-500">{{ _('upcoming_count_label', count=(upcoming|length | fa_digits)) }}</span>
             </div>
             {% if upcoming %}
                 <div class="divide-y divide-slate-100">
@@ -43,21 +43,22 @@
                             <div class="space-y-1">
                                 <span class="font-bold text-slate-900 text-base">{{ item.session.exam.title }}</span>
                                 <div class="text-xs text-slate-500">
-                                    Date: <span class="font-semibold text-slate-700">{{ item.session.date }}</span>
+                                    {{ _('date_with_val', val=(item.session.date | smart_date)) }}
                                     {% if item.session.title %} &bull; {{ item.session.title }}{% endif %}
                                 </div>
                             </div>
-                            <div class="flex items-center space-x-3">
+                            <div class="flex items-center gap-3">
                                 {% if item.has_submitted %}
                                     <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-                                        Submitted
+                                        {{ _('SUBMITTED' | fa_status) }}
                                     </span>
                                     <a href="/student/exams/results/{{ item.result.id }}/edit" class="text-xs font-medium text-indigo-600 hover:text-indigo-800">
-                                        Edit Result
+                                        {{ _('Edit Result') }}
                                     </a>
                                 {% else %}
-                                    <a href="/student/exams/{{ item.session.id }}/submit" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition">
-                                        Submit Early Results &rarr;
+                                    <a href="/student/exams/{{ item.session.id }}/submit" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition">
+                                        <span>{{ _('submit_early_results') }}</span>
+                                        <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                                     </a>
                                 {% endif %}
                             </div>
@@ -65,17 +66,17 @@
                     {% endfor %}
                 </div>
             {% else %}
-                <div class="p-6 text-center text-slate-500 text-sm">No upcoming exams scheduled at this time.</div>
+                <div class="p-6 text-center text-slate-500 text-sm">{{ _('No upcoming exams scheduled at this time.') }}</div>
             {% endif %}
         </div>
 
         <!-- Past Exams -->
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
-                <h2 class="text-lg font-semibold text-slate-900 flex items-center space-x-2">
-                    <span>📋 Past Exams</span>
+                <h2 class="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                    <span>📋 {{ _('Past Exams') }}</span>
                 </h2>
-                <span class="text-xs text-slate-500">{{ past|length }} exams</span>
+                <span class="text-xs text-slate-500">{{ _('exams_count_label', count=(past|length | fa_digits)) }}</span>
             </div>
             {% if past %}
                 <div class="divide-y divide-slate-100">
@@ -84,26 +85,27 @@
                             <div class="space-y-1">
                                 <span class="font-bold text-slate-900 text-base">{{ item.session.exam.title }}</span>
                                 <div class="text-xs text-slate-500">
-                                    Date: <span class="font-semibold text-slate-700">{{ item.session.date }}</span>
+                                    {{ _('date_with_val', val=(item.session.date | smart_date)) }}
                                     {% if item.session.title %} &bull; {{ item.session.title }}{% endif %}
                                 </div>
                             </div>
-                            <div class="flex items-center space-x-3">
+                            <div class="flex items-center gap-3">
                                 {% if item.has_submitted %}
-                                    <div class="text-right">
+                                    <div class="text-end">
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-                                            Submitted
+                                            {{ 'SUBMITTED' | fa_status }}
                                         </span>
                                         {% if item.result.overall_rank %}
-                                            <span class="text-xs text-slate-500 block mt-0.5">Rank: {{ item.result.overall_rank }}</span>
+                                            <span class="text-xs text-slate-500 block mt-0.5">{{ _('rank_badge', rank=(item.result.overall_rank | fa_digits)) }}</span>
                                         {% endif %}
                                     </div>
                                     <a href="/student/exams/results/{{ item.result.id }}/edit" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition">
-                                        Edit Results
+                                        {{ _('edit_results_btn') }}
                                     </a>
                                 {% else %}
-                                    <a href="/student/exams/{{ item.session.id }}/submit" class="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition">
-                                        Submit Results &rarr;
+                                    <a href="/student/exams/{{ item.session.id }}/submit" class="inline-flex items-center gap-1 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition">
+                                        <span>{{ _('submit_results_btn') }}</span>
+                                        <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                                     </a>
                                 {% endif %}
                             </div>
@@ -111,7 +113,7 @@
                     {% endfor %}
                 </div>
             {% else %}
-                <div class="p-6 text-center text-slate-500 text-sm">No past exams found.</div>
+                <div class="p-6 text-center text-slate-500 text-sm">{{ _('No past exams found.') }}</div>
             {% endif %}
         </div>
 
@@ -119,33 +121,34 @@
         {% if practice_history %}
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
-                <h2 class="text-lg font-semibold text-slate-900 flex items-center space-x-2">
-                    <span>🎯 Practice Exam History (Internal &bull; آزمون‌های تمرینی)</span>
+                <h2 class="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                    <span>🎯 {{ _('practice_exam_history_internal') }}</span>
                 </h2>
-                <span class="text-xs text-slate-500">{{ practice_history|length }} completed attempt(s)</span>
+                <span class="text-xs text-slate-500">{{ _('completed_attempts_count', count=(practice_history|length | fa_digits)) }}</span>
             </div>
             <div class="divide-y divide-slate-100">
                 {% for att in practice_history %}
                     <div class="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 transition">
                         <div class="space-y-1">
-                            <div class="flex items-center space-x-2">
+                            <div class="flex items-center gap-2 flex-wrap">
                                 <span class="font-bold text-slate-900 text-base">{{ att.practice_exam.title }}</span>
                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
-                                    🎯 Practice Exam
+                                    🎯 {{ _('practice_exams_title') }}
                                 </span>
                             </div>
                             <div class="text-xs text-slate-500">
-                                Completed: <span class="font-semibold text-slate-700">{{ att.completed_at.strftime('%Y-%m-%d %H:%M') if att.completed_at else 'Recently' }}</span>
-                                &bull; Grade {{ att.practice_exam.grade }}
+                                {{ _('completed_at_prefix') }} <span class="font-semibold text-slate-700">{{ att.completed_at | local_dt if att.completed_at else _('recently_label') }}</span>
+                                &bull; {{ _('grade_n', grade=(att.practice_exam.grade | fa_digits)) }}
                             </div>
                         </div>
-                        <div class="flex items-center space-x-4">
-                            <div class="text-right">
-                                <span class="text-xs text-slate-500 block">Score</span>
-                                <span class="text-base font-extrabold text-indigo-600">{{ "%.1f"|format(att.overall_percentage) }}%</span>
+                        <div class="flex items-center gap-4">
+                            <div class="text-end">
+                                <span class="text-xs text-slate-500 block">{{ _('Score') }}</span>
+                                <span class="text-base font-extrabold text-indigo-600 tnum">{{ att.overall_percentage | fa_percent(1) }}</span>
                             </div>
-                            <a href="/student/practice-exams/attempts/{{ att.id }}/results" class="px-3.5 py-2 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition">
-                                Review Results &rarr;
+                            <a href="/student/practice-exams/attempts/{{ att.id }}/results" class="inline-flex items-center gap-1 px-3.5 py-2 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition">
+                                <span>{{ _('review_results_btn') }}</span>
+                                <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                             </a>
                         </div>
                     </div>

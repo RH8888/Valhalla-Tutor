@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -8,12 +9,23 @@ from starlette.responses import Response
 from app.core.timezone import to_local
 from app.core.i18n import (
     format_jalali,
+    get_client_translations,
     get_locale_from_request,
+    jinja_currency_format,
+    jinja_cal_day,
     jinja_date_format,
+    jinja_date_short,
+    jinja_duration_format,
     jinja_get_locale,
     jinja_is_rtl,
+    jinja_month_year,
+    jinja_number_format,
+    jinja_percent_format,
     jinja_persian_digits,
+    jinja_role_format,
+    jinja_status_format,
     jinja_translate,
+    jinja_weekday,
     localize_html_content,
     to_persian_digits,
     translate,
@@ -35,7 +47,7 @@ class ValhallaTemplates(Jinja2Templates):
             context = args[1]
 
         if locale == "fa" and isinstance(context, dict):
-            for k in ("msg", "message", "error", "err"):
+            for k in ("msg", "message", "error", "err", "success", "warning"):
                 val = context.get(k)
                 if val and isinstance(val, str):
                     context[k] = translate(val, locale="fa")
@@ -51,6 +63,11 @@ class ValhallaTemplates(Jinja2Templates):
                     resp.headers["content-length"] = str(len(resp.body))
             except Exception:
                 pass
+
+        # Ensure responses vary by Cookie so LTR/RTL pages aren't cross-cached
+        existing_vary = resp.headers.get("Vary", "")
+        if "Cookie" not in existing_vary:
+            resp.headers["Vary"] = f"{existing_vary}, Cookie".strip(", ")
 
         return resp
 
@@ -88,14 +105,31 @@ def format_chat_time(context: Any, dt: Optional[datetime], tz_name: Optional[str
     return local.strftime("%b %d, %Y %I:%M %p")
 
 
+@pass_context
+def client_i18n_json(context: Any) -> str:
+    locale = jinja_get_locale(context)
+    return json.dumps(get_client_translations(locale), ensure_ascii=False)
+
+
 templates.env.filters["local_dt"] = format_local_dt
 templates.env.filters["chat_time"] = format_chat_time
 templates.env.filters["t"] = jinja_translate
 templates.env.filters["fa_digits"] = jinja_persian_digits
 templates.env.filters["smart_date"] = jinja_date_format
+templates.env.filters["smart_date_short"] = jinja_date_short
+templates.env.filters["smart_cal_day"] = jinja_cal_day
+templates.env.filters["smart_weekday"] = jinja_weekday
+templates.env.filters["smart_month_year"] = jinja_month_year
+templates.env.filters["fa_num"] = jinja_number_format
+templates.env.filters["fa_percent"] = jinja_percent_format
+templates.env.filters["fa_duration"] = jinja_duration_format
+templates.env.filters["fa_currency"] = jinja_currency_format
+templates.env.filters["fa_role"] = jinja_role_format
+templates.env.filters["fa_status"] = jinja_status_format
 
 templates.env.globals["_"] = jinja_translate
 templates.env.globals["get_locale"] = jinja_get_locale
 templates.env.globals["is_rtl"] = jinja_is_rtl
+templates.env.globals["client_i18n_json"] = client_i18n_json
 
 

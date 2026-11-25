@@ -1,28 +1,34 @@
 {% extends "base.html" %}
 
-{% block title %}{{ student.full_name }} &mdash; Valhalla Tutor{% endblock %}
+{% block title %}{{ student.full_name }} &mdash; {{ _('app_name') }}{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto space-y-6">
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
             <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">{{ student.full_name }}</h1>
-            <p class="text-xs sm:text-sm text-slate-500 mt-1">@{{ student.username }} &bull; Member since {{ student.created_at.strftime('%Y-%m-%d') }}</p>
+            <p class="text-xs sm:text-sm text-slate-500 mt-1">
+                <span class="bidi-ltr" dir="ltr">@{{ student.username }}</span> &bull; {{ _('member_since', date=(student.created_at | smart_date)) }}
+            </p>
         </div>
         <div class="flex items-center flex-wrap gap-2">
             <a href="/tutor/messages?student_id={{ student.id }}" class="inline-flex items-center min-h-[38px] px-3 py-1.5 border border-indigo-200 rounded-lg shadow-2xs text-xs sm:text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition">
-                💬 Message
+                💬 {{ _('Message') }}
             </a>
             <a href="/tutor/calendar" class="inline-flex items-center min-h-[38px] px-3 py-1.5 border border-indigo-200 rounded-lg shadow-2xs text-xs sm:text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition">
-                🗓️ Meetings
+                🗓️ {{ _('Meetings') }}
             </a>
             <a href="/tutor/exams/students/{{ student.id }}" class="inline-flex items-center min-h-[38px] px-3 py-1.5 border border-purple-200 rounded-lg shadow-2xs text-xs sm:text-sm font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 transition">
-                📊 Analytics
+                📊 {{ _('Analytics') }}
             </a>
-            <a href="/tutor/students/{{ student.id }}/plans" class="inline-flex items-center min-h-[38px] px-3 py-1.5 border border-transparent rounded-lg shadow-sm text-xs sm:text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition">
-                📅 Plans &rarr;
+            <a href="/tutor/students/{{ student.id }}/plans" class="inline-flex items-center gap-1 min-h-[38px] px-3 py-1.5 border border-transparent rounded-lg shadow-sm text-xs sm:text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition">
+                <span>📅 {{ _('Plans') }}</span>
+                <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
             </a>
-            <a href="/tutor/students" class="min-h-[38px] inline-flex items-center text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 px-2">&larr; Directory</a>
+            <a href="/tutor/students" class="min-h-[38px] inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 px-2">
+                <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                <span>{{ _('Directory') }}</span>
+            </a>
         </div>
     </div>
 
@@ -40,40 +46,40 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <!-- Profile Card -->
         <div class="md:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
-            <h2 class="text-lg font-bold text-slate-900">Student Profile</h2>
+            <h2 class="text-lg font-bold text-slate-900">{{ _('Student Profile') }}</h2>
             <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
-                    <dt class="font-medium text-slate-500">Username</dt>
-                    <dd class="mt-1 text-slate-900 font-semibold">{{ student.username }}</dd>
+                    <dt class="font-medium text-slate-500">{{ _('Username') }}</dt>
+                    <dd class="mt-1 text-slate-900 font-semibold bidi-ltr text-start" dir="ltr">{{ student.username }}</dd>
                 </div>
                 <div>
-                    <dt class="font-medium text-slate-500">Email</dt>
-                    <dd class="mt-1 text-slate-900 font-semibold">{{ student.email or 'None specified' }}</dd>
+                    <dt class="font-medium text-slate-500">{{ _('Email') }}</dt>
+                    <dd class="mt-1 text-slate-900 font-semibold {% if student.email %}bidi-ltr text-start{% endif %}" {% if student.email %}dir="ltr"{% endif %}>{{ student.email or _('none_specified') }}</dd>
                 </div>
                 <div>
-                    <dt class="font-medium text-slate-500">Timezone</dt>
-                    <dd class="mt-1 text-slate-900 font-semibold">{{ student.timezone }}</dd>
+                    <dt class="font-medium text-slate-500">{{ _('Timezone') }}</dt>
+                    <dd class="mt-1 text-slate-900 font-semibold bidi-ltr text-start" dir="ltr">{{ student.timezone }}</dd>
                 </div>
                 <div>
-                    <dt class="font-medium text-slate-500">Account Status</dt>
+                    <dt class="font-medium text-slate-500">{{ _('Account Status') }}</dt>
                     <dd class="mt-1">
                         {% if student.is_active %}
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">Active</span>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">{{ 'ACTIVE' | fa_status }}</span>
                         {% else %}
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800">Inactive</span>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800">{{ 'INACTIVE' | fa_status }}</span>
                         {% endif %}
                     </dd>
                 </div>
                 <div>
-                    <dt class="font-medium text-slate-500">Academic Grade</dt>
+                    <dt class="font-medium text-slate-500">{{ _('Academic Grade') }}</dt>
                     <dd class="mt-1">
                         {% if student.grade %}
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black bg-indigo-100 text-indigo-800 border border-indigo-200">
-                                Grade {{ student.grade }}
+                                {{ _('grade_n', grade=(student.grade | fa_digits)) }}
                             </span>
                         {% else %}
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                                Not assigned
+                                {{ _('not_assigned') }}
                             </span>
                         {% endif %}
                     </dd>
@@ -81,29 +87,29 @@
             </dl>
 
             <div class="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <form method="POST" action="/tutor/students/{{ student.id }}/grade" class="flex items-center space-x-2">
+                <form method="POST" action="/tutor/students/{{ student.id }}/grade" class="flex items-center gap-2">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
-                    <label for="student-grade-select" class="text-xs font-bold text-slate-700">Grade:</label>
+                    <label for="student-grade-select" class="text-xs font-bold text-slate-700">{{ _('student_grade_label') }}</label>
                     <select name="grade" id="student-grade-select" required class="text-xs font-bold border border-slate-300 rounded-lg px-2.5 py-1.5 focus:ring-indigo-500 bg-white">
-                        <option value="10" {% if student.grade == '10' %}selected{% endif %}>Grade 10</option>
-                        <option value="11" {% if student.grade == '11' %}selected{% endif %}>Grade 11</option>
-                        <option value="12" {% if student.grade == '12' %}selected{% endif %}>Grade 12</option>
+                        <option value="10" {% if student.grade == '10' %}selected{% endif %}>{{ _('grade_n', grade=(10 | fa_digits)) }}</option>
+                        <option value="11" {% if student.grade == '11' %}selected{% endif %}>{{ _('grade_n', grade=(11 | fa_digits)) }}</option>
+                        <option value="12" {% if student.grade == '12' %}selected{% endif %}>{{ _('grade_n', grade=(12 | fa_digits)) }}</option>
                     </select>
                     <button type="submit" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-xs transition">
-                        Update Grade
+                        {{ _('Update Grade') }}
                     </button>
                 </form>
                 <form method="POST" action="/tutor/students/{{ student.id }}/toggle-status">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                     {% if student.is_active %}
-                        <button type="submit" onclick="return confirm('Deactivating this student will immediately revoke all their active sessions. Proceed?')"
+                        <button type="submit" onclick="return confirm('{{ _('deactivate_student_confirm') }}')"
                             class="px-4 py-2 border border-red-300 text-red-700 hover:bg-red-50 text-sm font-semibold rounded-lg transition">
-                            Deactivate Student Account
+                            {{ _('Deactivate Student Account') }}
                         </button>
                     {% else %}
                         <button type="submit"
                             class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-sm transition">
-                            Activate Student Account
+                            {{ _('Activate Student Account') }}
                         </button>
                     {% endif %}
                 </form>
@@ -112,19 +118,19 @@
 
         <!-- Password Reset Card -->
         <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
-            <h2 class="text-lg font-bold text-slate-900">Reset Password</h2>
-            <p class="text-xs text-slate-500">Assign a new password. Existing active sessions will be revoked.</p>
+            <h2 class="text-lg font-bold text-slate-900">{{ _('Reset Password') }}</h2>
+            <p class="text-xs text-slate-500">{{ _('Assign a new password. Existing active sessions will be revoked.') }}</p>
 
             <form method="POST" action="/tutor/students/{{ student.id }}/reset-password" class="space-y-4">
                 <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                 <div>
-                    <label for="new_password" class="block text-xs font-semibold text-slate-700">New Password</label>
-                    <input type="password" id="new_password" name="new_password" required
+                    <label for="new_password" class="block text-xs font-semibold text-slate-700">{{ _('New Password') }}</label>
+                    <input type="password" id="new_password" name="new_password" required dir="ltr"
                         class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                 </div>
                 <button type="submit"
                     class="w-full py-2 px-4 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-sm font-semibold shadow-sm transition">
-                    Update Password
+                    {{ _('Update Password') }}
                 </button>
             </form>
         </div>
@@ -137,28 +143,28 @@
     <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-6">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-4">
             <div>
-                <h2 class="text-lg font-bold text-slate-900">Academic Curriculum & Subjects</h2>
-                <p class="text-xs text-slate-500 mt-0.5">Assign an academic track or customize individual curriculum subjects.</p>
+                <h2 class="text-lg font-bold text-slate-900">{{ _('Academic Curriculum & Subjects') }}</h2>
+                <p class="text-xs text-slate-500 mt-0.5">{{ _('Assign an academic track or customize individual curriculum subjects.') }}</p>
             </div>
-            <div class="flex items-center space-x-2">
+            <div class="flex items-center gap-2">
                 {% if student.is_subjects_customized %}
                     <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-                        ⚡ Individually Customized
+                        ⚡ {{ _('Individually Customized') }}
                     </span>
                     <form method="POST" action="/tutor/students/{{ student.id }}/reset-subjects" class="inline">
                         <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
-                        <button type="submit" onclick="return confirm('Revert subjects to default track configuration?')"
+                        <button type="submit" onclick="return confirm('{{ _('revert_subjects_confirm') }}')"
                             class="px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-slate-900 border border-slate-300 rounded hover:bg-slate-50 transition">
-                            Reset to Track
+                            {{ _('Reset to Track') }}
                         </button>
                     </form>
                 {% elif student.academic_track %}
                     <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
-                        📖 Default Track Subjects
+                        📖 {{ _('Default Track Subjects') }}
                     </span>
                 {% else %}
                     <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                        No Track Assigned
+                        {{ _('no_track_assigned') }}
                     </span>
                 {% endif %}
             </div>
@@ -168,26 +174,26 @@
         <form method="POST" action="/tutor/students/{{ student.id }}/assign-track" class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
             <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
             <div class="sm:col-span-2">
-                <label for="track_id" class="block text-xs font-semibold text-slate-700">Assigned Academic Track</label>
+                <label for="track_id" class="block text-xs font-semibold text-slate-700">{{ _('Assigned Academic Track') }}</label>
                 <select id="track_id" name="track_id" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                    <option value="">-- No Track Assigned --</option>
+                    <option value="">{{ _('no_track_option') }}</option>
                     {% for t in tracks %}
                         <option value="{{ t.id }}" {% if student.academic_track_id == t.id %}selected{% endif %}>
-                            {{ t.name }} {% if t.is_default %}(Default){% endif %} &mdash; {{ t.subjects|length }} subjects
+                            {{ _('track_subjects_count', name=(t.name ~ (' ' ~ _('default_tag') if t.is_default else '')), count=(t.subjects|length | fa_digits)) }}
                         </option>
                     {% endfor %}
                 </select>
             </div>
             <div>
                 <button type="submit" class="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-sm transition">
-                    Save Track
+                    {{ _('Save Track') }}
                 </button>
             </div>
         </form>
 
         <!-- Current Effective Subjects -->
         <div>
-            <h3 class="text-sm font-bold text-slate-800 mb-2">Active Subjects for this Student ({{ effective_subjects|length }})</h3>
+            <h3 class="text-sm font-bold text-slate-800 mb-2">{{ _('active_subjects_count', count=(effective_subjects|length | fa_digits)) }}</h3>
             {% if effective_subjects %}
                 <div class="flex flex-wrap gap-2">
                     {% for sub in effective_subjects %}
@@ -197,7 +203,7 @@
                     {% endfor %}
                 </div>
             {% else %}
-                <p class="text-sm text-slate-400 italic">No active subjects assigned yet.</p>
+                <p class="text-sm text-slate-400 italic">{{ _('No active subjects assigned yet.') }}</p>
             {% endif %}
         </div>
 
@@ -205,15 +211,15 @@
         <div class="pt-4 border-t border-slate-100">
             <details class="group" {% if student.is_subjects_customized %}open{% endif %}>
                 <summary class="cursor-pointer text-sm font-semibold text-indigo-600 hover:text-indigo-800 select-none flex items-center justify-between">
-                    <span>⚙️ Customize Individual Student Subjects</span>
+                    <span>⚙️ {{ _('Customize Individual Student Subjects') }}</span>
                     <span class="text-xs text-slate-400 group-open:rotate-180 transition">&darr;</span>
                 </summary>
                 <form method="POST" action="/tutor/students/{{ student.id }}/customize-subjects" class="mt-4 space-y-4">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
-                    <p class="text-xs text-slate-500">Select the custom subjects for this student. This customization will isolate this student from future track changes.</p>
+                    <p class="text-xs text-slate-500">{{ _('Select the custom subjects for this student. This customization will isolate this student from future track changes.') }}</p>
                     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                         {% for s in all_subjects %}
-                            <label class="flex items-center space-x-2 p-2 border rounded-lg hover:bg-slate-50 cursor-pointer text-sm">
+                            <label class="flex items-center gap-2 p-2 border rounded-lg hover:bg-slate-50 cursor-pointer text-sm">
                                 <input type="checkbox" name="subject_ids" value="{{ s.id }}"
                                     {% if (student.is_subjects_customized and s.id in custom_subject_ids) or (not student.is_subjects_customized and s in effective_subjects) %}checked{% endif %}
                                     class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
@@ -223,7 +229,7 @@
                     </div>
                     <div class="flex justify-end">
                         <button type="submit" class="min-h-[44px] py-2 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold shadow-sm transition w-full sm:w-auto">
-                            Save Customized Subjects
+                            {{ _('Save Customized Subjects') }}
                         </button>
                     </div>
                 </form>
@@ -235,67 +241,67 @@
     <div class="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-slate-200 space-y-6">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 gap-3">
             <div>
-                <h2 class="text-lg font-bold text-slate-900">Meetings & Appointments</h2>
-                <p class="text-xs text-slate-500 mt-0.5">Scheduled sessions, history, and attendance records for {{ student.full_name }}.</p>
+                <h2 class="text-lg font-bold text-slate-900">{{ _('Meetings & Appointments') }}</h2>
+                <p class="text-xs text-slate-500 mt-0.5">{{ _('meetings_history_subtitle', name=student.full_name) }}</p>
             </div>
             <button type="button"
                     hx-get="/tutor/meetings/new?student_id={{ student.id }}"
                     hx-target="#student-modal-container"
                     class="min-h-[40px] px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition w-full sm:w-auto">
-                + Schedule Meeting
+                + {{ _('Schedule Meeting') }}
             </button>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
             <!-- Upcoming Meetings -->
             <div class="space-y-3">
-                <span class="font-bold text-slate-700 block uppercase tracking-wider text-[11px]">Upcoming Meetings ({{ student_upcoming_meetings|length }})</span>
+                <span class="font-bold text-slate-700 block uppercase tracking-wider text-[11px]">{{ _('upcoming_meetings_count', count=(student_upcoming_meetings|length | fa_digits)) }}</span>
                 {% if student_upcoming_meetings %}
                     <div class="space-y-2">
                         {% for m in student_upcoming_meetings %}
-                            <div class="p-3 rounded-lg border border-slate-200 bg-slate-50/60 flex items-center justify-between">
+                            <div class="p-3 rounded-lg border border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
                                 <div>
-                                    <div class="font-bold text-slate-900">{{ m.start_time.strftime('%Y-%m-%d %H:%M UTC') }}</div>
-                                    <div class="text-[11px] text-slate-500 mt-0.5 flex items-center space-x-2">
-                                        <span>{{ m.duration_minutes }} min</span>
+                                    <div class="font-bold text-slate-900 tnum">{{ m.start_time | local_dt(current_user.timezone) }}</div>
+                                    <div class="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2">
+                                        <span class="tnum">{{ m.duration_minutes | fa_duration }}</span>
                                         <span>&bull;</span>
-                                        <span>{% if m.meeting_type == 'ONLINE' %}🌐 Online{% else %}📍 Offline{% endif %}</span>
+                                        <span>{% if m.meeting_type == 'ONLINE' %}🌐 {{ 'ONLINE' | fa_status }}{% else %}📍 {{ 'OFFLINE' | fa_status }}{% endif %}</span>
                                     </div>
                                 </div>
-                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800">
-                                    {{ m.status.replace('_', ' ') }}
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 shrink-0">
+                                    {{ m.status | fa_status }}
                                 </span>
                             </div>
                         {% endfor %}
                     </div>
                 {% else %}
-                    <div class="p-4 rounded-lg bg-slate-50 text-slate-400 italic text-center">No upcoming meetings scheduled.</div>
+                    <div class="p-4 rounded-lg bg-slate-50 text-slate-400 italic text-center">{{ _('No upcoming meetings scheduled.') }}</div>
                 {% endif %}
             </div>
 
             <!-- Previous Meetings -->
             <div class="space-y-3">
-                <span class="font-bold text-slate-700 block uppercase tracking-wider text-[11px]">Previous Meetings ({{ student_previous_meetings|length }})</span>
+                <span class="font-bold text-slate-700 block uppercase tracking-wider text-[11px]">{{ _('previous_meetings_count', count=(student_previous_meetings|length | fa_digits)) }}</span>
                 {% if student_previous_meetings %}
                     <div class="space-y-2 max-h-60 overflow-y-auto">
                         {% for m in student_previous_meetings %}
-                            <div class="p-3 rounded-lg border border-slate-200 bg-white flex items-center justify-between">
+                            <div class="p-3 rounded-lg border border-slate-200 bg-white flex items-center justify-between gap-2">
                                 <div>
-                                    <div class="font-bold text-slate-800">{{ m.start_time.strftime('%Y-%m-%d %H:%M UTC') }}</div>
-                                    <div class="text-[11px] text-slate-500 mt-0.5 flex items-center space-x-2">
-                                        <span>{{ m.duration_minutes }} min</span>
+                                    <div class="font-bold text-slate-800 tnum">{{ m.start_time | local_dt(current_user.timezone) }}</div>
+                                    <div class="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2">
+                                        <span class="tnum">{{ m.duration_minutes | fa_duration }}</span>
                                         <span>&bull;</span>
-                                        <span>{% if m.meeting_type == 'ONLINE' %}🌐 Online{% else %}📍 Offline{% endif %}</span>
+                                        <span>{% if m.meeting_type == 'ONLINE' %}🌐 {{ 'ONLINE' | fa_status }}{% else %}📍 {{ 'OFFLINE' | fa_status }}{% endif %}</span>
                                     </div>
                                 </div>
-                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {% if m.status == 'COMPLETED' %}bg-emerald-100 text-emerald-800{% elif m.status == 'STUDENT_ABSENT' %}bg-amber-100 text-amber-800{% elif m.status == 'CANCELLED' %}bg-slate-200 text-slate-600 line-through{% else %}bg-slate-100 text-slate-700{% endif %}">
-                                    {{ m.status.replace('_', ' ') }}
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 {% if m.status == 'COMPLETED' %}bg-emerald-100 text-emerald-800{% elif m.status == 'STUDENT_ABSENT' %}bg-amber-100 text-amber-800{% elif m.status == 'CANCELLED' %}bg-slate-200 text-slate-600 line-through{% else %}bg-slate-100 text-slate-700{% endif %}">
+                                    {{ m.status | fa_status }}
                                 </span>
                             </div>
                         {% endfor %}
                     </div>
                 {% else %}
-                    <div class="p-4 rounded-lg bg-slate-50 text-slate-400 italic text-center">No previous meetings recorded.</div>
+                    <div class="p-4 rounded-lg bg-slate-50 text-slate-400 italic text-center">{{ _('No previous meetings recorded.') }}</div>
                 {% endif %}
             </div>
         </div>

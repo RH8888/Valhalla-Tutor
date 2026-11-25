@@ -1,19 +1,20 @@
 {% extends "base.html" %}
 
-{% block title %}Study Plan History &mdash; Valhalla Tutor{% endblock %}
+{% block title %}{{ _('Study Plan History') }} &mdash; {{ _('app_name') }}{% endblock %}
 
 {% block content %}
 <div class="max-w-5xl mx-auto space-y-6 pb-16">
     {% set active_plan_tab = 'history' %}
     {% include "partials/plan_tabs.html" %}
 
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-            <h1 class="text-2xl font-black text-slate-900 tracking-tight">Study Plan History</h1>
-            <p class="text-xs text-slate-500 mt-1">Review all your previous and archived 14-day study plans.</p>
+            <h1 class="text-2xl font-black text-slate-900 tracking-tight">{{ _('Study Plan History') }}</h1>
+            <p class="text-xs text-slate-500 mt-1">{{ _('Review all your previous and archived 14-day study plans.') }}</p>
         </div>
-        <a href="/student/dashboard" class="text-xs font-bold text-indigo-600 hover:text-indigo-800">
-            &larr; Back to Dashboard
+        <a href="/student/dashboard" class="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800">
+            <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+            <span>{{ _('back_to_dashboard') }}</span>
         </a>
     </div>
 
@@ -25,36 +26,37 @@
                 <div>
                     <h3 class="text-base font-black text-slate-900">{{ p.plan.title }}</h3>
                     <p class="text-xs text-slate-500 mt-0.5">
-                        {{ p.plan.start_date.strftime('%b %d') }} &mdash; {{ p.plan.end_date.strftime('%b %d, %Y') }} (14 Days)
+                        {{ p.plan.start_date | smart_date_short }} &mdash; {{ p.plan.end_date | smart_date }} {{ _('plan_14_days_suffix') }}
                     </p>
                 </div>
                 <span class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider
                     {% if p.plan.status == 'PUBLISHED' or p.plan.status.value == 'PUBLISHED' %}bg-emerald-100 text-emerald-800 border border-emerald-200
                     {% elif p.plan.status == 'ARCHIVED' or p.plan.status.value == 'ARCHIVED' %}bg-slate-100 text-slate-700 border border-slate-200
                     {% else %}bg-amber-100 text-amber-800 border border-amber-200{% endif %}">
-                    {{ p.plan.status }}
+                    {{ (p.plan.status | fa_status) if is_rtl() else (p.plan.status.value if p.plan.status.value is defined else p.plan.status) }}
                 </span>
             </div>
 
             <!-- Metrics -->
             <div class="space-y-2">
                 <div class="flex items-center justify-between text-xs">
-                    <span class="font-bold text-slate-700">Completion</span>
-                    <span class="font-black text-indigo-700">{{ p.completion_percentage }}%</span>
+                    <span class="font-bold text-slate-700">{{ _('Completion') }}</span>
+                    <span class="font-black text-indigo-700 tnum">{{ p.completion_percentage | fa_percent }}</span>
                 </div>
                 <div class="w-full bg-slate-100 rounded-full h-2">
                     <div class="bg-indigo-600 h-2 rounded-full" style="width: {{ p.completion_percentage }}%"></div>
                 </div>
                 <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-                    <span>{{ p.completed_tasks }} / {{ p.total_tasks }} tasks finished</span>
-                    <span>⏱️ Total: {{ p.total_formatted }}</span>
+                    <span>{{ _('tasks_finished_ratio', done=(p.completed_tasks | fa_digits), total=(p.total_tasks | fa_digits)) }}</span>
+                    <span class="tnum">⏱️ {{ p.total_minutes | fa_duration }}</span>
                 </div>
             </div>
 
             <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <span class="text-[11px] text-slate-400">Read-only historical review</span>
-                <a href="/student/plans/{{ p.plan.id }}" class="inline-flex items-center px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 transition">
-                    Open Plan &rarr;
+                <span class="text-[11px] text-slate-400">{{ _('read_only_historical_review') }}</span>
+                <a href="/student/plans/{{ p.plan.id }}" class="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 transition">
+                    <span>{{ _('open_plan') }}</span>
+                    <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                 </a>
             </div>
         </div>

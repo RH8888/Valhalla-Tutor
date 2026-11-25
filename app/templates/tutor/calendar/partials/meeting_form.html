@@ -2,7 +2,7 @@
     <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all my-4" onclick="event.stopPropagation()">
         <div class="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
             <h3 class="text-base font-bold text-slate-900">
-                {% if is_edit %}Edit Meeting Details{% else %}Schedule New Meeting{% endif %}
+                {% if is_edit %}{{ _('edit_meeting_details_title') }}{% else %}{{ _('schedule_new_meeting_title') }}{% endif %}
             </h3>
             <button type="button" onclick="document.getElementById('meeting-modal-backdrop').remove()" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1">&times;</button>
         </div>
@@ -22,18 +22,18 @@
 
             <!-- Student Selection -->
             <div>
-                <label for="student_id" class="font-bold text-slate-700 block mb-1">Student <span class="text-red-500">*</span></label>
+                <label for="student_id" class="font-bold text-slate-700 block mb-1">{{ _('Student') }} <span class="text-red-500">*</span></label>
                 {% if is_edit %}
                     <input type="hidden" name="student_id" value="{{ meeting.student_id }}">
                     <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg font-semibold text-slate-800">
-                        {{ meeting.student.full_name }} (@{{ meeting.student.username }})
+                        {{ meeting.student.full_name }} (<span class="bidi-ltr" dir="ltr">@{{ meeting.student.username }}</span>)
                     </div>
                 {% else %}
                     <select name="student_id" id="student_id" required class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white text-xs focus:ring-2 focus:ring-indigo-500">
-                        <option value="">-- Select an enrolled student --</option>
+                        <option value="">{{ _('select_enrolled_student') }}</option>
                         {% for s in students %}
                             <option value="{{ s.id }}" {% if (selected_student_id and selected_student_id|string == s.id|string) %}selected{% endif %}>
-                                {{ s.full_name }} (@{{ s.username }}){% if s.grade %} - Grade {{ s.grade }}{% endif %}
+                                {{ s.full_name }} (@{{ s.username }}){% if s.grade %} - {{ _('grade_n', grade=(s.grade | fa_digits)) }}{% endif %}
                             </option>
                         {% endfor %}
                     </select>
@@ -44,88 +44,88 @@
                 <!-- Date and Start Time -->
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label for="meeting_date" class="font-bold text-slate-700 block mb-1">Date <span class="text-red-500">*</span></label>
+                        <label for="meeting_date" class="font-bold text-slate-700 block mb-1">{{ _('Date') }} <span class="text-red-500">*</span></label>
                         <input type="date" name="meeting_date" id="meeting_date" value="{{ default_date }}" required class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white text-xs focus:ring-2 focus:ring-indigo-500">
                     </div>
                     <div>
-                        <label for="start_time" class="font-bold text-slate-700 block mb-1">Start Time ({{ current_user.timezone }}) <span class="text-red-500">*</span></label>
+                        <label for="start_time" class="font-bold text-slate-700 block mb-1">{{ _('start_time_tz', tz=current_user.timezone) }} <span class="text-red-500">*</span></label>
                         <input type="time" name="start_time" id="start_time" value="{{ default_time }}" required class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white text-xs focus:ring-2 focus:ring-indigo-500">
                     </div>
                 </div>
 
                 <!-- Duration Selection -->
                 <div>
-                    <label class="font-bold text-slate-700 block mb-1">Duration <span class="text-red-500">*</span></label>
-                    <div class="flex items-center space-x-2 mb-2">
+                    <label class="font-bold text-slate-700 block mb-1">{{ _('Duration') }} <span class="text-red-500">*</span></label>
+                    <div class="flex items-center gap-2 mb-2 flex-wrap">
                         {% for dur in [30, 45, 60, 90] %}
-                            <button type="button" onclick="document.getElementById('duration_minutes').value='{{ dur }}'" class="px-2.5 py-1 rounded border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 font-semibold text-slate-700 transition">
-                                {{ dur }}m
+                            <button type="button" onclick="document.getElementById('duration_minutes').value='{{ dur }}'" class="px-2.5 py-1 rounded border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 font-semibold text-slate-700 transition tnum">
+                                {{ dur | fa_duration }}
                             </button>
                         {% endfor %}
                     </div>
-                    <div class="flex items-center space-x-2">
-                        <input type="number" name="duration_minutes" id="duration_minutes" value="{{ duration_minutes or 60 }}" min="5" max="360" required class="w-24 border border-slate-300 rounded-lg px-3 py-1.5 bg-white text-xs focus:ring-2 focus:ring-indigo-500">
-                        <span class="text-slate-500">minutes</span>
+                    <div class="flex items-center gap-2">
+                        <input type="number" name="duration_minutes" id="duration_minutes" value="{{ duration_minutes or 60 }}" min="5" max="360" required dir="ltr" class="w-24 border border-slate-300 rounded-lg px-3 py-1.5 bg-white text-xs focus:ring-2 focus:ring-indigo-500 text-center">
+                        <span class="text-slate-500">{{ _('minutes_unit') }}</span>
                     </div>
                 </div>
             {% endif %}
             <!-- Meeting Type -->
             <div class="space-y-2">
-                <label class="font-bold text-slate-700 block">Meeting Type <span class="text-red-500">*</span></label>
-                <div class="flex items-center space-x-6">
-                    <label class="inline-flex items-center space-x-2 cursor-pointer font-medium text-slate-800">
+                <label class="font-bold text-slate-700 block">{{ _('Meeting Type') }} <span class="text-red-500">*</span></label>
+                <div class="flex items-center gap-6">
+                    <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-slate-800">
                         <input type="radio" name="meeting_type" value="ONLINE" {% if (meeting and meeting.meeting_type == 'ONLINE') or (meeting_type == 'ONLINE') or (not meeting and not meeting_type) or meeting_type != 'OFFLINE' %}checked{% endif %}
                                onchange="document.getElementById('url-field').classList.remove('hidden'); document.getElementById('location-field').classList.add('hidden')"
                                class="text-indigo-600 focus:ring-indigo-500">
-                        <span>🌐 Online Meeting</span>
+                        <span>🌐 {{ _('online_meeting_opt') }}</span>
                     </label>
-                    <label class="inline-flex items-center space-x-2 cursor-pointer font-medium text-slate-800">
+                    <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-slate-800">
                         <input type="radio" name="meeting_type" value="OFFLINE" {% if (meeting and meeting.meeting_type == 'OFFLINE') or (meeting_type == 'OFFLINE') %}checked{% endif %}
                                onchange="document.getElementById('url-field').classList.add('hidden'); document.getElementById('location-field').classList.remove('hidden')"
                                class="text-indigo-600 focus:ring-indigo-500">
-                        <span>📍 In-Person (Offline)</span>
+                        <span>📍 {{ _('offline_meeting_opt') }}</span>
                     </label>
                 </div>
 
                 <div id="url-field" class="{% if (meeting and meeting.meeting_type == 'OFFLINE') or (meeting_type == 'OFFLINE') %}hidden{% endif %}">
-                    <label for="meeting_url" class="font-semibold text-slate-600 block mb-1">Meeting Link / URL</label>
-                    <input type="url" name="meeting_url" id="meeting_url" value="{{ (meeting.meeting_url if meeting else meeting_url) or '' }}" placeholder="https://meet.google.com/..." class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white text-xs focus:ring-2 focus:ring-indigo-500">
+                    <label for="meeting_url" class="font-semibold text-slate-600 block mb-1">{{ _('Meeting Link / URL') }}</label>
+                    <input type="url" name="meeting_url" id="meeting_url" dir="ltr" value="{{ (meeting.meeting_url if meeting else meeting_url) or '' }}" placeholder="https://meet.google.com/..." class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white text-xs focus:ring-2 focus:ring-indigo-500">
                 </div>
 
                 <div id="location-field" class="{% if not ((meeting and meeting.meeting_type == 'OFFLINE') or (meeting_type == 'OFFLINE')) %}hidden{% endif %}">
-                    <label for="location" class="font-semibold text-slate-600 block mb-1">Location / Classroom Address</label>
-                    <input type="text" name="location" id="location" value="{{ (meeting.location if meeting else location) or '' }}" placeholder="Valhalla Center, Room 204" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white text-xs focus:ring-2 focus:ring-indigo-500">
+                    <label for="location" class="font-semibold text-slate-600 block mb-1">{{ _('Location / Classroom Address') }}</label>
+                    <input type="text" name="location" id="location" value="{{ (meeting.location if meeting else location) or '' }}" placeholder="{{ _('location_placeholder') }}" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white text-xs focus:ring-2 focus:ring-indigo-500">
                 </div>
             </div>
 
             <!-- Reminder Setting -->
             <div>
-                <label for="reminder_minutes" class="font-bold text-slate-700 block mb-1">In-App Reminder</label>
+                <label for="reminder_minutes" class="font-bold text-slate-700 block mb-1">{{ _('In-App Reminder') }}</label>
                 {% set cur_rem = (meeting.reminder_minutes if meeting else reminder_minutes) %}
                 <select name="reminder_minutes" id="reminder_minutes" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white text-xs focus:ring-2 focus:ring-indigo-500">
-                    <option value="none" {% if cur_rem == 'none' or cur_rem is none %}selected{% endif %}>No reminder</option>
-                    <option value="0" {% if cur_rem == 0 or cur_rem == '0' %}selected{% endif %}>At meeting time</option>
-                    <option value="5" {% if cur_rem == 5 or cur_rem == '5' %}selected{% endif %}>5 minutes before</option>
-                    <option value="15" {% if cur_rem == 15 or cur_rem == '15' or (not meeting and not reminder_minutes) %}selected{% endif %}>15 minutes before (Recommended)</option>
-                    <option value="30" {% if cur_rem == 30 or cur_rem == '30' %}selected{% endif %}>30 minutes before</option>
-                    <option value="60" {% if cur_rem == 60 or cur_rem == '60' %}selected{% endif %}>1 hour before</option>
-                    <option value="1440" {% if cur_rem == 1440 or cur_rem == '1440' %}selected{% endif %}>1 day before</option>
+                    <option value="none" {% if cur_rem == 'none' or cur_rem is none %}selected{% endif %}>{{ _('no_reminder_opt') }}</option>
+                    <option value="0" {% if cur_rem == 0 or cur_rem == '0' %}selected{% endif %}>{{ _('at_meeting_time_opt') }}</option>
+                    <option value="5" {% if cur_rem == 5 or cur_rem == '5' %}selected{% endif %}>{{ _('mins_before_opt', m=(5 | fa_digits)) }}</option>
+                    <option value="15" {% if cur_rem == 15 or cur_rem == '15' or (not meeting and not reminder_minutes) %}selected{% endif %}>{{ _('mins_before_rec_opt') }}</option>
+                    <option value="30" {% if cur_rem == 30 or cur_rem == '30' %}selected{% endif %}>{{ _('mins_before_opt', m=(30 | fa_digits)) }}</option>
+                    <option value="60" {% if cur_rem == 60 or cur_rem == '60' %}selected{% endif %}>{{ _('hour_before_opt') }}</option>
+                    <option value="1440" {% if cur_rem == 1440 or cur_rem == '1440' %}selected{% endif %}>{{ _('day_before_opt') }}</option>
                 </select>
             </div>
 
             <!-- Private Tutor Notes -->
             <div>
-                <label for="notes" class="font-bold text-slate-700 block mb-1">Private Tutor Notes <span class="text-slate-400 font-normal">(Never visible to students)</span></label>
-                <textarea name="notes" id="notes" rows="3" placeholder="Topics to cover, homework review, student progress notes..." class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white text-xs focus:ring-2 focus:ring-indigo-500">{{ (meeting.notes if meeting else notes) or '' }}</textarea>
+                <label for="notes" class="font-bold text-slate-700 block mb-1">{{ _('Private Tutor Notes') }} <span class="text-slate-400 font-normal">{{ _('private_notes_hint') }}</span></label>
+                <textarea name="notes" id="notes" rows="3" placeholder="{{ _('notes_placeholder') }}" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white text-xs focus:ring-2 focus:ring-indigo-500 bidi-auto">{{ (meeting.notes if meeting else notes) or '' }}</textarea>
             </div>
 
             <!-- Modal Actions -->
-            <div class="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
                 <button type="button" onclick="document.getElementById('meeting-modal-backdrop').remove()" class="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold rounded-lg transition text-xs">
-                    Cancel
+                    {{ _('cancel') }}
                 </button>
                 <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-sm transition text-xs">
-                    {% if is_edit %}Save Changes{% else %}Schedule Meeting{% endif %}
+                    {% if is_edit %}{{ _('Save Changes') }}{% else %}{{ _('schedule_meeting_btn') }}{% endif %}
                 </button>
             </div>
         </form>

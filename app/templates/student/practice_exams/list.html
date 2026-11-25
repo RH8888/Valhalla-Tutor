@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Practice Exams - Valhalla Tutor{% endblock %}
+{% block title %}{{ _('practice_exams_title') }} - {{ _('app_name') }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
@@ -7,9 +7,9 @@
     {% include "partials/assessment_tabs.html" %}
 
     <div class="border-b border-slate-200 pb-4">
-        <h1 class="text-2xl font-bold tracking-tight text-slate-900">Practice Exams (آزمون‌های تمرینی)</h1>
-        <p class="text-sm text-slate-500 mt-1">Practice exams assigned to your grade and track. Download PDF booklets,
-            submit answers, and receive instant graded results.</p>
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900">{{ _('practice_exams_title') }}</h1>
+        <p class="text-sm text-slate-500 mt-1">{{ _('Practice exams assigned to your grade and track. Download PDF
+            booklets, submit answers, and receive instant graded results.') }}</p>
     </div>
 
     {% if msg %}
@@ -24,34 +24,39 @@
         {% set user_attempt = ex.latest_attempt %}
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between space-y-4">
             <div>
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between gap-2">
                     <span
                         class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {% if ex.is_timed %}bg-amber-100 text-amber-800{% else %}bg-slate-100 text-slate-700{% endif %}">
-                        {% if ex.is_timed %}⏱️ Timed Mode{% else %}Untimed{% endif %}
+                        {% if ex.is_timed %}⏱️ {{ _('timed_mode_badge') }}{% else %}{{ _('untimed_mode_badge') }}{%
+                        endif %}
                     </span>
-                    <span class="text-xs text-slate-400">Grade {{ ex.grade }} &bull; {{ ex.track.name }}</span>
+                    <span class="text-xs text-slate-400">{{ _('grade_n', grade=(ex.grade | fa_digits)) }} &bull; {{
+                        ex.track.name }}</span>
                 </div>
                 <h2 class="text-lg font-bold text-slate-900 mt-2">{{ ex.title }}</h2>
                 {% if ex.description %}
                 <p class="text-xs text-slate-500 mt-1 line-clamp-2">{{ ex.description }}</p>
                 {% endif %}
-                <div class="mt-4 flex items-center space-x-4 text-xs text-slate-500">
-                    <span>📖 {{ ex.booklets|length }} Booklet(s)</span>
-                    <span>❓ {{ ex.questions|length }} Questions</span>
+                <div class="mt-4 flex items-center gap-4 text-xs text-slate-500">
+                    <span>📖 {{ _('booklets_count_label', count=(ex.booklets|length | fa_digits)) }}</span>
+                    <span>❓ {{ _('questions_count_label', count=(ex.questions|length | fa_digits)) }}</span>
                 </div>
             </div>
 
-            <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
+            <div class="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
                 {% if user_attempt and user_attempt.status == 'COMPLETED' %}
                 <div class="text-xs">
-                    <span class="text-slate-500 block">Completed Score</span>
-                    <span class="text-lg font-extrabold text-indigo-600">{{
-                        "%.1f"|format(user_attempt.overall_percentage) }}%</span>
+                    <span class="text-slate-500 block">{{ _('Completed Score') }}</span>
+                    <span class="text-lg font-extrabold text-indigo-600 tnum">{{ user_attempt.overall_percentage |
+                        fa_percent(1) }}</span>
                 </div>
-                <div class="flex items-center space-x-2">
+                <div class="flex items-center gap-2 flex-wrap">
                     <a href="/student/practice-exams/attempts/{{ user_attempt.id }}/results"
-                        class="inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition">
-                        Review Results &rarr;
+                        class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition">
+                        <span>{{ _('review_results_btn') }}</span>
+                        <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
                     </a>
                     {% if ex.allow_retake %}
                     <form method="POST" action="/student/practice-exams/{{ ex.id }}/start" class="inline">
@@ -59,42 +64,52 @@
                             value="{{ current_session.csrf_token if current_session else '' }}">
                         <button type="submit"
                             class="inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition"
-                            title="Take this practice exam again">
-                            🔄 Retake Exam
+                            title="{{ _('Take this practice exam again') }}">
+                            🔄 {{ _('retake_exam_btn') }}
                         </button>
                     </form>
                     {% endif %}
                 </div>
                 {% elif user_attempt and user_attempt.status == 'IN_PROGRESS' %}
                 <div class="text-xs">
-                    <span class="text-amber-600 font-semibold block">In Progress</span>
-                    <span class="text-slate-400">Started {{ user_attempt.started_at.strftime('%m/%d %H:%M') }}</span>
+                    <span class="text-amber-600 font-semibold block">{{ 'IN_PROGRESS' | fa_status }}</span>
+                    <span class="text-slate-400">{{ _('started_at_prefix') }} {{ user_attempt.started_at | chat_time
+                        }}</span>
                 </div>
                 <form method="POST" action="/student/practice-exams/{{ ex.id }}/start">
                     <input type="hidden" name="csrf_token"
                         value="{{ current_session.csrf_token if current_session else '' }}">
                     <button type="submit"
-                        class="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition">
-                        Resume Exam &rarr;
+                        class="inline-flex items-center gap-1 px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition">
+                        <span>{{ _('resume_exam_btn') }}</span>
+                        <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
                     </button>
                 </form>
                 {% else %}
-                <div class="text-xs text-slate-400">Not started yet</div>
+                <div class="text-xs text-slate-400">{{ _('Not started yet') }}</div>
                 <form method="POST" action="/student/practice-exams/{{ ex.id }}/start">
                     <input type="hidden" name="csrf_token"
                         value="{{ current_session.csrf_token if current_session else '' }}">
                     <button type="submit"
-                        class="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition">
-                        Start Exam &rarr;
+                        class="inline-flex items-center gap-1 px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition">
+                        <span>{{ _('start_exam_btn') }}</span>
+                        <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
                     </button>
                 </form>
                 {% endif %}
             </div>
         </div>
         {% else %}
-        <div class="col-span-2 bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-500">
-            <p class="text-base font-semibold">No practice exams currently available.</p>
-            <p class="text-sm mt-1">Practice exams assigned to you by your tutor will appear here.</p>
+        <div
+            class="col-span-1 md:col-span-2 bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-500">
+            <p class="text-base font-semibold">{{ _('No practice exams currently available.') }}</p>
+            <p class="text-sm mt-1">{{ _('Practice exams assigned to you by your tutor will appear here.') }}</p>
         </div>
         {% endfor %}
     </div>

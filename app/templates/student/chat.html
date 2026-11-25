@@ -1,25 +1,25 @@
 {% extends "base.html" %}
 
-{% block title %}Chat with Tutor &mdash; Valhalla Tutor{% endblock %}
+{% block title %}{{ _('Tutor Chat') }} &mdash; {{ _('app_name') }}{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto h-[calc(100vh-7rem)] sm:h-[calc(100vh-10rem)] min-h-[400px] sm:min-h-[500px] flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
     <!-- Chat Header -->
-    <div class="px-4 py-3 sm:px-6 sm:py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-        <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+    <div class="px-4 py-3 sm:px-6 sm:py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
                 🎓
             </div>
             <div>
                 <h1 class="text-base font-semibold text-slate-900">
-                    {{ conversation.tutor.full_name if conversation.tutor else "Valhalla Head Tutor" }}
+                    {{ conversation.tutor.full_name if conversation.tutor else _('valhalla_head_tutor') }}
                 </h1>
-                <p class="text-xs text-slate-500">Academic Tutor &bull; Direct Messages</p>
+                <p class="text-xs text-slate-500">{{ _('academic_tutor_dm') }}</p>
             </div>
         </div>
-        <div class="flex items-center space-x-2 text-xs text-slate-500">
+        <div class="flex items-center gap-2 text-xs text-slate-500 shrink-0">
             <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span>Private Chat</span>
+            <span>{{ _('private_chat') }}</span>
         </div>
     </div>
 
@@ -32,7 +32,7 @@
                         hx-target="#older-messages-slot"
                         hx-swap="outerHTML"
                         class="text-xs font-medium text-indigo-600 hover:text-indigo-800 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-2xs hover:bg-slate-50 transition">
-                    &uarr; Load older messages
+                    &uarr; {{ _('load_older_messages') }}
                 </button>
             </div>
             {% endif %}
@@ -42,8 +42,8 @@
             {% if not messages %}
             <div id="empty-state" class="text-center py-16 text-slate-400">
                 <div class="text-4xl mb-2">💬</div>
-                <p class="font-medium text-slate-600">No messages yet</p>
-                <p class="text-xs mt-1">Send a message to start communicating with your tutor.</p>
+                <p class="font-medium text-slate-600">{{ _('no_messages_yet') }}</p>
+                <p class="text-xs mt-1">{{ _('send_first_message_hint') }}</p>
             </div>
             {% else %}
                 {% for msg in messages %}
@@ -70,7 +70,7 @@
               hx-target="#messages-list"
               hx-swap="beforeend"
               hx-on::after-request="if(event.detail.successful) { this.reset(); removeEmptyState(); scrollToBottom(); }"
-              class="flex items-end space-x-2">
+              class="flex items-end gap-2">
             <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
             <div class="flex-1 relative">
                 <textarea id="message-content"
@@ -78,18 +78,18 @@
                           rows="2"
                           maxlength="5000"
                           required
-                          placeholder="Type your message... (Enter to send, Shift+Enter for newline)"
-                          class="w-full resize-none rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm p-2.5 outline-none border transition"></textarea>
+                          placeholder="{{ _('type_message_placeholder') }}"
+                          class="w-full resize-none rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm p-2.5 outline-none border transition bidi-auto"></textarea>
             </div>
             <button type="submit"
-                    class="h-10 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm flex items-center justify-center shadow-xs transition hover:cursor-pointer disabled:opacity-50">
-                <span>Send</span>
-                <svg class="w-4 h-4 ml-1.5 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    class="h-10 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-1.5 shadow-xs transition hover:cursor-pointer disabled:opacity-50 shrink-0">
+                <span>{{ _('send_btn') }}</span>
+                <svg class="w-4 h-4 ltr:rotate-90 rtl:-rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                 </svg>
             </button>
         </form>
-        <p class="text-[11px] text-slate-400 mt-1 pl-1 hidden sm:block">Press Enter to send, Shift+Enter for new line. Max 5,000 characters.</p>
+        <p class="text-[11px] text-slate-400 mt-1 ps-1 hidden sm:block">{{ _('max_5000_chars_hint') }}</p>
     </div>
 </div>
 

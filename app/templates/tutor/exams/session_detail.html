@@ -1,54 +1,54 @@
 {% extends "base.html" %}
-{% block title %}Exam Session Details - Valhalla Tutor{% endblock %}
+{% block title %}{{ _("Exam Session Details - Valhalla Tutor") }}{% endblock %}
 
 {% block content %}
 <div class="space-y-8">
     <div class="border-b border-slate-200 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-            <a href="/tutor/exams/{{ session.exam_id }}" class="text-sm text-slate-500 hover:text-slate-800 transition">&larr; Back to {{ session.exam.title }}</a>
-            <div class="flex items-center space-x-3 mt-1">
+            <a href="/tutor/exams/{{ session.exam_id }}" class="text-sm text-slate-500 hover:text-slate-800 transition"><span class="inline-block rtl:rotate-180">&larr;</span> {{ _("Back to {title}", title=session.exam.title) }}</a>
+            <div class="flex flex-wrap items-center gap-3 mt-1">
                 <h1 class="text-2xl font-bold tracking-tight text-slate-900">{{ session.exam.title }}</h1>
                 {% if session.status == 'SCHEDULED' %}
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">Scheduled</span>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">{{ _("Scheduled") }}</span>
                 {% elif session.status == 'SKIPPED' %}
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">No Exam (Skipped)</span>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">{{ _("No Exam (Skipped)") }}</span>
                 {% else %}
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-800">{{ session.status }}</span>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-800">{{ session.status | fa_status }}</span>
                 {% endif %}
             </div>
-            <p class="text-sm text-slate-500 mt-0.5">Date: <span class="font-semibold text-slate-700">{{ session.date }}</span> {% if session.title %} &bull; {{ session.title }}{% endif %}</p>
+            <p class="text-sm text-slate-500 mt-0.5 tnum">{{ _("Date:") }} <span class="font-semibold text-slate-700">{{ session.date | smart_date if is_rtl() else session.date }}</span> {% if session.title %} &bull; {{ session.title }}{% endif %}</p>
             {% if session.skip_reason %}
-                <p class="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded inline-block mt-1 italic">Reason: {{ session.skip_reason }}</p>
+                <p class="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded inline-block mt-1 italic">{{ _("Reason:") }} {{ session.skip_reason | t }}</p>
             {% endif %}
         </div>
         <div class="flex flex-wrap items-center gap-2">
             <a href="/tutor/exams/sessions/{{ session.id }}/compare" class="px-3 py-1.5 border border-indigo-200 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition">
-                📊 Group Comparison
+                📊 {{ _("Group Comparison") }}
             </a>
             {% if session.status == 'SCHEDULED' %}
-                <form method="POST" action="/tutor/exams/sessions/{{ session.id }}/skip" onsubmit="return confirm('Skip this exam occurrence (No Exam)?');" class="inline">
+                <form method="POST" action="/tutor/exams/sessions/{{ session.id }}/skip" onsubmit="return confirm('{{ _("Skip this exam occurrence (No Exam)?") }}');" class="inline">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                     <input type="hidden" name="reason" value="Holiday / Postponed">
                     <button type="submit" class="px-3 py-1.5 border border-amber-300 rounded-lg text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 transition">
-                        No Exam
+                        {{ _("No Exam") }}
                     </button>
                 </form>
-                <form method="POST" action="/tutor/exams/sessions/{{ session.id }}/cancel" onsubmit="return confirm('Cancel this occurrence?');" class="inline">
+                <form method="POST" action="/tutor/exams/sessions/{{ session.id }}/cancel" onsubmit="return confirm('{{ _("Cancel this occurrence?") }}');" class="inline">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                     <button type="submit" class="px-3 py-1.5 border border-red-300 rounded-lg text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 transition">
-                        Cancel
+                        {{ _("Cancel") }}
                     </button>
                 </form>
             {% elif session.status in ['SKIPPED', 'CANCELLED'] %}
                 <form method="POST" action="/tutor/exams/sessions/{{ session.id }}/restore" class="inline">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                     <button type="submit" class="px-3 py-1.5 border border-emerald-300 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition">
-                        Restore Occurrence
+                        {{ _("Restore Occurrence") }}
                     </button>
                 </form>
             {% endif %}
-            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
-                {{ analytics.participant_count }} Submissions
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800 tnum">
+                {{ _("{count} Submissions", count=(analytics.participant_count | fa_digits)) }}
             </span>
         </div>
     </div>
@@ -63,7 +63,7 @@
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-3">
                 <div class="flex items-center justify-between border-b border-slate-100 pb-2">
                     <span class="font-bold text-slate-800">{{ tc.track.name }}</span>
-                    <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{{ tc.subject_configs|length }} subjects</span>
+                    <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded tnum">{{ _("{count} subjects", count=(tc.subject_configs|length | fa_digits)) }}</span>
                 </div>
                 <div class="flex flex-wrap gap-1.5">
                     {% for sc in tc.subject_configs %}
@@ -78,48 +78,48 @@
 
     <!-- Student Performance & Results Table -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
-            <h2 class="text-lg font-semibold text-slate-900">Student Results & Submissions</h2>
+        <div class="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50/50">
+            <h2 class="text-lg font-semibold text-slate-900">{{ _("Student Results & Submissions") }}</h2>
             {% if analytics.subject_averages %}
-                <div class="text-xs text-slate-500 hidden sm:block">
-                    Averages across students:
+                <div class="text-xs text-slate-500 hidden sm:flex flex-wrap items-center gap-2 tnum">
+                    <span>{{ _("Averages across students:") }}</span>
                     {% for s_name, s_avg in analytics.subject_averages.items() %}
-                        <span class="font-medium text-slate-700 ml-2">{{ s_name }}: {{ s_avg }}%</span>
+                        <span class="font-medium text-slate-700">{{ s_name }}: {{ s_avg | fa_percent if is_rtl() else (s_avg|string ~ '%') }}</span>
                     {% endfor %}
                 </div>
             {% endif %}
         </div>
         {% if analytics.students %}
             <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm text-slate-600">
+                <table class="w-full text-start text-sm text-slate-600">
                     <thead class="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
                         <tr>
-                            <th class="px-6 py-3">Student</th>
-                            <th class="px-4 py-3 text-center">Rank</th>
-                            <th class="px-4 py-3 text-center">Correct / Incorrect</th>
-                            <th class="px-4 py-3 text-center">Average %</th>
+                            <th class="px-6 py-3 text-start">{{ _("Student") }}</th>
+                            <th class="px-4 py-3 text-center">{{ _("Rank") }}</th>
+                            <th class="px-4 py-3 text-center">{{ _("Correct / Incorrect") }}</th>
+                            <th class="px-4 py-3 text-center">{{ _("Average %") }}</th>
                             {% for sub_name in analytics.all_subjects %}
                                 <th class="px-4 py-3 text-center">{{ sub_name }}</th>
                             {% endfor %}
-                            <th class="px-4 py-3 text-center">Status / Review</th>
-                            <th class="px-4 py-3 text-center">Report Card</th>
-                            <th class="px-6 py-3 text-right">Monitoring</th>
+                            <th class="px-4 py-3 text-center">{{ _("Status / Review") }}</th>
+                            <th class="px-4 py-3 text-center">{{ _("Report Card") }}</th>
+                            <th class="px-6 py-3 text-end">{{ _("Monitoring") }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         {% for row in analytics.students %}
                             <tr class="hover:bg-slate-50 transition">
                                 <td class="px-6 py-4 font-semibold text-slate-900 whitespace-nowrap">{{ row.student_name }}</td>
-                                <td class="px-4 py-4 text-center">{{ row.overall_rank or '—' }}</td>
-                                <td class="px-4 py-4 text-center whitespace-nowrap">
-                                    <span class="text-emerald-600 font-semibold">{{ row.total_correct }}</span> / <span class="text-red-500 font-semibold">{{ row.total_incorrect }}</span>
+                                <td class="px-4 py-4 text-center tnum">{{ (row.overall_rank | fa_digits) if row.overall_rank else '—' }}</td>
+                                <td class="px-4 py-4 text-center whitespace-nowrap tnum">
+                                    <span class="text-emerald-600 font-semibold">{{ row.total_correct | fa_digits }}</span> / <span class="text-red-500 font-semibold">{{ row.total_incorrect | fa_digits }}</span>
                                 </td>
-                                <td class="px-4 py-4 text-center font-bold text-indigo-600 whitespace-nowrap">{{ row.average_percentage }}%</td>
+                                <td class="px-4 py-4 text-center font-bold text-indigo-600 whitespace-nowrap tnum">{{ row.average_percentage | fa_percent if is_rtl() else (row.average_percentage|string ~ '%') }}</td>
                                 {% for sub_name in analytics.all_subjects %}
-                                    <td class="px-4 py-4 text-center whitespace-nowrap">
+                                    <td class="px-4 py-4 text-center whitespace-nowrap tnum">
                                         {% if sub_name in row.subject_scores %}
                                             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold {% if row.subject_scores[sub_name].percentage >= 70 %}bg-emerald-50 text-emerald-700{% elif row.subject_scores[sub_name].percentage >= 50 %}bg-amber-50 text-amber-700{% else %}bg-red-50 text-red-700{% endif %}">
-                                                {{ row.subject_scores[sub_name].percentage }}%
+                                                {{ row.subject_scores[sub_name].percentage | fa_percent if is_rtl() else (row.subject_scores[sub_name].percentage|string ~ '%') }}
                                             </span>
                                         {% else %}
                                             <span class="text-slate-300 text-xs">—</span>
@@ -130,47 +130,47 @@
                                     <div class="flex flex-col items-center gap-1">
                                         {% if row.is_reviewed %}
                                             <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-100 text-indigo-800">
-                                                Reviewed
+                                                {{ _("Reviewed") }}
                                             </span>
                                             <form method="POST" action="/tutor/exams/results/{{ row.result_id }}/reopen" class="inline">
                                                 <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                                                 <button type="submit" class="text-[10px] text-slate-500 hover:text-indigo-600 underline">
-                                                    Reopen
+                                                    {{ _("Reopen") }}
                                                 </button>
                                             </form>
                                         {% else %}
                                             <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-100 text-amber-800">
-                                                Pending Review
+                                                {{ _("Pending Review") }}
                                             </span>
                                             <form method="POST" action="/tutor/exams/results/{{ row.result_id }}/review" class="inline">
                                                 <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                                                 <button type="submit" class="text-[10px] font-semibold text-emerald-600 hover:text-emerald-800 underline">
-                                                    Mark Reviewed
+                                                    {{ _("Mark Reviewed") }}
                                                 </button>
                                             </form>
                                         {% endif %}
                                         {% if row.is_late %}
-                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200">Late</span>
+                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200">{{ _("Late") }}</span>
                                         {% endif %}
                                         {% if row.is_tutor_corrected %}
-                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-50 text-purple-700 border border-purple-200">Corrected</span>
+                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-50 text-purple-700 border border-purple-200">{{ _("Corrected") }}</span>
                                         {% endif %}
                                     </div>
                                 </td>
                                 <td class="px-4 py-4 text-center whitespace-nowrap">
                                     {% if row.has_report_card %}
                                         <a href="/tutor/exams/results/{{ row.result_id }}/report-card" target="_blank"
-                                           class="inline-flex items-center px-2.5 py-1 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition">
-                                            <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                            کارنامه
+                                           class="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                            <span>{{ _("Report Card") if is_rtl() else "کارنامه" }}</span>
                                         </a>
                                     {% else %}
                                         <span class="text-slate-300 text-xs">—</span>
                                     {% endif %}
                                 </td>
-                                <td class="px-6 py-4 text-right whitespace-nowrap">
+                                <td class="px-6 py-4 text-end whitespace-nowrap">
                                     <a href="/tutor/exams/students/{{ row.student_id }}" class="text-indigo-600 hover:text-indigo-900 font-medium text-xs bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-md transition">
-                                        Performance Trends &rarr;
+                                        {{ _("Performance Trends") }} <span class="inline-block rtl:rotate-180">&rarr;</span>
                                     </a>
                                 </td>
                             </tr>
@@ -180,7 +180,7 @@
             </div>
         {% else %}
             <div class="p-8 text-center text-slate-500 text-sm">
-                No students have submitted results for this exam session yet.
+                {{ _("No students have submitted results for this exam session yet.") }}
             </div>
         {% endif %}
     </div>
@@ -188,16 +188,16 @@
     <!-- Occurrence Audit Trail -->
     {% if session.audit_logs %}
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-3">
-            <h3 class="text-sm font-bold text-slate-800">Schedule Modification Audit Trail</h3>
+            <h3 class="text-sm font-bold text-slate-800">{{ _("Schedule Modification Audit Trail") }}</h3>
             <div class="space-y-2">
                 {% for a in session.audit_logs %}
-                    <div class="flex items-center justify-between text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                        <div class="flex items-center space-x-2">
-                            <span class="font-mono font-bold text-indigo-700 uppercase">{{ a.action }}</span>
-                            {% if a.actor %}<span>by {{ a.actor.full_name }}</span>{% endif %}
-                            {% if a.reason %}<span>&bull; "{{ a.reason }}"</span>{% endif %}
+                    <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="font-mono font-bold text-indigo-700 uppercase">{{ a.action | t }}</span>
+                            {% if a.actor %}<span>{{ _("by {name}", name=a.actor.full_name) }}</span>{% endif %}
+                            {% if a.reason %}<span>&bull; "{{ a.reason | t }}"</span>{% endif %}
                         </div>
-                        <span class="text-slate-400 font-mono">{{ a.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                        <span class="text-slate-400 font-mono tnum">{{ a.created_at | local_dt if is_rtl() else a.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
                     </div>
                 {% endfor %}
             </div>

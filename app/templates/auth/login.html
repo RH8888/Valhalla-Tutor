@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}Sign In &mdash; Valhalla Tutor{% endblock %}
+{% block title %}{{ _('sign_in') }} &mdash; {{ _('app_name') }}{% endblock %}
 
 {% block content %}
 <div class="min-h-[70vh] flex flex-col justify-center items-center py-6 sm:py-12 px-3 sm:px-6 lg:px-8">
     <div class="sm:mx-auto sm:w-full sm:max-w-md text-center mb-6">
         <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{{ _('sign_in') }}</h2>
-        <p class="mt-2 text-xs sm:text-sm text-slate-600">Enter your credentials to access your study portal</p>
+        <p class="mt-2 text-xs sm:text-sm text-slate-600">{{ _('login_subtitle') }}</p>
     </div>
 
     <div class="w-full max-w-md bg-white py-6 sm:py-8 px-4 sm:px-6 shadow-md rounded-2xl border border-slate-200">
         {% if error %}
-            <div class="mb-5 p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 flex items-center space-x-2">
+            <div class="mb-5 p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 flex items-center gap-2">
                 <span>⚠️</span>
                 <span>{{ error }}</span>
             </div>
@@ -21,17 +21,17 @@
             <div>
                 <label for="identifier" class="block text-sm font-semibold text-slate-700">{{ _('username') }} / {{ _('email_address') }}</label>
                 <div class="mt-1">
-                    <input id="identifier" name="identifier" type="text" autocomplete="username" required
+                    <input id="identifier" name="identifier" type="text" autocomplete="username" required dir="ltr"
                         value="{{ identifier or '' }}"
-                        placeholder="e.g. tutor or student@valhalla.local"
-                        class="appearance-none block w-full px-3 py-2.5 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base sm:text-sm">
+                        placeholder="{{ _('login_placeholder') }}"
+                        class="appearance-none block w-full px-3 py-2.5 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base sm:text-sm text-start">
                 </div>
             </div>
 
             <div>
                 <label for="password" class="block text-sm font-semibold text-slate-700">{{ _('password') }}</label>
                 <div class="mt-1">
-                    <input id="password" name="password" type="password" autocomplete="current-password" required
+                    <input id="password" name="password" type="password" autocomplete="current-password" required dir="ltr"
                         class="appearance-none block w-full px-3 py-2.5 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base sm:text-sm">
                 </div>
             </div>

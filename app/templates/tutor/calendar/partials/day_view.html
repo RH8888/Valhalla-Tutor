@@ -1,14 +1,14 @@
 <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-6">
-    <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+    <div class="flex flex-wrap items-center justify-between border-b border-slate-100 pb-4 gap-3">
         <div>
             <h2 class="text-lg font-bold text-slate-900">{{ cal.title }}</h2>
-            <p class="text-xs text-slate-500 mt-0.5">{{ cal.meetings|length }} meetings scheduled for today</p>
+            <p class="text-xs text-slate-500 mt-0.5">{{ _('day_meetings_count', count=(cal.meetings|length | fa_digits)) }}</p>
         </div>
         <button type="button"
                 hx-get="/tutor/meetings/new?date={{ cal.current_date.strftime('%Y-%m-%d') }}"
                 hx-target="#modal-container"
                 class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition">
-            + Schedule on this Day
+            + {{ _('schedule_on_this_day') }}
         </button>
     </div>
 
@@ -19,26 +19,26 @@
             <div hx-get="/tutor/meetings/{{ m.id }}"
                  hx-target="#modal-container"
                  class="cursor-pointer p-4 rounded-xl border transition flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-xs {% if m.status == 'CANCELLED' %}bg-slate-50 border-slate-200 opacity-60 line-through{% elif m.status == 'COMPLETED' %}bg-emerald-50/50 border-emerald-200{% elif m.status == 'STUDENT_ABSENT' %}bg-amber-50/50 border-amber-200{% else %}bg-white border-slate-200 hover:border-indigo-300{% endif %}">
-                <div class="flex items-start space-x-4">
+                <div class="flex items-start gap-4">
                     <div class="text-center min-w-[70px]">
-                        <span class="text-sm font-bold text-indigo-700 block">{{ item.time_str }}</span>
-                        <span class="text-[11px] text-slate-500 font-medium">{{ m.duration_minutes }} min</span>
+                        <span class="text-sm font-bold text-indigo-700 block tnum" dir="ltr">{{ item.time_str | fa_digits }}</span>
+                        <span class="text-[11px] text-slate-500 font-medium tnum">{{ m.duration_minutes | fa_duration }}</span>
                     </div>
                     <div>
-                        <div class="flex items-center space-x-2">
+                        <div class="flex items-center gap-2 flex-wrap">
                             <span class="font-bold text-slate-900 text-sm">{{ m.student.full_name }}</span>
-                            <span class="text-xs text-slate-500">@{{ m.student.username }}</span>
+                            <span class="text-xs text-slate-500 bidi-ltr" dir="ltr">@{{ m.student.username }}</span>
                             {% if m.student.grade %}
-                                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">G{{ m.student.grade }}</span>
+                                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">{{ _('grade_n', grade=(m.student.grade | fa_digits)) }}</span>
                             {% endif %}
                         </div>
-                        <div class="flex items-center space-x-3 text-xs text-slate-600 mt-1">
-                            <span class="inline-flex items-center space-x-1 font-semibold {% if m.meeting_type == 'ONLINE' %}text-indigo-600{% else %}text-cyan-700{% endif %}">
-                                <span>{% if m.meeting_type == 'ONLINE' %}🌐 Online{% else %}📍 Offline{% endif %}</span>
+                        <div class="flex items-center flex-wrap gap-2 text-xs text-slate-600 mt-1">
+                            <span class="inline-flex items-center gap-1 font-semibold {% if m.meeting_type == 'ONLINE' %}text-indigo-600{% else %}text-cyan-700{% endif %}">
+                                <span>{% if m.meeting_type == 'ONLINE' %}🌐 {{ 'ONLINE' | fa_status }}{% else %}📍 {{ 'OFFLINE' | fa_status }}{% endif %}</span>
                             </span>
                             {% if m.meeting_type == 'ONLINE' and m.meeting_url %}
                                 <span class="text-slate-400">&bull;</span>
-                                <span class="truncate max-w-xs">{{ m.meeting_url }}</span>
+                                <span class="truncate max-w-xs bidi-ltr" dir="ltr">{{ m.meeting_url }}</span>
                             {% elif m.meeting_type == 'OFFLINE' and m.location %}
                                 <span class="text-slate-400">&bull;</span>
                                 <span class="truncate max-w-xs">{{ m.location }}</span>
@@ -47,23 +47,23 @@
                     </div>
                 </div>
 
-                <div class="flex items-center space-x-3">
+                <div class="flex items-center gap-3">
                     <span class="px-2.5 py-1 rounded-full text-xs font-semibold {% if m.status == 'SCHEDULED' %}bg-indigo-100 text-indigo-800{% elif m.status == 'COMPLETED' %}bg-emerald-100 text-emerald-800{% elif m.status == 'STUDENT_ABSENT' %}bg-amber-100 text-amber-800{% else %}bg-slate-200 text-slate-700{% endif %}">
-                        {{ m.status.replace('_', ' ') }}
+                        {{ m.status | fa_status }}
                     </span>
-                    <span class="text-slate-400 text-sm">&rarr;</span>
+                    <svg class="w-4 h-4 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                 </div>
             </div>
         {% else %}
             <div class="text-center py-16 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                 <span class="text-2xl">📅</span>
-                <p class="text-sm font-semibold text-slate-700 mt-2">No meetings scheduled for this day</p>
-                <p class="text-xs text-slate-500 mt-1">Click the button below to schedule an appointment with a student.</p>
+                <p class="text-sm font-semibold text-slate-700 mt-2">{{ _('No meetings scheduled for this day') }}</p>
+                <p class="text-xs text-slate-500 mt-1">{{ _('Click the button below to schedule an appointment with a student.') }}</p>
                 <button type="button"
                         hx-get="/tutor/meetings/new?date={{ cal.current_date.strftime('%Y-%m-%d') }}"
                         hx-target="#modal-container"
                         class="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition">
-                    + Schedule Appointment
+                    + {{ _('Schedule Appointment') }}
                 </button>
             </div>
         {% endfor %}

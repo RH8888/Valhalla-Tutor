@@ -1,7 +1,7 @@
 <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
     <div>
-        <h3 class="text-base font-black text-slate-900">Edit Task</h3>
-        <p class="text-xs text-slate-500 mt-0.5">{{ assignment.scheduled_date.strftime('%a, %b %d') }} &bull; {{ assignment.subject.name }}</p>
+        <h3 class="text-base font-black text-slate-900">{{ _('Edit Task') }}</h3>
+        <p class="text-xs text-slate-500 mt-0.5">{{ assignment.scheduled_date | smart_weekday }}، {{ assignment.scheduled_date | smart_date_short }} &bull; {{ assignment.subject.name }}</p>
     </div>
     <button type="button" onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 text-2xl p-2 rounded-lg leading-none min-h-[44px] min-w-[44px] flex items-center justify-center">&times;</button>
 </div>
@@ -11,47 +11,47 @@
     <form method="POST" action="/tutor/plans/assignments/{{ assignment.id }}/edit" class="space-y-4">
         <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
         <div>
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Title</label>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{{ _('Title') }}</label>
             <input type="text" name="title" value="{{ assignment.title }}" required
                 class="w-full px-3 py-2 border border-slate-300 rounded-xl text-base sm:text-sm font-semibold text-slate-900 focus:ring-indigo-500 focus:border-indigo-500">
         </div>
 
         <div>
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Recommended Duration (Minutes)</label>
-            <input type="number" name="recommended_duration_minutes" value="{{ assignment.recommended_duration_minutes }}" min="1" required
-                class="w-full px-3 py-2 border border-slate-300 rounded-xl text-base sm:text-sm font-bold text-slate-900 focus:ring-indigo-500 focus:border-indigo-500">
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{{ _('Recommended Duration (Minutes)') }}</label>
+            <input type="number" name="recommended_duration_minutes" value="{{ assignment.recommended_duration_minutes }}" min="1" required dir="ltr"
+                class="w-full px-3 py-2 border border-slate-300 rounded-xl text-base sm:text-sm font-bold text-slate-900 focus:ring-indigo-500 focus:border-indigo-500 text-start">
         </div>
 
         <div>
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Description / Notes</label>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{{ _('Description / Notes') }}</label>
             <textarea name="description" rows="2"
-                class="w-full px-3 py-2 border border-slate-300 rounded-xl text-base sm:text-sm focus:ring-indigo-500 focus:border-indigo-500">{{ assignment.description or '' }}</textarea>
+                class="w-full px-3 py-2 border border-slate-300 rounded-xl text-base sm:text-sm focus:ring-indigo-500 focus:border-indigo-500 bidi-auto">{{ assignment.description or '' }}</textarea>
         </div>
 
         <button type="submit"
             class="w-full min-h-[44px] py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow transition">
-            Save Changes
+            {{ _('Save Changes') }}
         </button>
     </form>
 
     <!-- Move Task Section -->
     <div class="pt-4 border-t border-slate-200">
-        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Move Task</h4>
+        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{{ _('Move Task') }}</h4>
         {% if not assignment.is_completed %}
         <form method="POST" action="/tutor/plans/assignments/{{ assignment.id }}/move" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
             <div>
-                <label class="block text-[11px] font-semibold text-slate-500 mb-1">Target Day</label>
+                <label class="block text-[11px] font-semibold text-slate-500 mb-1">{{ _('Target Day') }}</label>
                 <select name="new_date" class="w-full px-2.5 py-2.5 sm:py-2 border border-slate-300 rounded-xl text-base sm:text-xs font-medium bg-white min-h-[42px]">
                     {% for d in days %}
                     <option value="{{ d.isoformat() }}" {% if d == assignment.scheduled_date %}selected{% endif %}>
-                        Day {{ loop.index }} ({{ d.strftime('%a, %b %d') }})
+                        {{ _('day_n_option', n=(loop.index | fa_digits), date=((d | smart_weekday) ~ ' ' ~ (d | smart_date_short))) }}
                     </option>
                     {% endfor %}
                 </select>
             </div>
             <div>
-                <label class="block text-[11px] font-semibold text-slate-500 mb-1">Target Subject</label>
+                <label class="block text-[11px] font-semibold text-slate-500 mb-1">{{ _('Target Subject') }}</label>
                 <select name="new_subject_id" class="w-full px-2.5 py-2.5 sm:py-2 border border-slate-300 rounded-xl text-base sm:text-xs font-medium bg-white min-h-[42px]">
                     {% for s in effective_subjects %}
                     <option value="{{ s.id }}" {% if s.id == assignment.subject_id %}selected{% endif %}>
@@ -63,12 +63,12 @@
             <div class="sm:col-span-2">
                 <button type="submit"
                     class="w-full min-h-[44px] py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center">
-                    Move to Selected Day / Subject
+                    {{ _('Move to Selected Day / Subject') }}
                 </button>
             </div>
         </form>
         {% else %}
-        <p class="text-xs text-slate-400 italic">Completed tasks cannot be moved or have their subject changed. Reset completion status first if needed.</p>
+        <p class="text-xs text-slate-400 italic">{{ _('Completed tasks cannot be moved or have their subject changed. Reset completion status first if needed.') }}</p>
         {% endif %}
     </div>
 
@@ -76,15 +76,15 @@
     <!-- Completion Status & Reset -->
     <div class="pt-4 border-t border-slate-200 bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-            <div class="text-xs font-bold text-emerald-800">✓ Marked Complete</div>
-            <div class="text-[11px] text-emerald-600 mt-0.5">Recorded: {{ assignment.completed_at.strftime('%b %d, %Y at %H:%M') if assignment.completed_at else 'Completed' }}</div>
+            <div class="text-xs font-bold text-emerald-800">✓ {{ _('Marked Complete') }}</div>
+            <div class="text-[11px] text-emerald-600 mt-0.5">{{ _('recorded_at_prefix') }} {{ assignment.completed_at | local_dt if assignment.completed_at else _('Completed') }}</div>
         </div>
         <form method="POST" action="/tutor/assignments/{{ assignment.id }}/reset-completion" class="inline">
             <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
             <input type="hidden" name="redirect_url" value="/tutor/plans/{{ assignment.study_plan_id }}">
-            <button type="submit" onclick="return confirm('Reset completion status for this task? An audit record will be created.')"
+            <button type="submit" onclick="return confirm('{{ _('reset_task_audit_confirm') }}')"
                 class="min-h-[40px] px-3 py-2 bg-white text-amber-700 hover:bg-amber-50 border border-amber-300 rounded-lg text-xs font-bold shadow-xs transition w-full sm:w-auto">
-                Reset Completion
+                {{ _('Reset Completion') }}
             </button>
         </form>
     </div>
@@ -93,19 +93,16 @@
     <!-- Delete Task Section -->
     <div class="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         {% if not assignment.is_completed %}
-        <span class="text-xs text-slate-500">Permanently remove this assignment:</span>
+        <span class="text-xs text-slate-500">{{ _('Permanently remove this assignment:') }}</span>
         <form method="POST" action="/tutor/plans/assignments/{{ assignment.id }}/delete" class="inline">
             <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
-            <button type="submit" onclick="return confirm('Delete this assignment permanently?')"
+            <button type="submit" onclick="return confirm('{{ _('delete_assignment_confirm') }}')"
                 class="min-h-[40px] px-3 py-2 border border-red-300 text-red-600 hover:bg-red-50 text-xs font-bold rounded-lg transition w-full sm:w-auto">
-                Delete Task
-            </button>
-        </form>
-                Delete Task
+                {{ _('Delete Task') }}
             </button>
         </form>
         {% else %}
-        <span class="text-xs text-slate-400 italic">Completed tasks cannot be deleted. Reset completion status first if needed.</span>
+        <span class="text-xs text-slate-400 italic">{{ _('Completed tasks cannot be deleted. Reset completion status first if needed.') }}</span>
         {% endif %}
     </div>
 </div>

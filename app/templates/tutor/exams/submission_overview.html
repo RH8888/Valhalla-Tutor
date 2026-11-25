@@ -1,20 +1,20 @@
 {% extends "base.html" %}
-{% block title %}Bulk Results & Submission Overview - Valhalla Tutor{% endblock %}
+{% block title %}{{ _("Bulk Results & Submission Overview - Valhalla Tutor") }}{% endblock %}
 
 {% block content %}
 <div class="space-y-8">
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
             <div class="flex items-center gap-2">
-                <a href="/tutor/exams" class="text-sm font-medium text-indigo-600 hover:text-indigo-900">&larr; Back to Exams</a>
+                <a href="/tutor/exams" class="text-sm font-medium text-indigo-600 hover:text-indigo-900"><span class="inline-block rtl:rotate-180">&larr;</span> {{ _("Back to Exams") }}</a>
             </div>
-            <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-2">Bulk Results & Submission Progress Overview</h1>
-            <p class="text-sm text-slate-500 mt-1">Track student submission status, missing results, and review progress across all exam occurrences.</p>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-2">{{ _("Bulk Results & Submission Progress Overview") }}</h1>
+            <p class="text-sm text-slate-500 mt-1">{{ _("Track student submission status, missing results, and review progress across all exam occurrences.") }}</p>
         </div>
-        <div class="flex items-center space-x-3">
+        <div class="flex items-center gap-3">
             <form method="GET" action="/tutor/exams/bulk/overview" class="flex items-center gap-2">
                 <select name="exam_id" onchange="this.form.submit()" class="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <option value="">-- All Exam Series --</option>
+                    <option value="">{{ _("-- All Exam Series --") }}</option>
                     {% for e in exams %}
                         <option value="{{ e.id }}" {% if selected_exam_id == (e.id|string) %}selected{% endif %}>{{ e.title }}</option>
                     {% endfor %}
@@ -26,77 +26,79 @@
     <!-- Summary Statistics Cards -->
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Assigned</span>
-            <p class="text-2xl font-bold text-slate-900 mt-1">{{ overview.summary.total_assigned }}</p>
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">{{ _("Total Assigned") }}</span>
+            <p class="text-2xl font-bold text-slate-900 mt-1 tnum">{{ overview.summary.total_assigned | fa_digits }}</p>
         </div>
         <div class="bg-white p-5 rounded-xl border border-emerald-100 bg-emerald-50/20 shadow-sm">
-            <span class="text-xs font-semibold uppercase tracking-wider text-emerald-700">Submitted</span>
-            <p class="text-2xl font-bold text-emerald-700 mt-1">{{ overview.summary.total_submitted }}</p>
+            <span class="text-xs font-semibold uppercase tracking-wider text-emerald-700">{{ _("Submitted") }}</span>
+            <p class="text-2xl font-bold text-emerald-700 mt-1 tnum">{{ overview.summary.total_submitted | fa_digits }}</p>
         </div>
         <div class="bg-white p-5 rounded-xl border border-indigo-100 bg-indigo-50/20 shadow-sm">
-            <span class="text-xs font-semibold uppercase tracking-wider text-indigo-700">Reviewed</span>
-            <p class="text-2xl font-bold text-indigo-700 mt-1">{{ overview.summary.total_reviewed }}</p>
+            <span class="text-xs font-semibold uppercase tracking-wider text-indigo-700">{{ _("Reviewed") }}</span>
+            <p class="text-2xl font-bold text-indigo-700 mt-1 tnum">{{ overview.summary.total_reviewed | fa_digits }}</p>
         </div>
         <div class="bg-white p-5 rounded-xl border border-amber-100 bg-amber-50/20 shadow-sm">
-            <span class="text-xs font-semibold uppercase tracking-wider text-amber-700">Awaiting Results</span>
-            <p class="text-2xl font-bold text-amber-700 mt-1">{{ overview.summary.total_awaiting }}</p>
+            <span class="text-xs font-semibold uppercase tracking-wider text-amber-700">{{ _("Awaiting Results") }}</span>
+            <p class="text-2xl font-bold text-amber-700 mt-1 tnum">{{ overview.summary.total_awaiting | fa_digits }}</p>
         </div>
         <div class="bg-white p-5 rounded-xl border border-red-100 bg-red-50/20 shadow-sm">
-            <span class="text-xs font-semibold uppercase tracking-wider text-red-700">Missing / Overdue</span>
-            <p class="text-2xl font-bold text-red-700 mt-1">{{ overview.summary.total_missing }}</p>
+            <span class="text-xs font-semibold uppercase tracking-wider text-red-700">{{ _("Missing / Overdue") }}</span>
+            <p class="text-2xl font-bold text-red-700 mt-1 tnum">{{ overview.summary.total_missing | fa_digits }}</p>
         </div>
     </div>
 
     <!-- Sessions Overview Table -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-slate-900">Occurrences Matrix</h2>
-            <span class="text-xs text-slate-500">{{ overview.sessions|length }} occurrences</span>
+            <h2 class="text-lg font-semibold text-slate-900">{{ _("Occurrences Matrix") }}</h2>
+            <span class="text-xs text-slate-500 tnum">{{ _("{count} occurrences", count=(overview.sessions|length | fa_digits)) }}</span>
         </div>
         {% if overview.sessions %}
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+                <table class="min-w-full divide-y divide-slate-200 text-start text-sm">
                     <thead class="bg-slate-50 text-slate-500 font-semibold text-xs">
                         <tr>
-                            <th class="px-6 py-3">Occurrence / Date</th>
-                            <th class="px-4 py-3">Series</th>
-                            <th class="px-4 py-3">Occurrence Status</th>
-                            <th class="px-4 py-3 text-center">Assigned</th>
-                            <th class="px-4 py-3 text-center">Submitted</th>
-                            <th class="px-4 py-3 text-center">Reviewed</th>
-                            <th class="px-4 py-3 text-center">Awaiting</th>
-                            <th class="px-4 py-3 text-center">Missing</th>
-                            <th class="px-6 py-3 text-right">Actions</th>
+                            <th class="px-6 py-3 text-start">{{ _("Occurrence / Date") }}</th>
+                            <th class="px-4 py-3 text-start">{{ _("Series") }}</th>
+                            <th class="px-4 py-3 text-start">{{ _("Occurrence Status") }}</th>
+                            <th class="px-4 py-3 text-center">{{ _("Assigned") }}</th>
+                            <th class="px-4 py-3 text-center">{{ _("Submitted") }}</th>
+                            <th class="px-4 py-3 text-center">{{ _("Reviewed") }}</th>
+                            <th class="px-4 py-3 text-center">{{ _("Awaiting") }}</th>
+                            <th class="px-4 py-3 text-center">{{ _("Missing") }}</th>
+                            <th class="px-6 py-3 text-end">{{ _("Actions") }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-200">
                         {% for s in overview.sessions %}
                             <tr class="hover:bg-slate-50 transition">
-                                <td class="px-6 py-4 font-semibold text-slate-900 whitespace-nowrap">
-                                    {{ s.date }}
+                                <td class="px-6 py-4 font-semibold text-slate-900 whitespace-nowrap tnum">
+                                    {{ s.date | smart_date if is_rtl() else s.date }}
                                 </td>
                                 <td class="px-4 py-4 text-slate-700 whitespace-nowrap">
                                     {{ s.exam_title }}
                                 </td>
                                 <td class="px-4 py-4 whitespace-nowrap">
                                     {% if s.status == "SCHEDULED" %}
-                                        <span class="px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">Scheduled</span>
+                                        <span class="px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">{{ _("Scheduled") }}</span>
                                     {% elif s.status == "SKIPPED" %}
-                                        <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">No Exam</span>
+                                        <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">{{ _("No Exam") }}</span>
                                     {% elif s.status == "CANCELLED" %}
-                                        <span class="px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">Cancelled</span>
+                                        <span class="px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">{{ _("Cancelled") }}</span>
                                     {% else %}
-                                        <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">{{ s.status }}</span>
+                                        <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">{{ s.status | fa_status }}</span>
                                     {% endif %}
                                 </td>
-                                <td class="px-4 py-4 text-center font-medium text-slate-700">{{ s.assigned_count }}</td>
-                                <td class="px-4 py-4 text-center font-semibold text-emerald-600">{{ s.submitted_count }}</td>
-                                <td class="px-4 py-4 text-center font-semibold text-indigo-600">{{ s.reviewed_count }}</td>
-                                <td class="px-4 py-4 text-center font-semibold text-amber-600">{{ s.awaiting_count }}</td>
-                                <td class="px-4 py-4 text-center font-semibold text-red-600">{{ s.missing_count }}</td>
-                                <td class="px-6 py-4 text-right whitespace-nowrap space-x-2">
-                                    <a href="/tutor/exams/sessions/{{ s.session_id }}/compare" class="text-xs font-semibold text-indigo-600 hover:text-indigo-900">Compare &rarr;</a>
-                                    <a href="/tutor/exams/sessions/{{ s.session_id }}" class="text-xs font-semibold text-slate-600 hover:text-slate-900">Details &rarr;</a>
+                                <td class="px-4 py-4 text-center font-medium text-slate-700 tnum">{{ s.assigned_count | fa_digits }}</td>
+                                <td class="px-4 py-4 text-center font-semibold text-emerald-600 tnum">{{ s.submitted_count | fa_digits }}</td>
+                                <td class="px-4 py-4 text-center font-semibold text-indigo-600 tnum">{{ s.reviewed_count | fa_digits }}</td>
+                                <td class="px-4 py-4 text-center font-semibold text-amber-600 tnum">{{ s.awaiting_count | fa_digits }}</td>
+                                <td class="px-4 py-4 text-center font-semibold text-red-600 tnum">{{ s.missing_count | fa_digits }}</td>
+                                <td class="px-6 py-4 text-end whitespace-nowrap">
+                                    <div class="inline-flex items-center gap-2">
+                                        <a href="/tutor/exams/sessions/{{ s.session_id }}/compare" class="text-xs font-semibold text-indigo-600 hover:text-indigo-900">{{ _("Compare") }} <span class="inline-block rtl:rotate-180">&rarr;</span></a>
+                                        <a href="/tutor/exams/sessions/{{ s.session_id }}" class="text-xs font-semibold text-slate-600 hover:text-slate-900">{{ _("Details") }} <span class="inline-block rtl:rotate-180">&rarr;</span></a>
+                                    </div>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -105,7 +107,7 @@
             </div>
         {% else %}
             <div class="p-8 text-center text-slate-500 text-sm">
-                No exam occurrences found matching the criteria.
+                {{ _("No exam occurrences found matching the criteria.") }}
             </div>
         {% endif %}
     </div>

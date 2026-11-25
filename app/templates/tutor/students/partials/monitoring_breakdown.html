@@ -1,19 +1,21 @@
 <!-- Completion Breakdown by Subject -->
 <div class="space-y-3 pt-2 border-t border-slate-100">
-    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Subject Completion Breakdown</h4>
+    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">{{ _('Subject Completion Breakdown') }}</h4>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {% for sb in pdata.subject_breakdown %}
         <div class="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2">
             <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-slate-900">{{ sb.subject.name }}</span>
-                <span class="text-xs font-bold text-indigo-700">{{ sb.completion_percentage }}%</span>
+                <span class="text-xs font-bold text-indigo-700 tnum">{{ sb.completion_percentage | fa_percent }}</span>
             </div>
             <div class="w-full bg-slate-200 rounded-full h-1.5">
                 <div class="bg-indigo-600 h-1.5 rounded-full" style="width: {{ sb.completion_percentage }}%"></div>
             </div>
             <div class="flex items-center justify-between text-[11px] text-slate-500">
-                <span>{{ sb.completed_tasks }} / {{ sb.total_tasks }} tasks</span>
-                <span>⏱️ {{ sb.formatted_duration }}</span>
+                <span>{{ _('tasks_ratio_short', done=(sb.completed_tasks | fa_digits), total=(sb.total_tasks |
+                    fa_digits)) }}</span>
+                <span class="tnum">⏱️ {{ (sb.total_minutes | fa_duration) if (is_rtl() and sb.total_minutes is defined)
+                    else sb.formatted_duration }}</span>
             </div>
         </div>
         {% endfor %}
@@ -23,8 +25,9 @@
 <!-- 14-Day Daily Completion Progress -->
 <div class="space-y-3 pt-2 border-t border-slate-100">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-        <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Daily Schedule Progress (14 Days)</h4>
-        <span class="text-[11px] text-slate-500">Scheduled workload adherence</span>
+        <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">{{ _('Daily Schedule Progress (14 Days)')
+            }}</h4>
+        <span class="text-[11px] text-slate-500">{{ _('Scheduled workload adherence') }}</span>
     </div>
     <div class="overflow-x-auto pb-1" style="-webkit-overflow-scrolling: touch;">
         <div class="min-w-[460px] sm:min-w-0 grid grid-cols-14 gap-1.5 text-center">
@@ -39,9 +42,11 @@
                 {% else %}
                     bg-slate-50 border-slate-200 text-slate-700
                 {% endif %}">
-                <span class="block font-black text-[10px] text-slate-500">D{{ day.day_num }}</span>
-                <span class="block font-bold text-xs mt-0.5">{{ day.date.strftime('%d') }}</span>
-                <span class="block text-[10px] font-bold mt-1
+                <span class="block font-black text-[10px] text-slate-500">{{ _('day_short', n=(day.day_num | fa_digits))
+                    }}</span>
+                <span class="block font-bold text-xs mt-0.5 tnum">{{ (day.date | smart_date_short) if is_rtl() else
+                    day.date.strftime('%d') }}</span>
+                <span class="block text-[10px] font-bold mt-1 tnum
                     {% if day.total_tasks > 0 and day.completed_tasks == day.total_tasks %}
                         text-emerald-700
                     {% elif day.is_past and day.completed_tasks < day.total_tasks %}
@@ -49,11 +54,10 @@
                     {% else %}
                         text-slate-600
                     {% endif %}">
-                    {{ day.completed_tasks }}/{{ day.total_tasks }}
+                    {{ day.completed_tasks | fa_digits }}/{{ day.total_tasks | fa_digits }}
                 </span>
             </div>
             {% endfor %}
         </div>
     </div>
 </div>
-

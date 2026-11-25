@@ -1,13 +1,16 @@
 {% extends "base.html" %}
-{% block title %}Edit Exam Results - Valhalla Tutor{% endblock %}
+{% block title %}{{ _('Edit Exam Results') }} - {{ _('app_name') }}{% endblock %}
 
 {% block content %}
 <div class="max-w-3xl mx-auto space-y-6">
     <div class="border-b border-slate-200 pb-4">
-        <a href="/student/exams" class="text-sm text-slate-500 hover:text-slate-800 transition">&larr; Back to Exams</a>
-        <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-2">Edit Exam Results</h1>
+        <a href="/student/exams" class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 transition">
+            <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+            <span>{{ _('back_to_exams') }}</span>
+        </a>
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-2">{{ _('Edit Exam Results') }}</h1>
         <p class="text-sm text-slate-500 mt-1">
-            Exam: <strong class="text-slate-800">{{ session.exam.title }}</strong> &bull; Date: {{ session.date }}
+            {{ _('exam_and_date', title=session.exam.title, date=(session.date | smart_date)) }}
         </p>
     </div>
 
@@ -15,47 +18,47 @@
         <div class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">{{ error }}</div>
     {% endif %}
 
-    <form method="POST" action="/student/exams/results/{{ result.id }}/edit" enctype="multipart/form-data" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+    <form method="POST" action="/student/exams/results/{{ result.id }}/edit" enctype="multipart/form-data" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 space-y-6">
         <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4 border-b border-slate-200">
             <div>
-                <label for="overall_rank" class="block text-sm font-semibold text-slate-700">Overall Rank (Optional)</label>
-                <input type="number" id="overall_rank" name="overall_rank" min="1" value="{{ result.overall_rank or '' }}"
-                       class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                <label for="overall_rank" class="block text-sm font-semibold text-slate-700">{{ _('Overall Rank (Optional)') }}</label>
+                <input type="number" id="overall_rank" name="overall_rank" min="1" dir="ltr" value="{{ result.overall_rank or '' }}"
+                       class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-start">
             </div>
             <div>
-                <label for="notes" class="block text-sm font-semibold text-slate-700">Notes / Impressions (Optional)</label>
+                <label for="notes" class="block text-sm font-semibold text-slate-700">{{ _('Notes / Impressions (Optional)') }}</label>
                 <input type="text" id="notes" name="notes" value="{{ result.notes or '' }}"
-                       class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                       class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bidi-auto">
             </div>
         </div>
 
         <div class="pb-4 border-b border-slate-200">
-            <label class="block text-sm font-semibold text-slate-700">Report Card / Result Sheet (کارنامه)</label>
+            <label class="block text-sm font-semibold text-slate-700">{{ _('report_card_sheet') }}</label>
             {% if result.report_card_file_path %}
                 <div class="mt-2 mb-3 flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-100 rounded-lg">
-                    <svg class="w-5 h-5 text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-5 h-5 text-indigo-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
                     <div class="text-xs text-slate-700 truncate">
-                        Attached: <span class="font-medium text-slate-900">{{ result.report_card_file_name or 'report_card' }}</span>
+                        {{ _('Attached:') }} <span class="font-medium text-slate-900 bidi-ltr">{{ result.report_card_file_name or 'report_card' }}</span>
                     </div>
                     <a href="/student/exams/results/{{ result.id }}/report-card" target="_blank"
-                       class="ml-auto inline-flex items-center px-2.5 py-1 text-xs font-medium rounded text-indigo-700 bg-white border border-indigo-200 hover:bg-indigo-50 shadow-sm transition">
-                        Download
+                       class="ms-auto inline-flex items-center px-2.5 py-1 text-xs font-medium rounded text-indigo-700 bg-white border border-indigo-200 hover:bg-indigo-50 shadow-sm transition shrink-0">
+                        {{ _('Download') }}
                     </a>
                 </div>
             {% endif %}
-            <p class="text-xs text-slate-500 mt-0.5 mb-2">{% if result.report_card_file_path %}Upload new file to replace existing attachment{% else %}Attach official institute report card (PDF, PNG, JPG, WEBP - Max 15MB){% endif %}:</p>
+            <p class="text-xs text-slate-500 mt-0.5 mb-2">{% if result.report_card_file_path %}{{ _('Upload new file to replace existing attachment') }}{% else %}{{ _('Attach official institute report card (PDF, PNG, JPG, WEBP - Max 15MB)') }}{% endif %}:</p>
             <input type="file" id="report_card_file" name="report_card_file" accept=".pdf,image/png,image/jpeg,image/webp"
-                   class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer">
+                   class="block w-full text-sm text-slate-500 file:me-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer">
         </div>
 
         <div class="space-y-4">
-            <h3 class="text-base font-bold text-slate-900">Exam Results</h3>
+            <h3 class="text-base font-bold text-slate-900">{{ _('Exam Results') }}</h3>
             {% if group_results %}
-                <p class="text-xs text-slate-500">Edit the percentage achieved for each reporting group according to your exam report card.</p>
+                <p class="text-xs text-slate-500">{{ _('Edit the percentage achieved for each reporting group according to your exam report card.') }}</p>
                 <div class="space-y-3">
                     {% for gr in group_results %}
                         <div class="p-4 bg-slate-50 rounded-lg border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -63,15 +66,15 @@
                                 <span class="font-bold text-slate-900 text-sm block">{{ gr.group_title }}</span>
                                 {% if gr.included_subject_names %}
                                     <span class="text-xs text-indigo-700 mt-1 block">
-                                        شامل دروس: {{ gr.included_subject_names }}
+                                        {{ _('including_subjects') }} {{ gr.included_subject_names }}
                                     </span>
                                 {% endif %}
                             </div>
                             <div class="sm:w-1/2 flex items-center justify-end gap-2">
-                                <label class="text-xs font-semibold text-slate-600">درصد (Percentage):</label>
-                                <div class="relative w-32">
+                                <label class="text-xs font-semibold text-slate-600">{{ _('percentage_label_short') }}</label>
+                                <div class="relative w-32" dir="ltr">
                                     <input type="number" step="0.01" min="0" max="100" name="group_{{ gr.reporting_group_id or gr.id }}_percentage" value="{{ gr.percentage }}" required
-                                           class="block w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm text-center font-bold text-indigo-700 focus:ring-indigo-500 focus:border-indigo-500">
+                                           class="block w-full px-3 py-1.5 pe-6 border border-slate-300 rounded-lg text-sm text-center font-bold text-indigo-700 focus:ring-indigo-500 focus:border-indigo-500">
                                     <span class="absolute right-2 top-1.5 text-xs text-slate-400 font-bold">%</span>
                                 </div>
                             </div>
@@ -79,7 +82,7 @@
                     {% endfor %}
                 </div>
             {% else %}
-                <p class="text-xs text-slate-500">Enter your correct answers, incorrect answers, and percentage for each subject.</p>
+                <p class="text-xs text-slate-500">{{ _('Enter your correct answers, incorrect answers, and percentage for each subject.') }}</p>
                 <div class="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
                     {% for sub in subjects %}
                         {% set sr = sub_res_map.get(sub.id) %}
@@ -89,18 +92,18 @@
                             </div>
                             <div class="grid grid-cols-3 gap-3 sm:w-2/3">
                                 <div>
-                                    <label class="block text-xs font-medium text-slate-500 mb-1">Correct</label>
-                                    <input type="number" name="correct_{{ sub.id }}" min="0" value="{{ sr.correct_answers if sr else 0 }}" required
+                                    <label class="block text-xs font-medium text-slate-500 mb-1">{{ _('Correct') }}</label>
+                                    <input type="number" name="correct_{{ sub.id }}" min="0" value="{{ sr.correct_answers if sr else 0 }}" required dir="ltr"
                                            class="block w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-sm text-center focus:ring-indigo-500 focus:border-indigo-500">
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-medium text-slate-500 mb-1">Incorrect</label>
-                                    <input type="number" name="incorrect_{{ sub.id }}" min="0" value="{{ sr.incorrect_answers if sr else 0 }}" required
+                                    <label class="block text-xs font-medium text-slate-500 mb-1">{{ _('Incorrect') }}</label>
+                                    <input type="number" name="incorrect_{{ sub.id }}" min="0" value="{{ sr.incorrect_answers if sr else 0 }}" required dir="ltr"
                                            class="block w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-sm text-center focus:ring-indigo-500 focus:border-indigo-500">
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-medium text-slate-500 mb-1">Percentage %</label>
-                                    <input type="number" step="0.01" min="0" max="100" name="percentage_{{ sub.id }}" value="{{ sr.percentage if sr else 0.0 }}" required
+                                    <label class="block text-xs font-medium text-slate-500 mb-1">{{ _('Percentage %') }}</label>
+                                    <input type="number" step="0.01" min="0" max="100" name="percentage_{{ sub.id }}" value="{{ sr.percentage if sr else 0.0 }}" required dir="ltr"
                                            class="block w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-sm text-center font-bold text-indigo-700 focus:ring-indigo-500 focus:border-indigo-500">
                                 </div>
                             </div>
@@ -110,9 +113,9 @@
             {% endif %}
         </div>
 
-        <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
-            <a href="/student/exams" class="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition">Cancel</a>
-            <button type="submit" class="px-5 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition">Update Exam Results</button>
+        <div class="flex flex-col sm:flex-row items-center justify-end gap-3 pt-4 border-t border-slate-100">
+            <a href="/student/exams" class="min-h-[44px] flex items-center justify-center px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition w-full sm:w-auto text-center">{{ _('cancel') }}</a>
+            <button type="submit" class="min-h-[44px] flex items-center justify-center px-5 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition w-full sm:w-auto">{{ _('Update Exam Results') }}</button>
         </div>
     </form>
 </div>

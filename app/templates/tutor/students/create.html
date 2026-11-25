@@ -1,12 +1,15 @@
 {% extends "base.html" %}
 
-{% block title %}Create Student Account &mdash; Valhalla Tutor{% endblock %}
+{% block title %}{{ _('Create Student Account') }} &mdash; {{ _('app_name') }}{% endblock %}
 
 {% block content %}
 <div class="max-w-2xl mx-auto space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">Add New Student</h1>
-        <a href="/tutor/students" class="text-sm font-semibold text-slate-600 hover:text-slate-900">&larr; Back to Directory</a>
+        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">{{ _('Add New Student') }}</h1>
+        <a href="/tutor/students" class="inline-flex items-center gap-1 text-sm font-semibold text-slate-600 hover:text-slate-900">
+            <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+            <span>{{ _('back_to_directory') }}</span>
+        </a>
     </div>
 
     {% if error %}
@@ -20,56 +23,56 @@
             <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
 
             <div>
-                <label for="full_name" class="block text-sm font-semibold text-slate-700">Full Name</label>
+                <label for="full_name" class="block text-sm font-semibold text-slate-700">{{ _('Full Name') }}</label>
                 <input type="text" id="full_name" name="full_name" required value="{{ full_name or '' }}"
-                    placeholder="e.g. Ali Rezaei"
+                    placeholder="{{ _('example_full_name') }}"
                     class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-base sm:text-sm">
             </div>
 
             <div>
-                <label for="username" class="block text-sm font-semibold text-slate-700">Username</label>
-                <input type="text" id="username" name="username" required value="{{ username or '' }}"
-                    placeholder="e.g. alirezaei"
+                <label for="username" class="block text-sm font-semibold text-slate-700">{{ _('Username') }}</label>
+                <input type="text" id="username" name="username" required dir="ltr" value="{{ username or '' }}"
+                    placeholder="{{ _('example_username') }}"
+                    class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-base sm:text-sm text-start">
+            </div>
+
+            <div>
+                <label for="email" class="block text-sm font-semibold text-slate-700">{{ _('Email Address') }} <span class="text-slate-400 font-normal">{{ _('optional_label') }}</span></label>
+                <input type="email" id="email" name="email" dir="ltr" value="{{ email or '' }}"
+                    placeholder="{{ _('example_email') }}"
                     class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-base sm:text-sm">
             </div>
 
             <div>
-                <label for="email" class="block text-sm font-semibold text-slate-700">Email Address <span class="text-slate-400 font-normal">(optional)</span></label>
-                <input type="email" id="email" name="email" value="{{ email or '' }}"
-                    placeholder="e.g. ali@example.com"
+                <label for="password" class="block text-sm font-semibold text-slate-700">{{ _('Initial Password') }}</label>
+                <input type="password" id="password" name="password" required dir="ltr"
                     class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-base sm:text-sm">
             </div>
 
             <div>
-                <label for="password" class="block text-sm font-semibold text-slate-700">Initial Password</label>
-                <input type="password" id="password" name="password" required
-                    class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-base sm:text-sm">
-            </div>
-
-            <div>
-                <label for="grade" class="block text-sm font-semibold text-slate-700">Academic Grade <span class="text-red-500">*</span></label>
+                <label for="grade" class="block text-sm font-semibold text-slate-700">{{ _('Academic Grade') }} <span class="text-red-500">*</span></label>
                 <select id="grade" name="grade" required
                     class="mt-1 block w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-base sm:text-sm bg-white min-h-[42px]">
-                    <option value="">-- Select Academic Grade --</option>
-                    <option value="10" {% if grade == '10' %}selected{% endif %}>Grade 10</option>
-                    <option value="11" {% if grade == '11' %}selected{% endif %}>Grade 11</option>
-                    <option value="12" {% if grade == '12' %}selected{% endif %}>Grade 12</option>
+                    <option value="">{{ _('select_grade_option') }}</option>
+                    <option value="10" {% if grade == '10' %}selected{% endif %}>{{ _('grade_n', grade=(10 | fa_digits)) }}</option>
+                    <option value="11" {% if grade == '11' %}selected{% endif %}>{{ _('grade_n', grade=(11 | fa_digits)) }}</option>
+                    <option value="12" {% if grade == '12' %}selected{% endif %}>{{ _('grade_n', grade=(12 | fa_digits)) }}</option>
                 </select>
-                <p class="text-xs text-slate-500 mt-1">Used to filter courses, books, and study plan assignments.</p>
+                <p class="text-xs text-slate-500 mt-1">{{ _('Used to filter courses, books, and study plan assignments.') }}</p>
             </div>
 
             <div>
-                <label for="timezone" class="block text-sm font-semibold text-slate-700">Timezone</label>
-                <input type="text" id="timezone" name="timezone" value="{{ timezone or 'Asia/Tehran' }}"
-                    class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-base sm:text-sm">
+                <label for="timezone" class="block text-sm font-semibold text-slate-700">{{ _('Timezone') }}</label>
+                <input type="text" id="timezone" name="timezone" dir="ltr" value="{{ timezone or 'Asia/Tehran' }}"
+                    class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-base sm:text-sm text-start">
             </div>
 
-            <div class="pt-2 flex flex-col sm:flex-row justify-end gap-3 sm:space-x-3">
+            <div class="pt-2 flex flex-col sm:flex-row justify-end gap-3">
                 <a href="/tutor/students" class="min-h-[44px] flex items-center justify-center px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 transition w-full sm:w-auto text-center">
-                    Cancel
+                    {{ _('cancel') }}
                 </a>
                 <button type="submit" class="min-h-[44px] flex items-center justify-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-sm transition w-full sm:w-auto">
-                    Create Account
+                    {{ _('Create Account') }}
                 </button>
             </div>
         </form>

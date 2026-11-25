@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Record Historical Exam - Valhalla Tutor{% endblock %}
+{% block title %}{{ _("Record Historical Exam - Valhalla Tutor") }}{% endblock %}
 
 {% block content %}
 <div class="max-w-3xl mx-auto space-y-6">
     <div class="border-b border-slate-200 pb-4">
-        <a href="/tutor/historical-exams" class="text-sm text-slate-500 hover:text-slate-800 transition">&larr; Back to Historical Records</a>
-        <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-2">Record Historical External Exam</h1>
-        <p class="text-sm text-slate-500 mt-1">Add past external exam results (e.g. قلم‌چی، ماز، گزینه دو، سنجش) with student report card.</p>
+        <a href="/tutor/historical-exams" class="text-sm text-slate-500 hover:text-slate-800 transition"><span class="inline-block rtl:rotate-180">&larr;</span> {{ _("Back to Historical Records") }}</a>
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-2">{{ _("Record Historical External Exam") }}</h1>
+        <p class="text-sm text-slate-500 mt-1">{{ _("Add past external exam results (e.g. قلم‌چی، ماز، گزینه دو، سنجش) with student report card.") }}</p>
     </div>
 
     {% if error %}
@@ -18,78 +18,78 @@
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-                <label for="student_id" class="block text-sm font-semibold text-slate-700">Student *</label>
+                <label for="student_id" class="block text-sm font-semibold text-slate-700">{{ _("Student *") }}</label>
                 <select id="student_id" name="student_id" required class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500">
-                    <option value="">Select Student...</option>
+                    <option value="">{{ _("Select Student...") }}</option>
                     {% for st in students %}
                         <option value="{{ st.id }}" {% if selected_student_id and selected_student_id|string == st.id|string %}selected{% endif %}>{{ st.full_name }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div>
-                <label for="exam_name" class="block text-sm font-semibold text-slate-700">Exam Title / Provider *</label>
-                <input type="text" id="exam_name" name="exam_name" required placeholder="e.g. آزمون قلم‌چی - ۱۸ آبان" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                <label for="exam_name" class="block text-sm font-semibold text-slate-700">{{ _("Exam Title / Provider *") }}</label>
+                <input type="text" id="exam_name" name="exam_name" required placeholder="{{ _('e.g. آزمون قلم‌چی - ۱۸ آبان') }}" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500">
             </div>
             <div>
-                <label for="exam_date" class="block text-sm font-semibold text-slate-700">Exam Date *</label>
-                <input type="date" id="exam_date" name="exam_date" required value="{{ today_date }}" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                <label for="exam_date" class="block text-sm font-semibold text-slate-700">{{ _("Exam Date *") }}</label>
+                <input type="date" id="exam_date" name="exam_date" required value="{{ today_date }}" dir="ltr" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500 text-start">
             </div>
             <div>
-                <label for="grade" class="block text-sm font-semibold text-slate-700">Grade Level</label>
+                <label for="grade" class="block text-sm font-semibold text-slate-700">{{ _("Grade Level") }}</label>
                 <select id="grade" name="grade" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500">
-                    <option value="">Select Grade...</option>
-                    <option value="10">Grade 10 (دهم)</option>
-                    <option value="11">Grade 11 (یازدهم)</option>
-                    <option value="12">Grade 12 (دوازدهم)</option>
-                    <option value="Konkur">Konkur / پشت کنکور</option>
+                    <option value="">{{ _("Select Grade...") }}</option>
+                    <option value="10">{{ _("Grade 10 (دهم)") }}</option>
+                    <option value="11">{{ _("Grade 11 (یازدهم)") }}</option>
+                    <option value="12">{{ _("Grade 12 (دوازدهم)") }}</option>
+                    <option value="Konkur">{{ _("Konkur / پشت کنکور") }}</option>
                 </select>
             </div>
             <div>
-                <label for="academic_track_id" class="block text-sm font-semibold text-slate-700">Academic Track</label>
+                <label for="academic_track_id" class="block text-sm font-semibold text-slate-700">{{ _("Academic Track") }}</label>
                 <select id="academic_track_id" name="academic_track_id" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500">
-                    <option value="">Select Track (Optional)...</option>
+                    <option value="">{{ _("Select Track (Optional)...") }}</option>
                     {% for tr in tracks %}
                         <option value="{{ tr.id }}">{{ tr.name }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div>
-                <label for="overall_rank" class="block text-sm font-semibold text-slate-700">Overall Rank (رتبه کل)</label>
-                <input type="number" id="overall_rank" name="overall_rank" min="1" placeholder="e.g. 1420" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                <label for="overall_rank" class="block text-sm font-semibold text-slate-700">{{ _("Overall Rank (رتبه کل)") }}</label>
+                <input type="number" id="overall_rank" name="overall_rank" min="1" placeholder="{{ _('e.g. 1420') }}" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500 tnum">
             </div>
         </div>
 
         <div>
-            <label for="report_card_file" class="block text-sm font-semibold text-slate-700">Report Card / Result Sheet (کارنامه)</label>
-            <p class="text-xs text-slate-500 mt-0.5 mb-2">Attach student's official report card (PDF, PNG, JPG, WEBP - Max 15MB).</p>
+            <label for="report_card_file" class="block text-sm font-semibold text-slate-700">{{ _("Report Card / Result Sheet (کارنامه)") }}</label>
+            <p class="text-xs text-slate-500 mt-0.5 mb-2">{% if is_rtl() %}{{ _("Attach student's official report card (PDF, PNG, JPG, WEBP - Max 15MB).") }}{% else %}Attach student's official report card (PDF, PNG, JPG, WEBP - Max 15MB).{% endif %}</p>
             <input type="file" id="report_card_file" name="report_card_file" accept=".pdf,image/png,image/jpeg,image/webp"
-                   class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer">
+                   class="block w-full text-sm text-slate-500 file:me-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer">
         </div>
 
         <div>
-            <label for="notes" class="block text-sm font-semibold text-slate-700">Tutor / Student Notes</label>
-            <textarea id="notes" name="notes" rows="2" placeholder="e.g. نتایج آزمون جامع ورودی به دوره مشاوره" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+            <label for="notes" class="block text-sm font-semibold text-slate-700">{{ _("Tutor / Student Notes") }}</label>
+            <textarea id="notes" name="notes" rows="2" placeholder="{{ _('e.g. نتایج آزمون جامع ورودی به دوره مشاوره') }}" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
         </div>
 
         <div class="space-y-3 pt-4 border-t border-slate-200">
-            <h3 class="text-base font-bold text-slate-900">Subject Percentages (درصدهای دروس)</h3>
-            <p class="text-xs text-slate-500">Enter percentage for each subject included in this past exam. Leave empty if subject was not part of the exam.</p>
+            <h3 class="text-base font-bold text-slate-900">{{ _("Subject Percentages (درصدهای دروس)") }}</h3>
+            <p class="text-xs text-slate-500">{{ _("Enter percentage for each subject included in this past exam. Leave empty if subject was not part of the exam.") }}</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-80 overflow-y-auto p-1">
                 {% for sub in subjects %}
                     <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-                        <span class="text-xs font-semibold text-slate-700 truncate mr-2">{{ sub.name }}</span>
+                        <span class="text-xs font-semibold text-slate-700 truncate me-2">{{ sub.name }}</span>
                         <input type="hidden" name="sub_name_{{ sub.id }}" value="{{ sub.name }}">
                         <div class="w-24 flex items-center">
-                            <input type="number" step="0.1" min="0" max="100" name="sub_pct_{{ sub.id }}" placeholder="— %" class="block w-full px-2 py-1 text-xs text-center border border-slate-300 rounded focus:ring-indigo-500 focus:border-indigo-500">
+                            <input type="number" step="0.1" min="0" max="100" name="sub_pct_{{ sub.id }}" placeholder="— %" class="block w-full px-2 py-1 text-xs text-center border border-slate-300 rounded focus:ring-indigo-500 focus:border-indigo-500 tnum">
                         </div>
                     </div>
                 {% endfor %}
             </div>
         </div>
 
-        <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-200">
-            <a href="/tutor/historical-exams" class="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition">Cancel</a>
-            <button type="submit" class="px-5 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition">Save Historical Result</button>
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+            <a href="/tutor/historical-exams" class="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition">{{ _("Cancel") }}</a>
+            <button type="submit" class="px-5 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition">{{ _("Save Historical Result") }}</button>
         </div>
     </form>
 </div>

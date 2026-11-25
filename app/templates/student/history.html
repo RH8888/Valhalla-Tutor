@@ -1,57 +1,57 @@
 {% extends "base.html" %}
 
-{% block title %}Completion History &mdash; Valhalla Tutor{% endblock %}
+{% block title %}{{ _('Completion History') }} &mdash; {{ _('app_name') }}{% endblock %}
 
 {% block content %}
 <div class="max-w-5xl mx-auto space-y-6 pb-16">
     {% set active_plan_tab = 'completion' %}
     {% include "partials/plan_tabs.html" %}
 
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-            <h1 class="text-2xl font-black text-slate-900 tracking-tight">Task Completion History</h1>
-            <p class="text-xs text-slate-500 mt-1">Review all your completed study tasks and recorded timestamps.</p>
+            <h1 class="text-2xl font-black text-slate-900 tracking-tight">{{ _('Task Completion History') }}</h1>
+            <p class="text-xs text-slate-500 mt-1">{{ _('Review all your completed study tasks and recorded timestamps.') }}</p>
         </div>
-        <a href="/student/dashboard" class="text-xs font-bold text-indigo-600 hover:text-indigo-800">
-            &larr; Back to Dashboard
+        <a href="/student/dashboard" class="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800">
+            <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+            <span>{{ _('back_to_dashboard') }}</span>
         </a>
     </div>
 
     <!-- Clarification Note regarding Recommended Duration vs Actual Completion -->
-    <div class="bg-indigo-50/70 border border-indigo-200/80 rounded-2xl p-4 flex items-start space-x-3 text-xs text-indigo-900">
+    <div class="bg-indigo-50/70 border border-indigo-200/80 rounded-2xl p-4 flex items-start gap-3 text-xs text-indigo-900">
         <span class="text-base">💡</span>
         <div>
-            <span class="font-bold">Understanding Your Study Metrics:</span>
+            <span class="font-bold">{{ _('Understanding Your Study Metrics:') }}</span>
             <p class="mt-0.5 text-indigo-800 leading-relaxed">
-                <strong>Recommended duration</strong> reflects the target study effort assigned by your syllabus or estimated historical average. 
-                <strong>Completion timestamp</strong> records the exact date and time you marked the assignment complete. Recommended duration does not represent the actual elapsed minutes spent studying.
+                {{ _('Recommended duration reflects the target study effort assigned by your syllabus or estimated historical average. Completion timestamp records the exact date and time you marked the assignment complete.') }}
             </p>
         </div>
     </div>
 
     <!-- Completed Tasks List -->
     <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-            <h2 class="text-base font-black text-slate-900">Completed Assignments ({{ completed_tasks|length }})</h2>
-            <span class="text-xs text-slate-400">Sorted by completion date (newest first)</span>
+        <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-base font-black text-slate-900">{{ _('completed_assignments_count', count=(completed_tasks|length | fa_digits)) }}</h2>
+            <span class="text-xs text-slate-400">{{ _('Sorted by completion date (newest first)') }}</span>
         </div>
 
         {% if completed_tasks %}
         <div class="divide-y divide-slate-100">
             {% for task in completed_tasks %}
             <div class="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/60 transition">
-                <div class="flex items-start space-x-3.5 flex-1 min-w-0">
+                <div class="flex items-start gap-3.5 flex-1 min-w-0">
                     <span class="text-2xl shrink-0 mt-0.5">
                         {% if task.task_type == 'VIDEO' %}🎥{% elif task.task_type == 'TEST' %}📝{% else %}📌{% endif %}
                     </span>
                     <div class="min-w-0 flex-1">
-                        <div class="flex items-center space-x-2 flex-wrap gap-y-1">
+                        <div class="flex items-center gap-2 flex-wrap">
                             <h3 class="font-bold text-sm text-slate-900 truncate">{{ task.title }}</h3>
                             <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider
                                 {% if task.task_type == 'VIDEO' %}bg-blue-100 text-blue-800
                                 {% elif task.task_type == 'TEST' %}bg-amber-100 text-amber-800
                                 {% else %}bg-purple-100 text-purple-800{% endif %}">
-                                {{ task.task_type }}
+                                {% if task.task_type == 'VIDEO' %}{{ _('task_type_video') }}{% elif task.task_type == 'TEST' %}{{ _('task_type_test') }}{% else %}{{ _('task_type_custom') }}{% endif %}
                             </span>
                             <span class="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[11px] font-bold">
                                 {{ task.subject.name }}
@@ -61,21 +61,21 @@
                         <p class="text-xs text-slate-500 mt-1 line-clamp-1">{{ task.description }}</p>
                         {% endif %}
                         <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 mt-1.5 font-medium">
-                            <span class="text-indigo-700 font-bold">⏱️ Recommended: {{ task.recommended_duration_minutes }}m</span>
+                            <span class="text-indigo-700 font-bold tnum">⏱️ {{ _('recommended_prefix') }} {{ task.recommended_duration_minutes | fa_duration }}</span>
                             {% if task.actual_duration_minutes %}
                             <span>&bull;</span>
-                            <span class="text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Reported study time: {{ task.actual_duration_minutes }}m</span>
+                            <span class="text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 tnum">{{ _('reported_study_time_prefix') }} {{ task.actual_duration_minutes | fa_duration }}</span>
                             {% endif %}
                             <span>&bull;</span>
-                            <span>Scheduled: {{ task.scheduled_date.strftime('%a, %b %d') }}</span>
+                            <span>{{ _('scheduled_prefix') }} {{ task.scheduled_date | smart_weekday }}، {{ task.scheduled_date | smart_date_short }}</span>
                         </div>
                     </div>
                 </div>
 
-                <div class="sm:text-right shrink-0 bg-slate-50 sm:bg-transparent p-2.5 sm:p-0 rounded-xl">
-                    <span class="text-[11px] font-bold text-emerald-700 block">✓ Completed On</span>
-                    <span class="text-xs font-black text-slate-800 block mt-0.5">
-                        {{ task.completed_at.strftime('%Y-%m-%d at %H:%M') if task.completed_at else 'Completed' }}
+                <div class="sm:text-end shrink-0 bg-slate-50 sm:bg-transparent p-2.5 sm:p-0 rounded-xl">
+                    <span class="text-[11px] font-bold text-emerald-700 block">✓ {{ _('completed_on') }}</span>
+                    <span class="text-xs font-black text-slate-800 block mt-0.5 tnum">
+                        {{ task.completed_at | local_dt if task.completed_at else _('Completed') }}
                     </span>
                 </div>
             </div>

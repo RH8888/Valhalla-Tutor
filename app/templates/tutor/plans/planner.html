@@ -1,62 +1,65 @@
 {% extends "base.html" %}
 
-{% block title %}{{ plan.title }} &mdash; 14-Day Visual Planner{% endblock %}
+{% block title %}{{ plan.title }} &mdash; {{ _('14-Day Visual Planner') }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6 max-w-[1440px] mx-auto pb-16">
     <!-- Top Action Bar -->
     <div class="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-            <div class="flex items-center space-x-3 flex-wrap gap-y-2">
-                <a href="/tutor/students/{{ student.id }}/plans" class="text-sm font-semibold text-slate-500 hover:text-slate-800">&larr; Plans</a>
+            <div class="flex items-center gap-3 flex-wrap">
+                <a href="/tutor/students/{{ student.id }}/plans" class="inline-flex items-center gap-1 text-sm font-semibold text-slate-500 hover:text-slate-800">
+                    <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                    <span>{{ _('plans_link') }}</span>
+                </a>
                 <span class="text-slate-300">/</span>
                 <h1 class="text-2xl font-black tracking-tight text-slate-900">{{ student.full_name }}</h1>
-                <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">@{{ student.username }}</span>
+                <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 bidi-ltr" dir="ltr">@{{ student.username }}</span>
                 {% if student.grade %}
-                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">Grade {{ student.grade }}</span>
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">{{ _('grade_n', grade=(student.grade | fa_digits)) }}</span>
                 {% else %}
-                    <a href="/tutor/students/{{ student.id }}" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200" title="Click to assign student grade in profile">⚠️ Assign Grade</a>
+                    <a href="/tutor/students/{{ student.id }}" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200" title="{{ _('click_assign_grade_title') }}">⚠️ {{ _('assign_grade_badge') }}</a>
                 {% endif %}
                 {% if plan.status == "PUBLISHED" %}
                     <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        ● Active Published Plan
+                        ● {{ _('Active Published Plan') }}
                     </span>
                 {% elif plan.status == "DRAFT" %}
                     <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                        ✎ Draft Plan
+                        ✎ {{ _('Draft Plan') }}
                     </span>
                 {% else %}
                     <span class="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                        Archived Plan
+                        {{ _('Archived Plan') }}
                     </span>
                 {% endif %}
             </div>
             <p class="text-sm text-slate-500 mt-1">
-                <strong>{{ plan.title }}</strong> &bull; {{ plan.start_date.strftime('%a, %b %d') }} to {{ plan.end_date.strftime('%a, %b %d, %Y') }} (14 calendar days)
+                <strong>{{ plan.title }}</strong> &bull; {{ plan.start_date | smart_date_short }} &mdash; {{ plan.end_date | smart_date }} {{ _('plan_14_days_suffix') }}
             </p>
         </div>
 
-        <div class="flex items-center space-x-3 flex-wrap gap-y-2">
+        <div class="flex items-center gap-3 flex-wrap">
             <!-- Total Recommended Time Badge -->
             <div class="px-4 py-2 bg-indigo-50 border border-indigo-200 rounded-xl text-center">
-                <span class="block text-[11px] font-bold text-indigo-600 uppercase tracking-wider">Plan Total Study Time</span>
-                <span class="text-base font-black text-indigo-950">{{ plan_total_formatted }}</span>
+                <span class="block text-[11px] font-bold text-indigo-600 uppercase tracking-wider">{{ _('Plan Total Study Time') }}</span>
+                <span class="text-base font-black text-indigo-950 tnum">{{ (plan_total | fa_duration) if is_rtl() else plan_total_formatted }}</span>
             </div>
 
             {% if plan.status == "DRAFT" %}
                 <form method="POST" action="/tutor/plans/{{ plan.id }}/publish" class="inline">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
-                    <button type="submit" data-confirm="Publish this plan for {{ student.full_name }}? Any currently active published plan will be archived."
-                        class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-sm transition flex items-center space-x-2">
-                        <span>🚀 Publish Plan</span>
+                    <button type="submit" data-confirm="{{ _('publish_plan_confirm', name=student.full_name) }}"
+                        class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-sm transition flex items-center gap-2">
+                        <span>🚀 {{ _('Publish Plan') }}</span>
                     </button>
                 </form>
             {% elif plan.status == "PUBLISHED" %}
                 <form method="POST" action="/tutor/plans/{{ plan.id }}/archive" class="inline">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
-                    <button type="submit" data-confirm="Archive this published plan? The student will no longer see it as active."
+                    <button type="submit" data-confirm="{{ _('archive_plan_confirm') }}"
                         class="px-4 py-2.5 bg-slate-700 hover:bg-slate-800 text-white rounded-xl text-sm font-bold shadow-sm transition">
-                        Archive Plan
+                        {{ _('Archive Plan') }}
                     </button>
                 </form>
             {% endif %}
@@ -64,9 +67,9 @@
             {% if plan.status == "DRAFT" %}
                 <form method="POST" action="/tutor/plans/{{ plan.id }}/delete" class="inline">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
-                    <button type="submit" data-confirm="Delete this draft plan permanently?"
+                    <button type="submit" data-confirm="{{ _('delete_draft_confirm') }}"
                         class="px-3.5 py-2.5 border border-red-300 text-red-600 hover:bg-red-50 rounded-xl text-sm font-semibold transition">
-                        Delete Draft
+                        {{ _('Delete Draft') }}
                     </button>
                 </form>
             {% endif %}
@@ -75,26 +78,26 @@
 
     <!-- 14-Day Visual Planning Grid (iPad & Desktop optimized) -->
     <div class="bg-white shadow-sm rounded-2xl border border-slate-200 overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-200 text-left border-collapse">
+        <table class="min-w-full divide-y divide-slate-200 text-start border-collapse">
             <thead class="bg-slate-50 sticky top-0 z-10 shadow-xs">
                 <tr>
                     <!-- Date Column Header -->
-                    <th scope="col" class="py-4 px-4 w-44 min-w-[176px] text-xs font-bold text-slate-700 uppercase tracking-wider border-r border-slate-200 bg-slate-100">
-                        Date &amp; Weekday
+                    <th scope="col" class="py-4 px-4 w-44 min-w-[176px] text-xs font-bold text-slate-700 uppercase tracking-wider border-e border-slate-200 bg-slate-100 text-start">
+                        {{ _('Date & Weekday') }}
                     </th>
                     <!-- Subject Column Headers -->
                     {% for subj in effective_subjects %}
-                    <th scope="col" class="py-4 px-4 min-w-[240px] text-xs font-bold text-slate-800 uppercase tracking-wider border-r border-slate-200 last:border-r-0">
-                        <div class="flex items-center justify-between">
+                    <th scope="col" class="py-4 px-4 min-w-[240px] text-xs font-bold text-slate-800 uppercase tracking-wider border-e border-slate-200 last:border-e-0 text-start">
+                        <div class="flex items-center justify-between gap-2">
                             <span class="text-sm font-black text-slate-900">{{ subj.name }}</span>
-                            <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
-                                {{ subject_totals_formatted[subj.id] }}
+                            <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 tnum">
+                                {{ (subject_totals[subj.id] | fa_duration) if is_rtl() else subject_totals_formatted[subj.id] }}
                             </span>
                         </div>
                     </th>
                     {% else %}
-                    <th class="py-4 px-4 text-xs font-semibold text-slate-400">
-                        No active subjects configured for this student.
+                    <th class="py-4 px-4 text-xs font-semibold text-slate-400 text-start">
+                        {{ _('No active subjects configured for this student.') }}
                     </th>
                     {% endfor %}
                 </tr>
@@ -103,16 +106,16 @@
                 {% for d in days %}
                 <tr class="hover:bg-slate-50/60 transition group">
                     <!-- Date Column -->
-                    <td class="py-4 px-4 align-top border-r border-slate-200 bg-slate-50/50">
+                    <td class="py-4 px-4 align-top border-e border-slate-200 bg-slate-50/50">
                         <div class="font-extrabold text-sm text-slate-900">
-                            Day {{ loop.index }}
+                            {{ _('day_label') }} {{ loop.index | fa_digits }}
                         </div>
                         <div class="text-xs font-medium text-slate-600 mt-0.5">
-                            {{ d.strftime('%a, %b %d') }}
+                            {{ d | smart_weekday }} &bull; {{ d | smart_date_short }}
                         </div>
                         <div class="mt-2.5">
-                            <span class="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-bold {% if daily_totals[d] > 0 %}bg-indigo-100 text-indigo-800 border border-indigo-200{% else %}bg-slate-100 text-slate-400{% endif %}">
-                                ⏱️ {{ daily_totals_formatted[d] }}
+                            <span class="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-bold tnum {% if daily_totals[d] > 0 %}bg-indigo-100 text-indigo-800 border border-indigo-200{% else %}bg-slate-100 text-slate-400{% endif %}">
+                                ⏱️ {{ (daily_totals[d] | fa_duration) if is_rtl() else daily_totals_formatted[d] }}
                             </span>
                         </div>
                     </td>
@@ -120,7 +123,7 @@
                     <!-- Subject Cells -->
                     {% for subj in effective_subjects %}
                     {% set cell_tasks = assignments_by_cell.get((d, subj.id), []) %}
-                    <td class="p-3 align-top border-r border-slate-200 last:border-r-0 min-h-[120px]">
+                    <td class="p-3 align-top border-e border-slate-200 last:border-e-0 min-h-[120px]">
                         <div class="space-y-2">
                             <!-- Tasks inside this cell -->
                             {% for task in cell_tasks %}
@@ -134,7 +137,7 @@
                                 {% endif %}">
                                 
                                 <div class="flex items-start justify-between gap-1">
-                                    <div class="flex items-center space-x-1.5 flex-1 min-w-0">
+                                    <div class="flex items-center gap-1.5 flex-1 min-w-0">
                                         <span class="text-sm">
                                             {% if task.task_type == 'VIDEO' %}🎥{% elif task.task_type == 'TEST' %}📝{% else %}📌{% endif %}
                                         </span>
@@ -143,19 +146,19 @@
                                         </h4>
                                     </div>
                                     <!-- Reorder arrows -->
-                                    <div class="flex items-center space-x-0.5">
+                                    <div class="flex items-center gap-0.5">
                                         {% if not loop.first %}
                                         <form method="POST" action="/tutor/plans/assignments/{{ task.id }}/reorder" class="inline">
                                             <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                                             <input type="hidden" name="direction" value="up">
-                                            <button type="submit" class="p-1 text-slate-400 hover:text-slate-700 text-xs rounded" title="Move Up">▲</button>
+                                            <button type="submit" class="p-1 text-slate-400 hover:text-slate-700 text-xs rounded" title="{{ _('move_up_title') }}">▲</button>
                                         </form>
                                         {% endif %}
                                         {% if not loop.last %}
                                         <form method="POST" action="/tutor/plans/assignments/{{ task.id }}/reorder" class="inline">
                                             <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                                             <input type="hidden" name="direction" value="down">
-                                            <button type="submit" class="p-1 text-slate-400 hover:text-slate-700 text-xs rounded" title="Move Down">▼</button>
+                                            <button type="submit" class="p-1 text-slate-400 hover:text-slate-700 text-xs rounded" title="{{ _('move_down_title') }}">▼</button>
                                         </form>
                                         {% endif %}
                                     </div>
@@ -166,16 +169,16 @@
                                 {% endif %}
 
                                 <div class="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
-                                    <div class="flex items-center space-x-1.5">
-                                        <span class="font-bold text-slate-800">⏱️ {{ task.recommended_duration_minutes }}m</span>
+                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                        <span class="font-bold text-slate-800 tnum">⏱️ {{ task.recommended_duration_minutes | fa_duration }}</span>
                                         {% if task.is_estimated %}
-                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-700" title="Suggested from historical data">
-                                            📊 est
+                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-700" title="{{ _('estimated_from_history_title') }}">
+                                            📊 {{ _('est_badge') }}
                                         </span>
                                         {% endif %}
                                         {% if task.is_completed %}
                                         <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                                            ✓ Done
+                                            ✓ {{ _('done_short') }}
                                         </span>
                                         {% endif %}
                                     </div>
@@ -183,8 +186,9 @@
                                         hx-get="/tutor/plans/assignments/{{ task.id }}/edit"
                                         hx-target="#edit-modal-content"
                                         onclick="openEditModal()"
-                                        class="text-indigo-600 hover:text-indigo-800 font-bold px-1.5 py-0.5 rounded hover:bg-white/80 transition">
-                                        Edit &rarr;
+                                        class="inline-flex items-center gap-0.5 text-indigo-600 hover:text-indigo-800 font-bold px-1.5 py-0.5 rounded hover:bg-white/80 transition shrink-0">
+                                        <span>{{ _('edit') }}</span>
+                                        <svg class="w-3 h-3 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                                     </button>
                                 </div>
                             </div>
@@ -192,13 +196,13 @@
 
                             <!-- Add Task Target Button (Large tap target for Apple Pencil / Touch) -->
                             <button type="button"
-                                class="add-task-btn w-full min-h-[44px] py-2 px-3 border border-dashed border-slate-300 hover:border-indigo-400 rounded-xl text-xs font-semibold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50/50 flex items-center justify-center space-x-1.5 transition active:scale-[0.98]"
+                                class="add-task-btn w-full min-h-[44px] py-2 px-3 border border-dashed border-slate-300 hover:border-indigo-400 rounded-xl text-xs font-semibold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50/50 flex items-center justify-center gap-1.5 transition active:scale-[0.98]"
                                 data-iso-date="{{ d.isoformat() }}"
                                 data-subject-id="{{ subj.id }}"
                                 data-subject-name="{{ subj.name }}"
-                                data-date-formatted="Day {{ loop.index }} &bull; {{ d.strftime('%a, %b %d') }}">
+                                data-date-formatted="{{ _('day_n_bullet_date', n=(loop.index | fa_digits), date=((d | smart_weekday) ~ ' ' ~ (d | smart_date_short))) }}">
                                 <span>+</span>
-                                <span>Add Task</span>
+                                <span>{{ _('Add Task') }}</span>
                             </button>
                         </div>
                     </td>
@@ -214,29 +218,29 @@
         <div class="bg-white rounded-3xl shadow-2xl max-w-xl w-full max-h-[92vh] overflow-y-auto border border-slate-200">
             <div class="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
                 <div>
-                    <h3 class="text-base sm:text-lg font-black text-slate-900" id="modal-title">Add Study Task</h3>
-                    <p class="text-xs text-slate-500 mt-0.5" id="modal-subtitle">Configure assignment details and duration</p>
+                    <h3 class="text-base sm:text-lg font-black text-slate-900" id="modal-title">{{ _('add_study_task_title') }}</h3>
+                    <p class="text-xs text-slate-500 mt-0.5" id="modal-subtitle">{{ _('add_study_task_subtitle') }}</p>
                 </div>
                 <button type="button" onclick="closeAddTaskModal()" class="text-slate-400 hover:text-slate-600 text-2xl p-1 rounded-lg leading-none min-h-[44px] min-w-[44px] flex items-center justify-center">&times;</button>
             </div>
 
             <!-- Task Type Tabs -->
             <div class="px-4 sm:px-6 pt-4">
-                <div class="flex rounded-xl bg-slate-100 p-1 space-x-1 text-xs font-bold text-slate-600">
+                <div class="flex rounded-xl bg-slate-100 p-1 gap-1 text-xs font-bold text-slate-600">
                     <button type="button" id="tab-btn-video" onclick="switchTaskTab('VIDEO')"
-                        class="flex-1 min-h-[40px] py-2 rounded-lg text-center transition bg-white text-indigo-700 shadow-xs flex items-center justify-center space-x-1">
+                        class="flex-1 min-h-[40px] py-2 rounded-lg text-center transition bg-white text-indigo-700 shadow-xs flex items-center justify-center gap-1">
                         <span>🎥</span>
-                        <span>Video Course</span>
+                        <span>{{ _('video_course_tab') }}</span>
                     </button>
                     <button type="button" id="tab-btn-test" onclick="switchTaskTab('TEST')"
-                        class="flex-1 min-h-[40px] py-2 rounded-lg text-center transition hover:text-slate-900 flex items-center justify-center space-x-1">
+                        class="flex-1 min-h-[40px] py-2 rounded-lg text-center transition hover:text-slate-900 flex items-center justify-center gap-1">
                         <span>📝</span>
-                        <span>Book / Tests</span>
+                        <span>{{ _('book_tests_tab') }}</span>
                     </button>
                     <button type="button" id="tab-btn-custom" onclick="switchTaskTab('CUSTOM')"
-                        class="flex-1 min-h-[40px] py-2 rounded-lg text-center transition hover:text-slate-900 flex items-center justify-center space-x-1">
+                        class="flex-1 min-h-[40px] py-2 rounded-lg text-center transition hover:text-slate-900 flex items-center justify-center gap-1">
                         <span>📌</span>
-                        <span>Custom Task</span>
+                        <span>{{ _('custom_task_tab') }}</span>
                     </button>
                 </div>
             </div>
@@ -253,34 +257,34 @@
                     <input type="hidden" name="estimated_duration_minutes" id="video-estimated-duration-input" value="">
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Course / Teacher</label>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{{ _('course_teacher_label') }}</label>
                         <select name="course_id" id="course-select" required
                             onchange="fetchCourseChapters(this.value)"
                             class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-indigo-500 focus:border-indigo-500 font-medium bg-white">
-                            <option value="">-- Select Course --</option>
+                            <option value="">{{ _('js_select_course_opt') }}</option>
                         </select>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Chapter</label>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{{ _('Chapter') }}</label>
                         <select name="course_chapter_id" id="course-chapter-select" required
                             class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-indigo-500 focus:border-indigo-500 font-medium bg-white">
-                            <option value="">-- Select Chapter --</option>
+                            <option value="">{{ _('js_select_chapter_opt') }}</option>
                         </select>
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Start Video #</label>
-                            <input type="number" name="video_start_num" id="video-start-num" min="1" value="1"
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{{ _('start_video_num') }}</label>
+                            <input type="number" name="video_start_num" id="video-start-num" min="1" value="1" dir="ltr"
                                 oninput="recalcVideoEstimate()"
-                                class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm font-medium">
+                                class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm font-medium text-center">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">End Video #</label>
-                            <input type="number" name="video_end_num" id="video-end-num" min="1" value="1"
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{{ _('end_video_num') }}</label>
+                            <input type="number" name="video_end_num" id="video-end-num" min="1" value="1" dir="ltr"
                                 oninput="recalcVideoEstimate()"
-                                class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm font-medium">
+                                class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm font-medium text-center">
                         </div>
                     </div>
 
@@ -288,15 +292,15 @@
                     <div id="video-estimate-container"></div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Recommended Duration (Minutes)</label>
-                        <input type="number" name="recommended_duration_minutes" id="video-duration-input" min="1" required
-                            placeholder="e.g. 60"
-                            class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:ring-indigo-500 focus:border-indigo-500">
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{{ _('Recommended Duration (Minutes)') }}</label>
+                        <input type="number" name="recommended_duration_minutes" id="video-duration-input" min="1" required dir="ltr"
+                            placeholder="60"
+                            class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:ring-indigo-500 focus:border-indigo-500 text-start">
                     </div>
 
                     <button type="submit"
                         class="w-full min-h-[44px] py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-md transition">
-                        Add Video Assignment
+                        {{ _('add_video_assignment_btn') }}
                     </button>
                 </form>
 
@@ -310,35 +314,35 @@
                     <input type="hidden" name="estimated_duration_minutes" id="test-estimated-duration-input" value="">
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Book</label>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{{ _('Book') }}</label>
                         <select name="book_id" id="book-select" required
                             onchange="fetchBookChapters(this.value)"
                             class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-amber-500 focus:border-amber-500 font-medium bg-white">
-                            <option value="">-- Select Book --</option>
+                            <option value="">{{ _('js_select_book_opt') }}</option>
                         </select>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Chapter</label>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{{ _('Chapter') }}</label>
                         <select name="book_chapter_id" id="book-chapter-select" required
                             onchange="recalcTestEstimate()"
                             class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-amber-500 focus:border-amber-500 font-medium bg-white">
-                            <option value="">-- Select Chapter --</option>
+                            <option value="">{{ _('js_select_chapter_opt') }}</option>
                         </select>
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Start Test #</label>
-                            <input type="number" name="test_start_num" id="test-start-num" min="1" value="1" required
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{{ _('start_test_num') }}</label>
+                            <input type="number" name="test_start_num" id="test-start-num" min="1" value="1" required dir="ltr"
                                 oninput="recalcTestEstimate()"
-                                class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm font-medium">
+                                class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm font-medium text-center">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">End Test #</label>
-                            <input type="number" name="test_end_num" id="test-end-num" min="1" value="1" required
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{{ _('end_test_num') }}</label>
+                            <input type="number" name="test_end_num" id="test-end-num" min="1" value="1" required dir="ltr"
                                 oninput="recalcTestEstimate()"
-                                class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm font-medium">
+                                class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm font-medium text-center">
                         </div>
                     </div>
 
@@ -346,15 +350,15 @@
                     <div id="test-estimate-container"></div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Recommended Duration (Minutes)</label>
-                        <input type="number" name="recommended_duration_minutes" id="test-duration-input" min="1" required
-                            placeholder="e.g. 90"
-                            class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:ring-amber-500 focus:border-amber-500">
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{{ _('Recommended Duration (Minutes)') }}</label>
+                        <input type="number" name="recommended_duration_minutes" id="test-duration-input" min="1" required dir="ltr"
+                            placeholder="90"
+                            class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:ring-amber-500 focus:border-amber-500 text-start">
                     </div>
 
                     <button type="submit"
                         class="w-full min-h-[44px] py-3 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-bold shadow-md transition">
-                        Add Test Assignment
+                        {{ _('add_test_assignment_btn') }}
                     </button>
                 </form>
 
@@ -366,30 +370,30 @@
                     <input type="hidden" name="subject_id" id="custom-subject-id">
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Task Title</label>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{{ _('Task Title') }}</label>
                         <input type="text" name="title" required
-                            placeholder="e.g. Review yesterday's exam, Read pages 40-55"
+                            placeholder="{{ _('custom_task_example') }}"
                             class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm font-medium focus:ring-purple-500 focus:border-purple-500">
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Recommended Duration (Minutes)</label>
-                        <input type="number" name="recommended_duration_minutes" min="1" required
-                            placeholder="e.g. 45"
-                            class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:ring-purple-500 focus:border-purple-500">
-                        <p class="text-[11px] text-slate-500 mt-1">Manual duration required for custom tasks.</p>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{{ _('Recommended Duration (Minutes)') }}</label>
+                        <input type="number" name="recommended_duration_minutes" min="1" required dir="ltr"
+                            placeholder="45"
+                            class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:ring-purple-500 focus:border-purple-500 text-start">
+                        <p class="text-[11px] text-slate-500 mt-1">{{ _('Manual duration required for custom tasks.') }}</p>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Description / Notes (Optional)</label>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{{ _('Description / Notes (Optional)') }}</label>
                         <textarea name="description" rows="2"
-                            placeholder="Specific instructions or problem numbers..."
-                            class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-purple-500 focus:border-purple-500"></textarea>
+                            placeholder="{{ _('custom_notes_example') }}"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-purple-500 focus:border-purple-500 bidi-auto"></textarea>
                     </div>
 
                     <button type="submit"
                         class="w-full min-h-[44px] py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-bold shadow-md transition">
-                        Add Custom Task
+                        {{ _('add_custom_task_btn') }}
                     </button>
                 </form>
             </div>
@@ -476,7 +480,7 @@
 
         function openAddTaskModal(isoDate, subjectId, subjectName, dateFormatted) {
             currentSubjectId = subjectId;
-            document.getElementById('modal-title').textContent = 'Add Task • ' + subjectName;
+            document.getElementById('modal-title').textContent = vt('js_add_task_prefix') + subjectName;
             document.getElementById('modal-subtitle').textContent = (dateFormatted || '').replace(/&bull;/g, '•');
 
             document.getElementById('video-scheduled-date').value = isoDate;
@@ -525,17 +529,17 @@
                 const btn = document.getElementById('tab-btn-' + t);
                 if (t === tab.toLowerCase()) {
                     form.classList.remove('hidden');
-                    btn.className = 'flex-1 py-2 rounded-lg text-center transition bg-white text-indigo-700 shadow-xs flex items-center justify-center space-x-1 font-bold';
+                    btn.className = 'flex-1 min-h-[40px] py-2 rounded-lg text-center transition bg-white text-indigo-700 shadow-xs flex items-center justify-center gap-1 font-bold';
                 } else {
                     form.classList.add('hidden');
-                    btn.className = 'flex-1 py-2 rounded-lg text-center transition hover:text-slate-900 flex items-center justify-center space-x-1 font-bold';
+                    btn.className = 'flex-1 min-h-[40px] py-2 rounded-lg text-center transition hover:text-slate-900 flex items-center justify-center gap-1 font-bold';
                 }
             });
         }
 
         function fetchCourseChapters(courseId) {
             if (!courseId) {
-                populateSelectOptions(document.getElementById('course-chapter-select'), null, '-- Select Chapter --');
+                populateSelectOptions(document.getElementById('course-chapter-select'), null, vt('js_select_chapter_opt'));
                 return;
             }
             fetch(`/tutor/plans/${currentPlanId}/options/course-chapters/${courseId}`)
@@ -548,7 +552,7 @@
 
         function fetchBookChapters(bookId) {
             if (!bookId) {
-                populateSelectOptions(document.getElementById('book-chapter-select'), null, '-- Select Chapter --');
+                populateSelectOptions(document.getElementById('book-chapter-select'), null, vt('js_select_chapter_opt'));
                 return;
             }
             fetch(`/tutor/plans/${currentPlanId}/options/book-chapters/${bookId}`)

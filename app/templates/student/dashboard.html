@@ -1,22 +1,25 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard &mdash; Valhalla Tutor{% endblock %}
+{% block title %}{{ _('dashboard') }} &mdash; {{ _('app_name') }}{% endblock %}
 
 {% block content %}
 <div class="max-w-6xl mx-auto space-y-6 sm:space-y-8 pb-16">
     <!-- Header Greeting & Date -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-            <h1 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{{ _('welcome_back') }}, {{ student.full_name }}! 👋</h1>
+            <h1 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{{ _('welcome_back') }}، {{ student.full_name }}! 👋</h1>
+            {% if data.has_plan %}
             <p class="text-xs sm:text-sm font-semibold text-slate-500 mt-1">
-                <span>{{ data.today_weekday if data.has_plan else '' }}</span> &bull; 
-                <span>{{ data.today | smart_date if data.has_plan else '' }}</span>
+                <span>{{ data.today | smart_weekday }}</span> &bull; 
+                <span>{{ data.today | smart_date }}</span>
             </p>
+            {% endif %}
         </div>
         {% if data.has_plan %}
-        <div class="flex items-center space-x-2 sm:space-x-3 flex-wrap gap-y-2">
-            <a href="/student/plan" class="inline-flex items-center justify-center min-h-[44px] px-3.5 sm:px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition">
-                📅 {{ _('open_full_timetable') }} &rarr;
+        <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <a href="/student/plan" class="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3.5 sm:px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition">
+                <span>📅 {{ _('open_full_timetable') }}</span>
+                <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
             </a>
             <a href="/student/plans/history" class="inline-flex items-center justify-center min-h-[44px] text-xs font-bold text-slate-600 hover:text-slate-900 px-3 py-2 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 transition">
                 {{ _('plan_archives') }}
@@ -32,33 +35,33 @@
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
             <!-- Overall Plan Progress -->
             <div class="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-1.5 sm:space-y-2">
-                <span class="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Plan Completion</span>
-                <span class="text-2xl sm:text-3xl font-black text-slate-900 block">{{ data.completion_percentage }}%</span>
+                <span class="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider block">{{ _('Plan Completion') }}</span>
+                <span class="text-2xl sm:text-3xl font-black text-slate-900 block tnum">{{ data.completion_percentage | fa_percent }}</span>
                 <div class="w-full bg-slate-100 rounded-full h-2">
                     <div class="bg-indigo-600 h-2 rounded-full transition-all" style="width: {{ data.completion_percentage }}%"></div>
                 </div>
-                <span class="text-[10px] sm:text-[11px] text-slate-500 block pt-0.5">{{ data.completed_tasks }} of {{ data.total_tasks }} tasks completed</span>
+                <span class="text-[10px] sm:text-[11px] text-slate-500 block pt-0.5">{{ _('of_tasks_completed', completed=(data.completed_tasks | fa_digits), total=(data.total_tasks | fa_digits)) }}</span>
             </div>
 
             <!-- Today's Study Time -->
             <div class="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-1.5 sm:space-y-2">
-                <span class="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Today's Study Load</span>
-                <span class="text-lg sm:text-xl font-black text-indigo-950 block mt-1">⏱️ {{ data.today_total_formatted }}</span>
-                <span class="text-[10px] sm:text-[11px] text-slate-500 block">Recommended effort</span>
+                <span class="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider block">{% if is_rtl() %}{{ _("Today's Study Load") }}{% else %}Today's Study Load{% endif %}</span>
+                <span class="text-lg sm:text-xl font-black text-indigo-950 block mt-1 tnum">⏱️ {{ (data.today_total_minutes | fa_duration) if is_rtl() else data.today_total_formatted }}</span>
+                <span class="text-[10px] sm:text-[11px] text-slate-500 block">{{ _('Recommended effort') }}</span>
             </div>
 
             <!-- Tasks Remaining Today -->
             <div class="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-1.5 sm:space-y-2">
-                <span class="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Remaining Today</span>
-                <span class="text-2xl sm:text-3xl font-black text-amber-600 block">{{ data.today_remaining_count }}</span>
-                <span class="text-[10px] sm:text-[11px] text-slate-500 block">task{{ 's' if data.today_remaining_count != 1 else '' }} to finish</span>
+                <span class="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider block">{{ _('Remaining Today') }}</span>
+                <span class="text-2xl sm:text-3xl font-black text-amber-600 block tnum">{{ data.today_remaining_count | fa_digits }}</span>
+                <span class="text-[10px] sm:text-[11px] text-slate-500 block">{{ _('tasks_to_finish', count=(data.today_remaining_count | fa_digits)) }}</span>
             </div>
 
             <!-- Tasks Completed Today -->
             <div class="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-1.5 sm:space-y-2">
-                <span class="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Finished Today</span>
-                <span class="text-2xl sm:text-3xl font-black text-emerald-600 block">{{ data.today_completed_count }}</span>
-                <span class="text-[10px] sm:text-[11px] text-slate-500 block">task{{ 's' if data.today_completed_count != 1 else '' }} marked complete</span>
+                <span class="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider block">{{ _('Finished Today') }}</span>
+                <span class="text-2xl sm:text-3xl font-black text-emerald-600 block tnum">{{ data.today_completed_count | fa_digits }}</span>
+                <span class="text-[10px] sm:text-[11px] text-slate-500 block">{{ _('tasks_marked_complete', count=(data.today_completed_count | fa_digits)) }}</span>
             </div>
         </div>
     </div>
@@ -67,11 +70,11 @@
     <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-4 sm:p-6 md:p-8 space-y-6">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
             <div>
-                <h2 class="text-xl font-black text-slate-900 tracking-tight">Today's Study Checklist</h2>
-                <p class="text-xs text-slate-500 mt-0.5">Tasks assigned for {{ data.today.strftime('%A, %B %d') }} &bull; Grouped by subject</p>
+                <h2 class="text-xl font-black text-slate-900 tracking-tight">{% if is_rtl() %}{{ _("Today's Study Checklist") }}{% else %}Today's Study Checklist{% endif %}</h2>
+                <p class="text-xs text-slate-500 mt-0.5">{{ _('tasks_for_date', date=(data.today | smart_weekday ~ ' ' ~ (data.today | smart_date_short))) }} &bull; {{ _('grouped_by_subject') }}</p>
             </div>
             <span class="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-bold self-start sm:self-auto">
-                {{ data.today_tasks|length }} task{{ 's' if data.today_tasks|length != 1 else '' }} total
+                {{ _('tasks_total_count', count=(data.today_tasks|length | fa_digits)) }}
             </span>
         </div>
 
@@ -80,13 +83,13 @@
                 {% set subj_tasks = data.today_tasks_by_subject.get(subj.id, []) %}
                 {% if subj_tasks %}
                 <div class="space-y-3">
-                    <div class="flex items-center space-x-2">
+                    <div class="flex items-center gap-2">
                         <span class="text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 border border-slate-200">
                             {{ subj.name }}
                         </span>
-                        <span class="text-xs text-slate-400 font-semibold">({{ subj_tasks|length }} task{{ 's' if subj_tasks|length != 1 else '' }})</span>
+                        <span class="text-xs text-slate-400 font-semibold">({{ _('tasks_total_count', count=(subj_tasks|length | fa_digits)) }})</span>
                     </div>
-                    <div class="space-y-2.5 pl-1">
+                    <div class="space-y-2.5 ps-1">
                         {% for task in subj_tasks %}
                             {% set assignment = task %}
                             {% include "student/partials/dashboard_task_item.html" %}
@@ -117,12 +120,13 @@
         <p class="text-sm text-slate-500 leading-relaxed">
             Your tutor has not published an active 14-day study plan yet. Once published, your daily schedule and recommended study workload will appear right here.
         </p>
-        <div class="pt-4 flex items-center justify-center space-x-4">
-            <a href="/student/curriculum" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition">
-                View My Curriculum &rarr;
+        <div class="pt-4 flex items-center justify-center gap-4 flex-wrap">
+            <a href="/student/curriculum" class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition">
+                <span>{{ _('View My Curriculum') }}</span>
+                <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
             </a>
             <a href="/student/plans/history" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
-                Past Plans
+                {{ _('Past Plans') }}
             </a>
         </div>
     </div>
@@ -131,32 +135,32 @@
     <!-- Academic Platform Hub Navigation -->
     <div class="pt-6 border-t border-slate-200">
         <div class="mb-4">
-            <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 block">Navigation Hub</span>
-            <h3 class="text-xl font-black text-slate-900 tracking-tight">Academic Centers</h3>
-            <p class="text-xs text-slate-500 mt-0.5">Quick access to all areas of your academic platform.</p>
+            <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 block">{{ _('Navigation Hub') }}</span>
+            <h3 class="text-xl font-black text-slate-900 tracking-tight">{{ _('Academic Centers') }}</h3>
+            <p class="text-xs text-slate-500 mt-0.5">{{ _('Quick access to all areas of your academic platform.') }}</p>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
             <!-- Study Planning Domain -->
             <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 flex flex-col justify-between hover:border-indigo-200 transition">
                 <div>
-                    <div class="flex items-center space-x-2.5 mb-2">
+                    <div class="flex items-center gap-2.5 mb-2">
                         <span class="text-2xl">🎯</span>
-                        <h4 class="font-bold text-slate-900 text-base">Study Planning</h4>
+                        <h4 class="font-bold text-slate-900 text-base">{{ _('Study Planning') }}</h4>
                     </div>
-                    <p class="text-xs text-slate-500 mb-4 leading-relaxed">View your active timetable, review historical plan iterations, and inspect completion timestamps.</p>
+                    <p class="text-xs text-slate-500 mb-4 leading-relaxed">{{ _('View your active timetable, review historical plan iterations, and inspect completion timestamps.') }}</p>
                 </div>
                 <div class="space-y-1.5 pt-3 border-t border-slate-100 text-xs font-semibold">
                     <a href="/student/plan" class="flex items-center justify-between text-indigo-600 hover:text-indigo-800 p-1 rounded transition">
-                        <span>Current 14-Day Plan</span>
-                        <span>&rarr;</span>
+                        <span>{{ _('Current 14-Day Plan') }}</span>
+                        <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                     </a>
                     <a href="/student/plans/history" class="flex items-center justify-between text-slate-600 hover:text-slate-900 p-1 rounded transition">
-                        <span>Plan Archives</span>
-                        <span>&rarr;</span>
+                        <span>{{ _('Plan Archives') }}</span>
+                        <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                     </a>
                     <a href="/student/history" class="flex items-center justify-between text-slate-600 hover:text-slate-900 p-1 rounded transition">
-                        <span>Task Completion Log</span>
-                        <span>&rarr;</span>
+                        <span>{{ _('Task Completion Log') }}</span>
+                        <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                     </a>
                 </div>
             </div>
@@ -164,24 +168,24 @@
             <!-- Assessments Domain -->
             <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 flex flex-col justify-between hover:border-indigo-200 transition">
                 <div>
-                    <div class="flex items-center space-x-2.5 mb-2">
+                    <div class="flex items-center gap-2.5 mb-2">
                         <span class="text-2xl">✍️</span>
-                        <h4 class="font-bold text-slate-900 text-base">Assessments & Exams</h4>
+                        <h4 class="font-bold text-slate-900 text-base">{{ _('Assessments & Exams') }}</h4>
                     </div>
-                    <p class="text-xs text-slate-500 mb-4 leading-relaxed">Take timed or untimed practice exams, view registered test sessions, and inspect historical performance.</p>
+                    <p class="text-xs text-slate-500 mb-4 leading-relaxed">{{ _('Take timed or untimed practice exams, view registered test sessions, and inspect historical performance.') }}</p>
                 </div>
                 <div class="space-y-1.5 pt-3 border-t border-slate-100 text-xs font-semibold">
                     <a href="/student/practice-exams" class="flex items-center justify-between text-indigo-600 hover:text-indigo-800 p-1 rounded transition">
-                        <span>Practice Exams</span>
-                        <span>&rarr;</span>
+                        <span>{{ _('Practice Exams') }}</span>
+                        <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                     </a>
                     <a href="/student/exams" class="flex items-center justify-between text-slate-600 hover:text-slate-900 p-1 rounded transition">
-                        <span>External Exams</span>
-                        <span>&rarr;</span>
+                        <span>{{ _('External Exams') }}</span>
+                        <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                     </a>
                     <a href="/student/historical-exams" class="flex items-center justify-between text-slate-600 hover:text-slate-900 p-1 rounded transition">
-                        <span>Historical Results & Reports</span>
-                        <span>&rarr;</span>
+                        <span>{{ _('Historical Results & Reports') }}</span>
+                        <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                     </a>
                 </div>
             </div>
@@ -189,24 +193,24 @@
             <!-- Curriculum & Tutor Support Domain -->
             <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 flex flex-col justify-between hover:border-indigo-200 transition">
                 <div>
-                    <div class="flex items-center space-x-2.5 mb-2">
+                    <div class="flex items-center gap-2.5 mb-2">
                         <span class="text-2xl">📚</span>
-                        <h4 class="font-bold text-slate-900 text-base">Curriculum & Support</h4>
+                        <h4 class="font-bold text-slate-900 text-base">{{ _('Curriculum & Support') }}</h4>
                     </div>
-                    <p class="text-xs text-slate-500 mb-4 leading-relaxed">Explore subjects and resources in your track, track analytics, and communicate with your tutor.</p>
+                    <p class="text-xs text-slate-500 mb-4 leading-relaxed">{{ _('Explore subjects and resources in your track, track analytics, and communicate with your tutor.') }}</p>
                 </div>
                 <div class="space-y-1.5 pt-3 border-t border-slate-100 text-xs font-semibold">
                     <a href="/student/curriculum" class="flex items-center justify-between text-indigo-600 hover:text-indigo-800 p-1 rounded transition">
-                        <span>My Curriculum</span>
-                        <span>&rarr;</span>
+                        <span>{{ _('My Curriculum') }}</span>
+                        <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                     </a>
                     <a href="/student/exams/analytics" class="flex items-center justify-between text-slate-600 hover:text-slate-900 p-1 rounded transition">
-                        <span>Performance Analytics</span>
-                        <span>&rarr;</span>
+                        <span>{{ _('Performance Analytics') }}</span>
+                        <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                     </a>
                     <a href="/student/chat" class="flex items-center justify-between text-slate-600 hover:text-slate-900 p-1 rounded transition">
-                        <span>Tutor Chat</span>
-                        <span>&rarr;</span>
+                        <span>{{ _('Tutor Chat') }}</span>
+                        <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                     </a>
                 </div>
             </div>

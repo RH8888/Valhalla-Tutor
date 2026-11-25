@@ -1,43 +1,46 @@
 {% extends "base.html" %}
 
-{% block title %}Study Plans &mdash; {{ student.full_name }}{% endblock %}
+{% block title %}{{ _('Study Plans') }} &mdash; {{ student.full_name }}{% endblock %}
 
 {% block content %}
 <div class="max-w-5xl mx-auto space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-            <div class="flex items-center space-x-3">
+            <div class="flex items-center gap-3 flex-wrap">
                 <h1 class="text-2xl font-bold tracking-tight text-slate-900">{{ student.full_name }}</h1>
-                <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">@{{ student.username }}</span>
+                <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 bidi-ltr" dir="ltr">@{{ student.username }}</span>
             </div>
-            <p class="text-sm text-slate-500 mt-1">14-Day Study Plans &bull; Track: {{ student.academic_track.name if student.academic_track else 'None' }}</p>
+            <p class="text-sm text-slate-500 mt-1">{{ _('plan_track_subtitle', track=(student.academic_track.name if student.academic_track else _('none_word'))) }}</p>
         </div>
-        <div class="flex items-center space-x-3">
-            <a href="/tutor/students/{{ student.id }}" class="text-sm font-semibold text-slate-600 hover:text-slate-900">&larr; Student Profile</a>
+        <div class="flex items-center gap-3">
+            <a href="/tutor/students/{{ student.id }}" class="inline-flex items-center gap-1 text-sm font-semibold text-slate-600 hover:text-slate-900">
+                <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                <span>{{ _('student_profile_link') }}</span>
+            </a>
         </div>
     </div>
 
     <!-- Create New Plan Card -->
     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-        <h2 class="text-lg font-bold text-slate-900 mb-2">Create New 14-Day Study Plan</h2>
-        <p class="text-xs text-slate-500 mb-4">Each plan covers exactly 14 calendar days starting from your chosen start date. Created as DRAFT.</p>
+        <h2 class="text-lg font-bold text-slate-900 mb-2">{{ _('Create New 14-Day Study Plan') }}</h2>
+        <p class="text-xs text-slate-500 mb-4">{{ _('Each plan covers exactly 14 calendar days starting from your chosen start date. Created as DRAFT.') }}</p>
 
         <form method="POST" action="/tutor/students/{{ student.id }}/plans" class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
             <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
             <div>
-                <label for="start_date" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Start Date (Day 1)</label>
+                <label for="start_date" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">{{ _('Start Date (Day 1)') }}</label>
                 <input type="date" id="start_date" name="start_date" value="{{ default_start_date }}" required
                     class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-xl shadow-sm text-sm focus:ring-indigo-500 focus:border-indigo-500 font-medium">
             </div>
             <div>
-                <label for="title" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Plan Title (Optional)</label>
-                <input type="text" id="title" name="title" placeholder="e.g. Sprint 3 — Nov 15 to Nov 28"
+                <label for="title" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">{{ _('Plan Title (Optional)') }}</label>
+                <input type="text" id="title" name="title" placeholder="{{ _('plan_title_example') }}"
                     class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-xl shadow-sm text-sm focus:ring-indigo-500 focus:border-indigo-500">
             </div>
             <div>
                 <button type="submit"
-                    class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow transition flex items-center justify-center space-x-2">
-                    <span>+ Create 14-Day Plan</span>
+                    class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow transition flex items-center justify-center gap-2">
+                    <span>+ {{ _('Create 14-Day Plan') }}</span>
                 </button>
             </div>
         </form>
@@ -46,44 +49,44 @@
     <!-- Plans List -->
     <div class="bg-white shadow-sm rounded-2xl border border-slate-200 overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-            <h3 class="font-bold text-slate-900 text-base">Plan History</h3>
-            <span class="text-xs text-slate-500">{{ plans|length }} plan(s) recorded</span>
+            <h3 class="font-bold text-slate-900 text-base">{{ _('Plan History') }}</h3>
+            <span class="text-xs text-slate-500">{{ _('plans_recorded_count', count=(plans|length | fa_digits)) }}</span>
         </div>
         <div class="divide-y divide-slate-100">
             {% for p in plans %}
             <div class="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition">
                 <div class="space-y-1">
-                    <div class="flex items-center space-x-3">
+                    <div class="flex items-center gap-3 flex-wrap">
                         <span class="text-base font-bold text-slate-900">{{ p.title }}</span>
                         {% if p.status == "PUBLISHED" %}
                             <span class="px-3 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 animate-pulse">
-                                Active Published
+                                {{ _('active_published_badge') }}
                             </span>
                         {% elif p.status == "DRAFT" %}
                             <span class="px-3 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                                Draft
+                                {{ 'DRAFT' | fa_status }}
                             </span>
                         {% else %}
                             <span class="px-3 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                                Archived
+                                {{ 'ARCHIVED' | fa_status }}
                             </span>
                         {% endif %}
                     </div>
                     <p class="text-xs text-slate-500">
-                        {{ p.start_date.strftime('%a, %b %d, %Y') }} &mdash; {{ p.end_date.strftime('%a, %b %d, %Y') }} (14 calendar days)
-                        &bull; {{ p.assignments|length }} task(s)
+                        {{ p.start_date | smart_date }} &mdash; {{ p.end_date | smart_date }} {{ _('calendar_days_tasks', count=(p.assignments|length | fa_digits)) }}
                     </p>
                 </div>
-                <div class="flex items-center space-x-3">
+                <div class="flex items-center gap-3">
                     <a href="/tutor/plans/{{ p.id }}"
-                        class="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-sm font-bold border border-indigo-200 transition">
-                        Open Planner &rarr;
+                        class="inline-flex items-center gap-1 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-sm font-bold border border-indigo-200 transition">
+                        <span>{{ _('open_planner_btn') }}</span>
+                        <svg class="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                     </a>
                 </div>
             </div>
             {% else %}
             <div class="p-12 text-center text-slate-400 text-sm">
-                No study plans created for this student yet. Use the form above to start a 14-day plan.
+                {{ _('No study plans created for this student yet. Use the form above to start a 14-day plan.') }}
             </div>
             {% endfor %}
         </div>

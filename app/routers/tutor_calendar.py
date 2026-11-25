@@ -13,6 +13,13 @@ from app.core.dependencies import (
     require_tutor,
     verify_csrf_token,
 )
+from app.core.i18n import (
+    format_jalali,
+    format_jalali_month_year,
+    format_jalali_short,
+    get_locale_from_request,
+    translate_weekday,
+)
 from app.core.templates import templates
 from app.core.timezone import get_timezone, now_utc, to_local, to_utc
 from app.models.meeting import (
@@ -69,7 +76,7 @@ def parse_time_or_default(time_str: Optional[str], default_hour: int = 10) -> ti
     return time(default_hour, 0)
 
 
-def build_month_context(db: Session, tutor: User, current_date: date):
+def build_month_context(db: Session, tutor: User, current_date: date, locale: str = "en"):
     tz = get_timezone(tutor.timezone)
     year = current_date.year
     month = current_date.month
@@ -80,7 +87,7 @@ def build_month_context(db: Session, tutor: User, current_date: date):
     last_date = date(year, month, last_day)
 
     # Calendar grid weeks
-    cal = calendar.Calendar(firstweekday=0) # Monday first
+    cal = calendar.Calendar(firstweekday=5 if locale == "fa" else 0) # Saturday first in Persian, Monday first in English
     month_days = cal.monthdatescalendar(year, month)
 
     grid_start_utc = to_utc(datetime.combine(month_days[0][0], time.min, tzinfo=tz))
@@ -105,10 +112,12 @@ def build_month_context(db: Session, tutor: User, current_date: date):
     prev_month_date = (first_date - timedelta(days=1)).replace(day=1)
     next_month_date = (last_date + timedelta(days=1)).replace(day=1)
 
+    title = format_jalali_month_year(current_date) if locale == "fa" else current_date.strftime("%B %Y")
+
     return {
         "view": "month",
         "current_date": current_date,
-        "title": current_date.strftime("%B %Y"),
+        "title": title,
         "month_days": month_days,
         "meetings_by_date": meetings_by_date,
         "prev_date": prev_month_date.strftime("%Y-%m-%d"),
@@ -117,10 +126,14 @@ def build_month_context(db: Session, tutor: User, current_date: date):
     }
 
 
-def build_week_context(db: Session, tutor: User, current_date: date):
+def build_week_context(db: Session, tutor: User, current_date: date, locale: str = "en"):
     tz = get_timezone(tutor.timezone)
-    # Week start: Monday
-    start_of_week = current_date - timedelta(days=current_date.weekday())
+    # Week start: Saturday for Persian (weekday 5 -> offset 0), Monday for English
+    if locale == "fa":
+        offset = (current_date.weekday() - 5) % 7
+        start_of_week = current_date - timedelta(days=offset)
+    else:
+        start_of_week = current_date - timedelta(days=current_date.weekday())
     week_days = [start_of_week + timedelta(days=i) for i in range(7)]
 
     start_utc = to_utc(datetime.combine(week_days[0], time.min, tzinfo=tz))
@@ -143,10 +156,16 @@ def build_week_context(db: Session, tutor: User, current_date: date):
     prev_week_date = current_date - timedelta(days=7)
     next_week_date = current_date + timedelta(days=7)
 
+    title = (
+        f"{format_jalali_short(week_days[0])} تا {format_jalali(week_days[-1])}"
+        if locale == "fa"
+        else f"{week_days[0].strftime('%b %d')} - {week_days[-1].strftime('%b %d, %Y')}"
+    )
+
     return {
         "view": "week",
         "current_date": current_date,
-        "title": f"{week_days[0].strftime('%b %d')} - {week_days[-1].strftime('%b %d, %Y')}",
+        "title": title,
         "week_days": week_days,
         "meetings_by_date": meetings_by_date,
         "prev_date": prev_week_date.strftime("%Y-%m-%d"),
@@ -155,7 +174,7 @@ def build_week_context(db: Session, tutor: User, current_date: date):
     }
 
 
-def build_day_context(db: Session, tutor: User, current_date: date):
+def build_day_context(db: Session, tutor: User, current_date: date, locale: str = "en"):
     tz = get_timezone(tutor.timezone)
     start_utc = to_utc(datetime.combine(current_date, time.min, tzinfo=tz))
     end_utc = to_utc(datetime.combine(current_date, time.max, tzinfo=tz))
@@ -176,10 +195,16 @@ def build_day_context(db: Session, tutor: User, current_date: date):
     prev_day = current_date - timedelta(days=1)
     next_day = current_date + timedelta(days=1)
 
+    title = (
+        f"{translate_weekday(current_date, 'fa')}، {format_jalali(current_date)}"
+        if locale == "fa"
+        else current_date.strftime("%A, %B %d, %Y")
+    )
+
     return {
         "view": "day",
         "current_date": current_date,
-        "title": current_date.strftime("%A, %B %d, %Y"),
+        "title": title,
         "meetings": meetings_with_local,
         "hours": list(range(8, 22)), # 08:00 to 21:00
         "prev_date": prev_day.strftime("%Y-%m-%d"),
@@ -199,13 +224,14 @@ def get_calendar(
     current_session: UserSession = Depends(get_current_session),
 ):
     current_date = parse_date_or_today(date_str, current_user.timezone)
+    locale = get_locale_from_request(request)
 
     if view == "week":
-        cal_data = build_week_context(db, current_user, current_date)
+        cal_data = build_week_context(db, current_user, current_date, locale=locale)
     elif view == "day":
-        cal_data = build_day_context(db, current_user, current_date)
+        cal_data = build_day_context(db, current_user, current_date, locale=locale)
     else:
-        cal_data = build_month_context(db, current_user, current_date)
+        cal_data = build_month_context(db, current_user, current_date, locale=locale)
 
     context = {
         "request": request,

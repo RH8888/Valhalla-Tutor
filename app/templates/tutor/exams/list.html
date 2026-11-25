@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Exam Management - Valhalla Tutor{% endblock %}
+{% block title %}{{ _("Exam Management - Valhalla Tutor") }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
@@ -8,18 +8,18 @@
 
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
-            <h1 class="text-2xl font-bold tracking-tight text-slate-900">Exam Management & Sessions</h1>
-            <p class="text-sm text-slate-500 mt-1">Manage reusable exam definitions and schedule dated occurrences with track-specific subject configurations.</p>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900">{{ _("Exam Management & Sessions") }}</h1>
+            <p class="text-sm text-slate-500 mt-1">{{ _("Manage reusable exam definitions and schedule dated occurrences with track-specific subject configurations.") }}</p>
         </div>
-        <div class="flex items-center space-x-3">
+        <div class="flex flex-wrap items-center gap-3">
             <a href="/tutor/exams/bulk/overview" class="inline-flex items-center px-4 py-2 border border-slate-300 rounded-lg shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 transition">
-                📊 Submission Matrix
+                📊 {{ _("Submission Matrix") }}
             </a>
             <a href="/tutor/exams/create" class="inline-flex items-center px-4 py-2 border border-slate-300 rounded-lg shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 transition">
-                + New Exam Name
+                {{ _("+ New Exam Name") }}
             </a>
             <a href="/tutor/exams/sessions/create" class="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition">
-                🗓️ Schedule Exam Session
+                🗓️ {{ _("Schedule Exam Session") }}
             </a>
         </div>
     </div>
@@ -32,16 +32,16 @@
     {% endif %}
 
     {% if profile_alerts %}
-        <div class="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
+        <div class="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
                 <span class="text-xl">⚠️</span>
                 <div>
-                    <h4 class="font-bold text-sm">Academic Profile Incompatibility Detected ({{ profile_alerts|length }})</h4>
-                    <p class="text-xs text-amber-700">Some assigned students have transitioned grade or track and are no longer eligible for their assigned series.</p>
+                    <h4 class="font-bold text-sm">{{ _("Academic Profile Incompatibility Detected ({count})", count=(profile_alerts|length | fa_digits)) }}</h4>
+                    <p class="text-xs text-amber-700">{{ _("Some assigned students have transitioned grade or track and are no longer eligible for their assigned series.") }}</p>
                 </div>
             </div>
             <a href="/tutor/exams/alerts/profile-changes" class="px-3 py-1.5 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-lg shadow-sm transition">
-                Review Alerts &rarr;
+                {{ _("Review Alerts") }} <span class="inline-block rtl:rotate-180">&rarr;</span>
             </a>
         </div>
     {% endif %}
@@ -49,25 +49,25 @@
     <!-- Exam Sessions Section -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
-            <h2 class="text-lg font-semibold text-slate-900">Scheduled Exam Sessions</h2>
-            <span class="text-xs text-slate-500">{{ sessions|length }} sessions scheduled</span>
+            <h2 class="text-lg font-semibold text-slate-900">{{ _("Scheduled Exam Sessions") }}</h2>
+            <span class="text-xs text-slate-500 tnum">{{ _("{count} sessions scheduled", count=(sessions|length | fa_digits)) }}</span>
         </div>
         {% if sessions %}
             <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm text-slate-600">
+                <table class="w-full text-start text-sm text-slate-600">
                     <thead class="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
                         <tr>
-                            <th class="px-6 py-3">Date</th>
-                            <th class="px-6 py-3">Exam Name</th>
-                            <th class="px-6 py-3">Session Title</th>
-                            <th class="px-6 py-3">Participating Tracks</th>
-                            <th class="px-6 py-3 text-right">Actions</th>
+                            <th class="px-6 py-3 text-start">{{ _("Date") }}</th>
+                            <th class="px-6 py-3 text-start">{{ _("Exam Name") }}</th>
+                            <th class="px-6 py-3 text-start">{{ _("Session Title") }}</th>
+                            <th class="px-6 py-3 text-start">{{ _("Participating Tracks") }}</th>
+                            <th class="px-6 py-3 text-end">{{ _("Actions") }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         {% for s in sessions %}
                             <tr class="hover:bg-slate-50/80 transition">
-                                <td class="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">{{ s.date }}</td>
+                                <td class="px-6 py-4 font-medium text-slate-900 whitespace-nowrap tnum">{{ s.date | smart_date if is_rtl() else s.date }}</td>
                                 <td class="px-6 py-4 font-semibold text-indigo-600">{{ s.exam.title }}</td>
                                 <td class="px-6 py-4 text-slate-500">{{ s.title or '—' }}</td>
                                 <td class="px-6 py-4">
@@ -79,9 +79,9 @@
                                         {% endfor %}
                                     </div>
                                 </td>
-                                <td class="px-6 py-4 text-right whitespace-nowrap">
+                                <td class="px-6 py-4 text-end whitespace-nowrap">
                                     <a href="/tutor/exams/sessions/{{ s.id }}" class="text-indigo-600 hover:text-indigo-900 font-medium text-xs bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-md transition">
-                                        View Details & Results &rarr;
+                                        {{ _("View Details & Results") }} <span class="inline-block rtl:rotate-180">&rarr;</span>
                                     </a>
                                 </td>
                             </tr>
@@ -91,7 +91,7 @@
             </div>
         {% else %}
             <div class="p-8 text-center text-slate-500 text-sm">
-                No exam sessions scheduled yet. Click <strong>Schedule Exam Session</strong> above.
+                {{ _("No exam sessions scheduled yet. Click") }} <strong>{{ _("Schedule Exam Session") }}</strong> {{ _("above.") }}
             </div>
         {% endif %}
     </div>
@@ -99,38 +99,38 @@
     <!-- Reusable Exam Definitions Section -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
-            <h2 class="text-lg font-semibold text-slate-900">Reusable Exam Definitions</h2>
-            <span class="text-xs text-slate-500">{{ exams|length }} definitions</span>
+            <h2 class="text-lg font-semibold text-slate-900">{{ _("Reusable Exam Definitions") }}</h2>
+            <span class="text-xs text-slate-500 tnum">{{ _("{count} definitions", count=(exams|length | fa_digits)) }}</span>
         </div>
         <div class="divide-y divide-slate-100">
             {% for e in exams %}
-                <div class="px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition">
+                <div class="px-6 py-4 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50 transition">
                     <div>
-                        <div class="flex items-center space-x-2">
+                        <div class="flex items-center gap-2">
                             <a href="/tutor/exams/{{ e.id }}" class="font-bold text-indigo-600 hover:text-indigo-900 text-base">{{ e.title }}</a>
                             {% if e.is_active %}
-                                <span class="px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">Active</span>
+                                <span class="px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">{{ _("Active") }}</span>
                             {% else %}
-                                <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-600">Archived</span>
+                                <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-600">{{ _("Archived") }}</span>
                             {% endif %}
                         </div>
                         {% if e.description %}
                             <p class="text-xs text-slate-500 mt-0.5">{{ e.description }}</p>
                         {% endif %}
-                        <div class="flex items-center gap-3 text-xs text-slate-400 mt-1">
-                            <span>{{ e.sessions|length }} occurrences</span>
+                        <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400 mt-1 tnum">
+                            <span>{{ _("{count} occurrences", count=(e.sessions|length | fa_digits)) }}</span>
                             <span>&bull;</span>
-                            <span>{{ e.grade_track_configs|length }} eligible grade/track groups</span>
+                            <span>{{ _("{count} eligible grade/track groups", count=(e.grade_track_configs|length | fa_digits)) }}</span>
                             <span>&bull;</span>
-                            <span>{{ e.series_assignments|length }} students assigned</span>
+                            <span>{{ _("{count} students assigned", count=(e.series_assignments|length | fa_digits)) }}</span>
                         </div>
                     </div>
-                    <div class="flex items-center space-x-2">
+                    <div class="flex items-center gap-2">
                         <a href="/tutor/exams/{{ e.id }}" class="text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition">
-                            Manage Series &rarr;
+                            {{ _("Manage Series") }} <span class="inline-block rtl:rotate-180">&rarr;</span>
                         </a>
                         <a href="/tutor/exams/{{ e.id }}/edit" class="text-xs font-medium text-slate-600 hover:text-slate-900 px-2 py-1 rounded transition">
-                            Settings
+                            {{ _("Settings") }}
                         </a>
                     </div>
                 </div>

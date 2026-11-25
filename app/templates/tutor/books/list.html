@@ -1,37 +1,37 @@
 {% extends "base.html" %}
 
-{% block title %}Test Books &mdash; Valhalla Tutor{% endblock %}
+{% block title %}{{ _("Test Books — Valhalla Tutor") }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
     {% set active_tab = 'books' %}
     {% include "partials/tutor_curriculum_tabs.html" %}
 
-    <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+    <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-200">
         <div>
-            <h1 class="text-2xl font-bold tracking-tight text-slate-900">Test Books & Chapters</h1>
-            <p class="text-sm text-slate-500 mt-1">Manage test resources organized by Subject &rarr; Book &rarr; Chapter with test counts.</p>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900">{{ _("Test Books & Chapters") }}</h1>
+            <p class="text-sm text-slate-500 mt-1">{% if is_rtl() %}{{ _("Manage test resources organized by Subject -> Book -> Chapter with test counts.") }}{% else %}Manage test resources organized by Subject &rarr; Book &rarr; Chapter with test counts.{% endif %}</p>
         </div>
         <a href="/tutor/books/create{% if selected_subject_id %}?subject_id={{ selected_subject_id }}{% endif %}" class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-sm transition">
-            + New Test Book
+            {{ _("+ New Test Book") }}
         </a>
     </div>
 
     {% if message %}
         <div class="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-800">
-            ✅ {{ message }}
+            ✅ {{ message | t }}
         </div>
     {% endif %}
     {% if error %}
         <div class="p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
-            ⚠️ {{ error }}
+            ⚠️ {{ error | t }}
         </div>
     {% endif %}
 
     <!-- Subject Filters -->
-    <div class="flex items-center space-x-2 overflow-x-auto pb-2">
+    <div class="flex items-center gap-2 overflow-x-auto pb-2">
         <a href="/tutor/books" class="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap {% if not selected_subject_id %}bg-indigo-600 text-white{% else %}bg-white border border-slate-200 text-slate-700 hover:bg-slate-50{% endif %}">
-            All Subjects
+            {{ _("All Subjects") }}
         </a>
         {% for s in subjects %}
             <a href="/tutor/books?subject_id={{ s.id }}" class="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap {% if selected_subject_id == s.id %}bg-indigo-600 text-white{% else %}bg-white border border-slate-200 text-slate-700 hover:bg-slate-50{% endif %}">
@@ -45,12 +45,12 @@
         {% for b in books %}
             <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between space-y-4">
                 <div class="space-y-2">
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between gap-2">
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">
                             {{ b.subject.name }}
                         </span>
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
-                            {{ b.grade }}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 tnum">
+                            {{ _("Grade {g}", g=(b.grade | fa_digits)) if is_rtl() else b.grade }}
                         </span>
                     </div>
                     <h2 class="text-base font-bold text-slate-900">{{ b.title }}</h2>
@@ -60,16 +60,16 @@
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <span class="text-slate-600 font-semibold">
-                        📑 {{ b.chapters|length }} chapters &bull; ✏️ {{ b.chapters|map(attribute='test_count')|sum }} tests
+                    <span class="text-slate-600 font-semibold tnum">
+                        📑 {{ _("{chapters} chapters • {tests} tests", chapters=(b.chapters|length | fa_digits), tests=(b.chapters|map(attribute='test_count')|sum | fa_digits)) }}
                     </span>
-                    <a href="/tutor/books/{{ b.id }}" class="font-semibold text-indigo-600 hover:text-indigo-900">Manage &rarr;</a>
+                    <a href="/tutor/books/{{ b.id }}" class="font-semibold text-indigo-600 hover:text-indigo-900">{{ _("Manage") }} <span class="inline-block rtl:rotate-180">&rarr;</span></a>
                 </div>
             </div>
         {% else %}
             <div class="col-span-full p-12 text-center bg-white rounded-xl border border-slate-200 text-slate-400">
-                <p class="text-base font-semibold">No test books registered yet.</p>
-                <p class="text-xs mt-1">Register test books and log chapter test counts for study planning.</p>
+                <p class="text-base font-semibold">{{ _("No test books registered yet.") }}</p>
+                <p class="text-xs mt-1">{{ _("Register test books and log chapter test counts for study planning.") }}</p>
             </div>
         {% endfor %}
     </div>

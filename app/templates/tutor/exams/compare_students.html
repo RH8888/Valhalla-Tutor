@@ -1,33 +1,33 @@
 {% extends "base.html" %}
-{% block title %}Student Group Comparison - {{ session.date }} - Valhalla Tutor{% endblock %}
+{% block title %}{{ _("Student Group Comparison - {date} - Valhalla Tutor", date=(session.date | smart_date if is_rtl() else session.date)) }}{% endblock %}
 
 {% block content %}
 <div class="space-y-8">
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
             <div class="flex items-center gap-2">
-                <a href="/tutor/exams/sessions/{{ session.id }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-900">&larr; Back to Occurrence</a>
+                <a href="/tutor/exams/sessions/{{ session.id }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-900"><span class="inline-block rtl:rotate-180">&larr;</span> {{ _("Back to Occurrence") }}</a>
             </div>
-            <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-2">Student Performance Comparison</h1>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-2">{{ _("Student Performance Comparison") }}</h1>
             <p class="text-sm text-slate-500 mt-1">
-                Comparing students on occurrence: <span class="font-semibold text-slate-700">{{ session.exam.title if session.exam else 'Exam' }} ({{ session.date }})</span>
+                {{ _("Comparing students on occurrence:") }} <span class="font-semibold text-slate-700 tnum">{{ session.exam.title if session.exam else _("Exam") }} ({{ session.date | smart_date if is_rtl() else session.date }})</span>
             </p>
         </div>
         <!-- Grade & Track Filter -->
-        <form method="GET" action="/tutor/exams/sessions/{{ session.id }}/compare" class="flex items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+        <form method="GET" action="/tutor/exams/sessions/{{ session.id }}/compare" class="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
             <div>
-                <label for="grade" class="sr-only">Grade</label>
+                <label for="grade" class="sr-only">{{ _("Grade") }}</label>
                 <select name="grade" id="grade" onchange="this.form.submit()" class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white text-slate-800">
-                    <option value="">-- All Grades --</option>
-                    <option value="دهم" {% if comparison.filter_grade == 'دهم' %}selected{% endif %}>دهم</option>
-                    <option value="یازدهم" {% if comparison.filter_grade == 'یازدهم' %}selected{% endif %}>یازدهم</option>
-                    <option value="دوازدهم" {% if comparison.filter_grade == 'دوازدهم' %}selected{% endif %}>دوازدهم</option>
+                    <option value="">{{ _("-- All Grades --") }}</option>
+                    <option value="دهم" {% if comparison.filter_grade == 'دهم' %}selected{% endif %}>{{ _("Grade 10 (دهم)") }}</option>
+                    <option value="یازدهم" {% if comparison.filter_grade == 'یازدهم' %}selected{% endif %}>{{ _("Grade 11 (یازدهم)") }}</option>
+                    <option value="دوازدهم" {% if comparison.filter_grade == 'دوازدهم' %}selected{% endif %}>{{ _("Grade 12 (دوازدهم)") }}</option>
                 </select>
             </div>
             <div>
-                <label for="track_id" class="sr-only">Track</label>
+                <label for="track_id" class="sr-only">{{ _("Academic Track") }}</label>
                 <select name="track_id" id="track_id" onchange="this.form.submit()" class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white text-slate-800">
-                    <option value="">-- All Tracks --</option>
+                    <option value="">{{ _("-- All Tracks --") }}</option>
                     {% for t in tracks %}
                         <option value="{{ t.id }}" {% if comparison.filter_track_id == (t.id|string) %}selected{% endif %}>{{ t.name }}</option>
                     {% endfor %}
@@ -39,33 +39,33 @@
     <!-- Group Metrics Summary -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <span class="text-xs font-semibold uppercase text-slate-400">Total In Group</span>
-            <p class="text-2xl font-bold text-slate-900 mt-1">{{ comparison.total_assigned }}</p>
+            <span class="text-xs font-semibold uppercase text-slate-400">{{ _("Total In Group") }}</span>
+            <p class="text-2xl font-bold text-slate-900 mt-1 tnum">{{ comparison.total_assigned | fa_digits }}</p>
         </div>
         <div class="bg-white p-4 rounded-xl border border-emerald-100 bg-emerald-50/20 shadow-sm">
-            <span class="text-xs font-semibold uppercase text-emerald-700">Submitted</span>
-            <p class="text-2xl font-bold text-emerald-700 mt-1">{{ comparison.submitted_count }}</p>
+            <span class="text-xs font-semibold uppercase text-emerald-700">{{ _("Submitted") }}</span>
+            <p class="text-2xl font-bold text-emerald-700 mt-1 tnum">{{ comparison.submitted_count | fa_digits }}</p>
         </div>
         <div class="bg-white p-4 rounded-xl border border-red-100 bg-red-50/20 shadow-sm">
-            <span class="text-xs font-semibold uppercase text-red-700">Missing Submissions</span>
-            <p class="text-2xl font-bold text-red-700 mt-1">{{ comparison.missing_count }}</p>
-            <span class="text-xs text-slate-400 mt-0.5 block">Excluded from averages</span>
+            <span class="text-xs font-semibold uppercase text-red-700">{{ _("Missing Submissions") }}</span>
+            <p class="text-2xl font-bold text-red-700 mt-1 tnum">{{ comparison.missing_count | fa_digits }}</p>
+            <span class="text-xs text-slate-400 mt-0.5 block">{{ _("Excluded from averages") }}</span>
         </div>
         <div class="bg-white p-4 rounded-xl border border-indigo-100 bg-indigo-50/20 shadow-sm">
-            <span class="text-xs font-semibold uppercase text-indigo-700">Average Rank</span>
-            <p class="text-2xl font-bold text-indigo-700 mt-1">{{ comparison.average_rank or '-' }}</p>
+            <span class="text-xs font-semibold uppercase text-indigo-700">{{ _("Average Rank") }}</span>
+            <p class="text-2xl font-bold text-indigo-700 mt-1 tnum">{{ (comparison.average_rank | fa_digits) if comparison.average_rank else '-' }}</p>
         </div>
     </div>
 
     <!-- Reporting Group Averages Bar -->
     {% if comparison.group_averages %}
         <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <h3 class="text-sm font-bold text-slate-800 mb-3">Group-Level Reporting Group Averages (Missing Excluded)</h3>
+            <h3 class="text-sm font-bold text-slate-800 mb-3">{{ _("Group-Level Reporting Group Averages (Missing Excluded)") }}</h3>
             <div class="flex flex-wrap gap-4">
                 {% for title, avg_val in comparison.group_averages.items() %}
                     <div class="px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg">
                         <span class="text-xs text-slate-500 font-medium block">{{ title }}</span>
-                        <span class="text-lg font-bold text-slate-900">{{ avg_val }}%</span>
+                        <span class="text-lg font-bold text-slate-900 tnum">{{ avg_val | fa_percent if is_rtl() else (avg_val|string ~ '%') }}</span>
                     </div>
                 {% endfor %}
             </div>
@@ -75,22 +75,22 @@
     <!-- Comparison Table -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-slate-900">Student Breakdown</h2>
-            <span class="text-xs text-slate-500">{{ comparison.rows|length }} students</span>
+            <h2 class="text-lg font-semibold text-slate-900">{{ _("Student Breakdown") }}</h2>
+            <span class="text-xs text-slate-500 tnum">{{ _("{count} students", count=(comparison.rows|length | fa_digits)) }}</span>
         </div>
         {% if comparison.rows %}
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+                <table class="min-w-full divide-y divide-slate-200 text-start text-sm">
                     <thead class="bg-slate-50 text-slate-500 font-semibold text-xs">
                         <tr>
-                            <th class="px-6 py-3">Student</th>
-                            <th class="px-4 py-3">Grade & Track</th>
-                            <th class="px-4 py-3">Status</th>
-                            <th class="px-4 py-3">Data Source</th>
-                            <th class="px-4 py-3">Review</th>
-                            <th class="px-4 py-3 text-center">Rank</th>
-                            <th class="px-4 py-3 text-center">Average %</th>
-                            <th class="px-6 py-3">Reporting Groups Breakdown</th>
+                            <th class="px-6 py-3 text-start">{{ _("Student") }}</th>
+                            <th class="px-4 py-3 text-start">{{ _("Grade & Track") }}</th>
+                            <th class="px-4 py-3 text-start">{{ _("Status") }}</th>
+                            <th class="px-4 py-3 text-start">{{ _("Data Source") }}</th>
+                            <th class="px-4 py-3 text-start">{{ _("Review") }}</th>
+                            <th class="px-4 py-3 text-center">{{ _("Rank") }}</th>
+                            <th class="px-4 py-3 text-center">{{ _("Average %") }}</th>
+                            <th class="px-6 py-3 text-start">{{ _("Reporting Groups Breakdown") }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-200">
@@ -99,54 +99,54 @@
                                 <td class="px-6 py-4 font-semibold text-slate-900 whitespace-nowrap">
                                     {{ r.name }}
                                 </td>
-                                <td class="px-4 py-4 text-xs text-slate-600 whitespace-nowrap">
-                                    {{ r.grade }} / {{ r.track }}
+                                <td class="px-4 py-4 text-xs text-slate-600 whitespace-nowrap tnum">
+                                    {{ r.grade | fa_digits }} / {{ r.track }}
                                 </td>
                                 <td class="px-4 py-4 whitespace-nowrap">
                                     {% if r.submission_status == 'Submitted' %}
-                                        <span class="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">Submitted</span>
+                                        <span class="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">{{ _("Submitted") }}</span>
                                         {% if r.is_late %}
-                                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 ml-1">Late</span>
+                                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 ms-1">{{ _("Late") }}</span>
                                         {% endif %}
                                     {% else %}
-                                        <span class="px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800">Missing</span>
+                                        <span class="px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800">{{ _("Missing") }}</span>
                                     {% endif %}
                                 </td>
                                 <td class="px-4 py-4 text-xs whitespace-nowrap">
                                     {% if r.result_type == 'Tutor-Corrected' %}
-                                        <span class="text-purple-700 font-medium">Tutor-Corrected</span>
+                                        <span class="text-purple-700 font-medium">{{ _("Tutor-Corrected") }}</span>
                                     {% elif r.result_type == 'Student-Entered' %}
-                                        <span class="text-slate-600">Student-Entered</span>
+                                        <span class="text-slate-600">{{ _("Student-Entered") }}</span>
                                     {% else %}
                                         <span class="text-slate-400">-</span>
                                     {% endif %}
                                 </td>
                                 <td class="px-4 py-4 text-xs whitespace-nowrap">
                                     {% if r.review_state == 'Reviewed' %}
-                                        <span class="text-indigo-700 font-semibold">Reviewed</span>
+                                        <span class="text-indigo-700 font-semibold">{{ _("Reviewed") }}</span>
                                     {% elif r.review_state == 'Not Reviewed' %}
-                                        <span class="text-amber-600 font-medium">Pending Review</span>
+                                        <span class="text-amber-600 font-medium">{{ _("Pending Review") }}</span>
                                     {% else %}
                                         <span class="text-slate-400">-</span>
                                     {% endif %}
                                 </td>
-                                <td class="px-4 py-4 text-center font-bold text-slate-800">
-                                    {{ r.overall_rank if r.overall_rank is not none else '-' }}
+                                <td class="px-4 py-4 text-center font-bold text-slate-800 tnum">
+                                    {{ (r.overall_rank | fa_digits) if r.overall_rank is not none else '-' }}
                                 </td>
-                                <td class="px-4 py-4 text-center font-bold text-slate-900">
-                                    {{ r.average_percentage ~ '%' if r.average_percentage is not none else '-' }}
+                                <td class="px-4 py-4 text-center font-bold text-slate-900 tnum">
+                                    {{ (r.average_percentage | fa_percent if is_rtl() else (r.average_percentage|string ~ '%')) if r.average_percentage is not none else '-' }}
                                 </td>
                                 <td class="px-6 py-4">
                                     {% if r.group_scores %}
                                         <div class="flex flex-wrap gap-2 text-xs">
                                             {% for grp_name, grp_pct in r.group_scores.items() %}
-                                                <span class="px-2 py-1 bg-slate-100 rounded text-slate-700 font-mono">
-                                                    {{ grp_name }}: <span class="font-bold text-slate-900">{{ grp_pct }}%</span>
+                                                <span class="px-2 py-1 bg-slate-100 rounded text-slate-700 tnum">
+                                                    {{ grp_name }}: <span class="font-bold text-slate-900">{{ grp_pct | fa_percent if is_rtl() else (grp_pct|string ~ '%') }}</span>
                                                 </span>
                                             {% endfor %}
                                         </div>
                                     {% else %}
-                                        <span class="text-xs text-slate-400 italic">No score submitted</span>
+                                        <span class="text-xs text-slate-400 italic">{{ _("No score submitted") }}</span>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -156,7 +156,7 @@
             </div>
         {% else %}
             <div class="p-8 text-center text-slate-500 text-sm">
-                No students found for this grade/track configuration.
+                {{ _("No students found for this grade/track configuration.") }}
             </div>
         {% endif %}
     </div>

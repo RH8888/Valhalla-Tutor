@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Academic Profile Alerts - Valhalla Tutor{% endblock %}
+{% block title %}{{ _("Academic Profile Alerts - Valhalla Tutor") }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6 max-w-4xl mx-auto">
     <div class="border-b border-slate-200 pb-4">
-        <a href="/tutor/exams" class="text-sm text-slate-500 hover:text-slate-800 transition">&larr; Back to Exams</a>
-        <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-2">Academic Profile Incompatibility Alerts</h1>
+        <a href="/tutor/exams" class="text-sm text-slate-500 hover:text-slate-800 transition"><span class="inline-block rtl:rotate-180">&larr;</span> {{ _("Back to Exams") }}</a>
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-2">{{ _("Academic Profile Incompatibility Alerts") }}</h1>
         <p class="text-sm text-slate-500 mt-1">
-            When a student transitions grade or changes their academic track, Valhalla detects if any assigned exam series are no longer configured for their new profile.
+            {{ _("When a student transitions grade or changes their academic track, Valhalla detects if any assigned exam series are no longer configured for their new profile.") }}
         </p>
     </div>
 
@@ -20,8 +20,8 @@
 
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-slate-900">Incompatible Assignments</h2>
-            <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800">{{ alerts|length }} active alerts</span>
+            <h2 class="text-lg font-semibold text-slate-900">{{ _("Incompatible Assignments") }}</h2>
+            <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 tnum">{{ _("{count} active alerts", count=(alerts|length | fa_digits)) }}</span>
         </div>
 
         {% if alerts %}
@@ -29,25 +29,25 @@
                 {% for a in alerts %}
                     <div class="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 transition">
                         <div class="space-y-1">
-                            <div class="flex items-center space-x-2">
+                            <div class="flex flex-wrap items-center gap-2">
                                 <span class="font-bold text-slate-900 text-base">{{ a.student_name }}</span>
-                                <span class="px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800">Grade {{ a.current_grade }} &bull; {{ a.current_track }}</span>
+                                <span class="px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 tnum">{{ _("Grade {g}", g=(a.current_grade | fa_digits)) }} &bull; {{ a.current_track }}</span>
                             </div>
                             <p class="text-sm text-slate-700">
-                                Assigned Series: <strong class="text-slate-900">{{ a.exam_title }}</strong>
+                                {{ _("Assigned Series:") }} <strong class="text-slate-900">{{ a.exam_title }}</strong>
                             </p>
                             <p class="text-xs text-amber-700 font-medium">
-                                {{ a.reason }}
+                                {{ a.reason | t }}
                             </p>
                         </div>
-                        <div class="flex items-center space-x-3">
+                        <div class="flex items-center gap-3">
                             <a href="/tutor/exams/{{ a.exam_id }}" class="px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 transition">
-                                View Series
+                                {{ _("View Series") }}
                             </a>
-                            <form method="POST" action="/tutor/exams/alerts/profile-changes/{{ a.assignment_id }}/dismiss" onsubmit="return confirm('Dismiss this assignment? Future unsubmitted exam occurrences will be removed for this student, but all past completed results will be strictly preserved.');">
+                            <form method="POST" action="/tutor/exams/alerts/profile-changes/{{ a.assignment_id }}/dismiss" onsubmit="return confirm('{{ _("Dismiss this assignment? Future unsubmitted exam occurrences will be removed for this student, but all past completed results will be strictly preserved.") }}');">
                                 <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                                 <button type="submit" class="px-3 py-1.5 border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg text-xs font-semibold transition">
-                                    Dismiss Future Assignments
+                                    {{ _("Dismiss Future Assignments") }}
                                 </button>
                             </form>
                         </div>
@@ -59,8 +59,8 @@
                 <svg class="mx-auto h-12 w-12 text-emerald-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <h3 class="text-base font-semibold text-slate-900">All student assignments are compatible</h3>
-                <p class="text-xs text-slate-500 mt-1">All assigned students currently match their series eligibility configurations.</p>
+                <h3 class="text-base font-semibold text-slate-900">{{ _("All student assignments are compatible") }}</h3>
+                <p class="text-xs text-slate-500 mt-1">{{ _("All assigned students currently match their series eligibility configurations.") }}</p>
             </div>
         {% endif %}
     </div>

@@ -1,61 +1,61 @@
 {% extends "base.html" %}
-{% block title %}{{ exam.title }} - External Exam Series - Valhalla Tutor{% endblock %}
+{% block title %}{{ _("{title} - External Exam Series - Valhalla Tutor", title=exam.title) }}{% endblock %}
 
 {% block content %}
 <div class="space-y-8">
     <div class="border-b border-slate-200 pb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-            <a href="/tutor/exams" class="text-sm text-slate-500 hover:text-slate-800 transition">&larr; Back to Exam Series</a>
-            <div class="flex items-center space-x-3 mt-1">
+            <a href="/tutor/exams" class="text-sm text-slate-500 hover:text-slate-800 transition"><span class="inline-block rtl:rotate-180">&larr;</span> {{ _("Back to Exam Series") }}</a>
+            <div class="flex flex-wrap items-center gap-3 mt-1">
                 <h1 class="text-2xl font-bold tracking-tight text-slate-900">{{ exam.title }}</h1>
                 {% if exam.is_active %}
-                    <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">Active</span>
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">{{ _("Active") }}</span>
                 {% else %}
-                    <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-200 text-slate-700">Archived</span>
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-200 text-slate-700">{{ _("Archived") }}</span>
                 {% endif %}
             </div>
             {% if exam.description %}
                 <p class="text-sm text-slate-500 mt-1">{{ exam.description }}</p>
             {% endif %}
             {% if exam.first_exam_date and exam.last_exam_date and exam.recurrence_interval_weeks %}
-                <div class="text-xs text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg inline-flex items-center gap-2 mt-2 font-medium">
-                    <span>🔁 Every {{ exam.recurrence_interval_weeks }} week(s)</span>
+                <div class="text-xs text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg inline-flex flex-wrap items-center gap-2 mt-2 font-medium tnum">
+                    <span>🔁 {{ _("Every {n} week(s)", n=(exam.recurrence_interval_weeks | fa_digits)) }}</span>
                     <span>&bull;</span>
-                    <span>Anchor: {{ exam.first_exam_date }}</span>
+                    <span>{{ _("Anchor:") }} {{ exam.first_exam_date | smart_date if is_rtl() else exam.first_exam_date }}</span>
                     <span>&bull;</span>
-                    <span>Until: {{ exam.last_exam_date }}</span>
+                    <span>{{ _("Until:") }} {{ exam.last_exam_date | smart_date if is_rtl() else exam.last_exam_date }}</span>
                 </div>
             {% endif %}
         </div>
         <div class="flex flex-wrap items-center gap-2">
             <a href="/tutor/exams/{{ exam.id }}/audit-logs" class="inline-flex items-center px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 transition">
-                📜 Audit Trail
+                📜 {{ _("Audit Trail") }}
             </a>
             <a href="/tutor/exams/{{ exam.id }}/assignments" class="inline-flex items-center px-3 py-2 border border-indigo-600 rounded-lg text-sm font-semibold text-indigo-600 hover:bg-indigo-50 transition">
-                👥 Manage Assignments
+                👥 {{ _("Manage Assignments") }}
             </a>
             <a href="/tutor/exams/{{ exam.id }}/edit" class="inline-flex items-center px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 transition">
-                ⚙️ Edit Series
+                ⚙️ {{ _("Edit Series") }}
             </a>
             {% if exam.is_active %}
-                <form method="POST" action="/tutor/exams/{{ exam.id }}/archive" class="inline" onsubmit="return confirm('Archive this exam series? It will no longer accept new student assignments.');">
+                <form method="POST" action="/tutor/exams/{{ exam.id }}/archive" class="inline" onsubmit="return confirm('{{ _("Archive this exam series? It will no longer accept new student assignments.") }}');">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                     <button type="submit" class="px-3 py-2 border border-amber-300 rounded-lg text-sm font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 transition">
-                        Archive
+                        {{ _("Archive") }}
                     </button>
                 </form>
             {% else %}
                 <form method="POST" action="/tutor/exams/{{ exam.id }}/restore-archive" class="inline">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                     <button type="submit" class="px-3 py-2 border border-emerald-300 rounded-lg text-sm font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition">
-                        Restore
+                        {{ _("Restore") }}
                     </button>
                 </form>
             {% endif %}
-            <form method="POST" action="/tutor/exams/{{ exam.id }}/delete" class="inline" onsubmit="return confirm('Are you sure you want to permanently delete this exam series? If any student results exist, deletion will be safely rejected.');">
+            <form method="POST" action="/tutor/exams/{{ exam.id }}/delete" class="inline" onsubmit="return confirm('{{ _("Are you sure you want to permanently delete this exam series? If any student results exist, deletion will be safely rejected.") }}');">
                 <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                 <button type="submit" class="px-3 py-2 border border-red-300 rounded-lg text-sm font-semibold text-red-700 bg-red-50 hover:bg-red-100 transition">
-                    Delete
+                    {{ _("Delete") }}
                 </button>
             </form>
         </div>
@@ -72,11 +72,11 @@
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 bg-slate-50/50">
             <div>
-                <h2 class="text-lg font-semibold text-slate-900">1. Eligible Academic Groups & Reporting Structures</h2>
-                <p class="text-xs text-slate-500 mt-0.5">Configured grade and track combinations with their reporting subject groupings.</p>
+                <h2 class="text-lg font-semibold text-slate-900">{{ _("1. Eligible Academic Groups & Reporting Structures") }}</h2>
+                <p class="text-xs text-slate-500 mt-0.5">{{ _("Configured grade and track combinations with their reporting subject groupings.") }}</p>
             </div>
             <a href="/tutor/exams/{{ exam.id }}/grade-tracks/create" class="inline-flex items-center px-3 py-1.5 border border-transparent rounded-lg text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition">
-                + Add Grade/Track Combination
+                {{ _("+ Add Grade/Track Combination") }}
             </a>
         </div>
         <div class="p-6">
@@ -85,21 +85,21 @@
                     {% for gtc in exam.grade_track_configs %}
                         <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/40 space-y-3">
                             <div class="flex items-center justify-between border-b border-slate-200 pb-2">
-                                <div class="font-bold text-slate-900 text-sm">
-                                    پایه {{ gtc.grade }} &bull; {{ gtc.track.name }}
+                                <div class="font-bold text-slate-900 text-sm tnum">
+                                    {{ _("Grade {g}", g=(gtc.grade | fa_digits)) }} &bull; {{ gtc.track.name }}
                                 </div>
-                                <form method="POST" action="/tutor/exams/{{ exam.id }}/grade-tracks/{{ gtc.id }}/delete" onsubmit="return confirm('Remove this grade/track configuration?');">
+                                <form method="POST" action="/tutor/exams/{{ exam.id }}/grade-tracks/{{ gtc.id }}/delete" onsubmit="return confirm('{{ _("Remove this grade/track configuration?") }}');">
                                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
-                                    <button type="submit" class="text-red-500 hover:text-red-700 text-xs font-medium">Remove</button>
+                                    <button type="submit" class="text-red-500 hover:text-red-700 text-xs font-medium">{{ _("Remove") }}</button>
                                 </form>
                             </div>
                             <div class="space-y-2">
-                                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Reporting Groups:</span>
+                                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider block">{{ _("Reporting Groups:") }}</span>
                                 {% for rg in gtc.reporting_groups %}
                                     <div class="bg-white border border-slate-200 rounded-lg p-2.5 shadow-2xs text-xs">
                                         <div class="font-semibold text-slate-800 flex items-center justify-between">
                                             <span>{{ rg.title }}</span>
-                                            <span class="text-slate-400 text-2xs">#{{ rg.order_index + 1 }}</span>
+                                            <span class="text-slate-400 text-2xs tnum">#{{ (rg.order_index + 1) | fa_digits }}</span>
                                         </div>
                                         <div class="flex flex-wrap gap-1 mt-1.5">
                                             {% for sub in rg.subjects %}
@@ -114,7 +114,7 @@
                 </div>
             {% else %}
                 <div class="text-center py-6 text-slate-500 text-sm">
-                    No eligible grade/track combinations configured yet. Click <strong>+ Add Grade/Track Combination</strong> above.
+                    {{ _("No eligible grade/track combinations configured yet. Click") }} <strong>{{ _("+ Add Grade/Track Combination") }}</strong> {{ _("above.") }}
                 </div>
             {% endif %}
         </div>
@@ -124,28 +124,28 @@
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 bg-slate-50/50">
             <div>
-                <h2 class="text-lg font-semibold text-slate-900">2. Scheduled Occurrences & Exceptions</h2>
-                <p class="text-xs text-slate-500 mt-0.5">Manage recurring occurrences, mark No-Exam exceptions, or add replacement dates.</p>
+                <h2 class="text-lg font-semibold text-slate-900">{{ _("2. Scheduled Occurrences & Exceptions") }}</h2>
+                <p class="text-xs text-slate-500 mt-0.5">{{ _("Manage recurring occurrences, mark No-Exam exceptions, or add replacement dates.") }}</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <form method="POST" action="/tutor/exams/{{ exam.id }}/schedule/generate" class="inline">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                     <button type="submit" class="inline-flex items-center px-3 py-1.5 border border-indigo-600 rounded-lg text-xs font-semibold text-indigo-600 hover:bg-indigo-50 transition">
-                        🗓️ Generate
+                        🗓️ {{ _("Generate") }}
                     </button>
                 </form>
                 <form method="POST" action="/tutor/exams/{{ exam.id }}/extend" class="inline flex items-center gap-1">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
-                    <input type="date" name="new_end_date" required class="px-2 py-1 text-xs border border-slate-300 rounded-md" title="Extend to date">
-                    <button type="submit" class="inline-flex items-center px-2.5 py-1.5 border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-xs font-semibold text-indigo-700 transition" title="Extend recurring occurrences">
-                        Extend
+                    <input type="date" name="new_end_date" required dir="ltr" class="px-2 py-1 text-xs border border-slate-300 rounded-md" title="{{ _('Extend to date') }}">
+                    <button type="submit" class="inline-flex items-center px-2.5 py-1.5 border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-xs font-semibold text-indigo-700 transition" title="{{ _('Extend recurring occurrences') }}">
+                        {{ _("Extend") }}
                     </button>
                 </form>
                 <form method="POST" action="/tutor/exams/{{ exam.id }}/sessions/manual" class="inline flex items-center gap-1">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
-                    <input type="date" name="manual_date" required class="px-2 py-1 text-xs border border-slate-300 rounded-md">
+                    <input type="date" name="manual_date" required dir="ltr" class="px-2 py-1 text-xs border border-slate-300 rounded-md">
                     <button type="submit" class="inline-flex items-center px-2.5 py-1.5 border border-slate-300 bg-white hover:bg-slate-50 rounded-lg text-xs font-medium text-slate-700 transition">
-                        + Date
+                        {{ _("+ Date") }}
                     </button>
                 </form>
             </div>
@@ -156,76 +156,78 @@
                 <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                 <input type="hidden" name="exam_id" value="{{ exam.id }}">
                 <div class="px-6 py-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
-                    <div class="flex items-center gap-2 text-xs text-slate-700">
-                        <span class="font-semibold">Bulk Action:</span>
+                    <div class="flex flex-wrap items-center gap-2 text-xs text-slate-700">
+                        <span class="font-semibold">{{ _("Bulk Action:") }}</span>
                         <select name="bulk_action" class="text-xs border border-slate-300 rounded px-2 py-1 bg-white">
-                            <option value="skip">Mark as No Exam (Skip)</option>
-                            <option value="cancel">Cancel Occurrences</option>
-                            <option value="restore">Restore Occurrences</option>
+                            <option value="skip">{{ _("Mark as No Exam (Skip)") }}</option>
+                            <option value="cancel">{{ _("Cancel Occurrences") }}</option>
+                            <option value="restore">{{ _("Restore Occurrences") }}</option>
                         </select>
-                        <input type="text" name="reason" placeholder="Reason (optional)" class="text-xs border border-slate-300 rounded px-2 py-1 bg-white">
-                        <button type="submit" onclick="return confirm('Apply bulk action to selected occurrences?');" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded text-xs transition">
-                            Apply
+                        <input type="text" name="reason" placeholder="{{ _('Reason (optional)') }}" class="text-xs border border-slate-300 rounded px-2 py-1 bg-white">
+                        <button type="submit" onclick="return confirm('{{ _("Apply bulk action to selected occurrences?") }}');" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded text-xs transition">
+                            {{ _("Apply") }}
                         </button>
                     </div>
-                    <span class="text-xs text-slate-400">Never silently modifies submitted results</span>
+                    <span class="text-xs text-slate-400">{{ _("Never silently modifies submitted results") }}</span>
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm text-slate-600">
+                    <table class="w-full text-start text-sm text-slate-600">
                         <thead class="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
                             <tr>
-                                <th class="px-4 py-3 text-center"><input type="checkbox" onclick="document.querySelectorAll('input[name=session_ids]').forEach(cb => cb.checked = this.checked)" title="Select all"></th>
-                                <th class="px-4 py-3">#</th>
-                                <th class="px-6 py-3">Date</th>
-                                <th class="px-6 py-3">Status</th>
-                                <th class="px-6 py-3">Skip Reason / Notes</th>
-                                <th class="px-6 py-3">Results</th>
-                                <th class="px-6 py-3 text-right">Actions</th>
+                                <th class="px-4 py-3 text-center"><input type="checkbox" onclick="document.querySelectorAll('input[name=session_ids]').forEach(cb => cb.checked = this.checked)" title="{{ _('Select all') }}"></th>
+                                <th class="px-4 py-3 text-start">#</th>
+                                <th class="px-6 py-3 text-start">{{ _("Date") }}</th>
+                                <th class="px-6 py-3 text-start">{{ _("Status") }}</th>
+                                <th class="px-6 py-3 text-start">{{ _("Skip Reason / Notes") }}</th>
+                                <th class="px-6 py-3 text-start">{{ _("Results") }}</th>
+                                <th class="px-6 py-3 text-end">{{ _("Actions") }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
                             {% for s in exam.sessions %}
                                 <tr class="hover:bg-slate-50/80 transition {% if s.status == 'SKIPPED' %}bg-amber-50/30{% elif s.status == 'CANCELLED' %}bg-red-50/30{% endif %}">
                                     <td class="px-4 py-3 text-center"><input type="checkbox" name="session_ids" value="{{ s.id }}"></td>
-                                    <td class="px-4 py-3 font-mono text-xs text-slate-400">{{ s.sequence_order or loop.index }}</td>
-                                <td class="px-6 py-3 font-bold text-slate-900 whitespace-nowrap">{{ s.date }}</td>
+                                    <td class="px-4 py-3 font-mono text-xs text-slate-400 tnum">{{ (s.sequence_order or loop.index) | fa_digits }}</td>
+                                <td class="px-6 py-3 font-bold text-slate-900 whitespace-nowrap tnum">{{ s.date | smart_date if is_rtl() else s.date }}</td>
                                 <td class="px-6 py-3">
                                     {% if s.status == 'SCHEDULED' %}
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">Scheduled</span>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">{{ _("Scheduled") }}</span>
                                     {% elif s.status == 'SKIPPED' %}
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800">No Exam (Skipped)</span>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800">{{ _("No Exam (Skipped)") }}</span>
                                     {% elif s.status == 'CANCELLED' %}
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800">Cancelled</span>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800">{{ _("Cancelled") }}</span>
                                     {% else %}
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800">{{ s.status }}</span>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800">{{ s.status | fa_status }}</span>
                                     {% endif %}
                                 </td>
                                 <td class="px-6 py-3 text-xs text-slate-600">
                                     {% if s.skip_reason %}
-                                        <span class="text-amber-700 italic">{{ s.skip_reason }}</span>
+                                        <span class="text-amber-700 italic">{{ s.skip_reason | t }}</span>
                                     {% else %}
                                         <span class="text-slate-400">—</span>
                                     {% endif %}
                                 </td>
-                                <td class="px-6 py-3 text-xs text-slate-600">
-                                    {{ s.results|length }} submissions
+                                <td class="px-6 py-3 text-xs text-slate-600 tnum">
+                                    {{ _("{count} submissions", count=(s.results|length | fa_digits)) }}
                                 </td>
-                                <td class="px-6 py-3 text-right whitespace-nowrap space-x-2">
-                                    {% if s.status == 'SCHEDULED' %}
-                                        <form method="POST" action="/tutor/exams/sessions/{{ s.id }}/skip" class="inline" onsubmit="return confirm('Skip this exam occurrence (mark as No Exam)?');">
-                                            <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
-                                            <input type="hidden" name="reason" value="Holidays / Schedule adjustment">
-                                            <button type="submit" class="text-amber-600 hover:text-amber-800 text-xs font-medium px-2 py-1 bg-amber-50 rounded">Skip (No Exam)</button>
-                                        </form>
-                                    {% elif s.status == 'SKIPPED' %}
-                                        <form method="POST" action="/tutor/exams/sessions/{{ s.id }}/restore" class="inline">
-                                            <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
-                                            <button type="submit" class="text-emerald-600 hover:text-emerald-800 text-xs font-medium px-2 py-1 bg-emerald-50 rounded">Restore Occurrence</button>
-                                        </form>
-                                    {% endif %}
-                                    <a href="/tutor/exams/sessions/{{ s.id }}" class="text-indigo-600 hover:text-indigo-900 font-medium text-xs bg-indigo-50 px-2.5 py-1 rounded transition">
-                                        View Details &rarr;
-                                    </a>
+                                <td class="px-6 py-3 text-end whitespace-nowrap">
+                                    <div class="inline-flex items-center gap-2">
+                                        {% if s.status == 'SCHEDULED' %}
+                                            <form method="POST" action="/tutor/exams/sessions/{{ s.id }}/skip" class="inline" onsubmit="return confirm('{{ _("Skip this exam occurrence (mark as No Exam)?") }}');">
+                                                <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                                                <input type="hidden" name="reason" value="Holidays / Schedule adjustment">
+                                                <button type="submit" class="text-amber-600 hover:text-amber-800 text-xs font-medium px-2 py-1 bg-amber-50 rounded">{{ _("Skip (No Exam)") }}</button>
+                                            </form>
+                                        {% elif s.status == 'SKIPPED' %}
+                                            <form method="POST" action="/tutor/exams/sessions/{{ s.id }}/restore" class="inline">
+                                                <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                                                <button type="submit" class="text-emerald-600 hover:text-emerald-800 text-xs font-medium px-2 py-1 bg-emerald-50 rounded">{{ _("Restore Occurrence") }}</button>
+                                            </form>
+                                        {% endif %}
+                                        <a href="/tutor/exams/sessions/{{ s.id }}" class="text-indigo-600 hover:text-indigo-900 font-medium text-xs bg-indigo-50 px-2.5 py-1 rounded transition">
+                                            {{ _("View Details") }} <span class="inline-block rtl:rotate-180">&rarr;</span>
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -235,7 +237,7 @@
             </form>
         {% else %}
             <div class="p-8 text-center text-slate-500 text-sm">
-                No occurrences generated yet. Configure recurrence and click <strong>Generate Schedule</strong> above.
+                {{ _("No occurrences generated yet. Configure recurrence and click") }} <strong>{{ _("Generate Schedule") }}</strong> {{ _("above.") }}
             </div>
         {% endif %}
     </div>

@@ -1,26 +1,27 @@
 <div class="h-full flex flex-col bg-white">
     <!-- Header -->
-    <div class="px-3 sm:px-6 py-2.5 sm:py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
-        <div class="flex items-center space-x-2 sm:space-x-3">
-            <a href="/tutor/messages" class="md:hidden p-1 text-slate-600 hover:text-slate-900 font-bold text-base min-h-[44px] min-w-[44px] flex items-center justify-center" title="Back to conversations">
-                &larr;
+    <div class="px-3 sm:px-6 py-2.5 sm:py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0 gap-2">
+        <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+            <a href="/tutor/messages" class="md:hidden p-1 text-slate-600 hover:text-slate-900 font-bold text-base min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0" title="{{ _('back_to_conversations') }}">
+                <svg class="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
             </a>
             <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs sm:text-sm shadow-xs shrink-0">
                 {{ student.full_name[:2].upper() }}
             </div>
-            <div>
-                <div class="flex items-center space-x-1.5">
+            <div class="min-w-0">
+                <div class="flex items-center gap-1.5">
                     <h2 class="text-sm sm:text-base font-semibold text-slate-900 truncate max-w-[130px] sm:max-w-none">{{ student.full_name }}</h2>
                     {% if student.grade %}
-                    <span class="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-200 text-slate-700">G{{ student.grade }}</span>
+                    <span class="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-200 text-slate-700 shrink-0">{{ _('grade_n', grade=(student.grade | fa_digits)) }}</span>
                     {% endif %}
                 </div>
-                <p class="text-[11px] text-slate-500 truncate max-w-[140px] sm:max-w-none">@{{ student.username }}</p>
+                <p class="text-[11px] text-slate-500 truncate max-w-[140px] sm:max-w-none bidi-ltr text-start" dir="ltr">@{{ student.username }}</p>
             </div>
         </div>
-        <div class="flex items-center space-x-2">
-            <a href="/tutor/students/{{ student.id }}" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium hover:underline whitespace-nowrap">
-                Profile &rarr;
+        <div class="flex items-center gap-2 shrink-0">
+            <a href="/tutor/students/{{ student.id }}" class="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium hover:underline whitespace-nowrap">
+                <span>{{ _('profile_link') }}</span>
+                <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
             </a>
         </div>
     </div>
@@ -34,7 +35,7 @@
                         hx-target="#older-messages-slot"
                         hx-swap="outerHTML"
                         class="text-xs font-medium text-indigo-600 hover:text-indigo-800 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-2xs hover:bg-slate-50 transition">
-                    &uarr; Load older messages
+                    &uarr; {{ _('load_older_messages') }}
                 </button>
             </div>
             {% endif %}
@@ -44,8 +45,8 @@
             {% if not messages %}
             <div id="empty-state" class="text-center py-16 text-slate-400">
                 <div class="text-4xl mb-2">💬</div>
-                <p class="font-medium text-slate-600">No messages yet with {{ student.full_name }}</p>
-                <p class="text-xs mt-1">Send a message below to start the conversation.</p>
+                <p class="font-medium text-slate-600">{{ _('no_messages_with_student', name=student.full_name) }}</p>
+                <p class="text-xs mt-1">{{ _('Send a message below to start the conversation.') }}</p>
             </div>
             {% else %}
                 {% for msg in messages %}
@@ -72,7 +73,7 @@
               hx-target="#messages-list"
               hx-swap="beforeend"
               hx-on::after-request="if(event.detail.successful) { this.reset(); removeEmptyState(); scrollToBottom(); }"
-              class="flex items-end space-x-2">
+              class="flex items-end gap-2">
             <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
             <div class="flex-1 relative">
                 <textarea id="message-content"
@@ -80,18 +81,18 @@
                           rows="2"
                           maxlength="5000"
                           required
-                          placeholder="Reply to {{ student.full_name }}... (Enter to send, Shift+Enter for newline)"
-                          class="w-full resize-none rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm p-2.5 outline-none border transition"></textarea>
+                          placeholder="{{ _('reply_to_placeholder', name=student.full_name) }}"
+                          class="w-full resize-none rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm p-2.5 outline-none border transition bidi-auto"></textarea>
             </div>
             <button type="submit"
-                    class="h-10 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm flex items-center justify-center shadow-xs transition hover:cursor-pointer disabled:opacity-50">
-                <span>Send</span>
-                <svg class="w-4 h-4 ml-1.5 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    class="h-10 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-1.5 shadow-xs transition hover:cursor-pointer disabled:opacity-50 shrink-0">
+                <span>{{ _('send_btn') }}</span>
+                <svg class="w-4 h-4 ltr:rotate-90 rtl:-rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                 </svg>
             </button>
         </form>
-        <p class="text-[11px] text-slate-400 mt-1 pl-1 hidden sm:block">Press Enter to send, Shift+Enter for new line. Max 5,000 characters.</p>
+        <p class="text-[11px] text-slate-400 mt-1 ps-1 hidden sm:block">{{ _('max_5000_chars_hint') }}</p>
     </div>
 </div>
 

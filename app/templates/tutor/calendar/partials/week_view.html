@@ -1,19 +1,19 @@
 <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
     <div class="min-w-[580px]">
-        <div class="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-center divide-x divide-slate-200">
+        <div class="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-center divide-x rtl:divide-x-reverse divide-slate-200">
         {% for d in cal.week_days %}
             {% set d_str = d.strftime('%Y-%m-%d') %}
             {% set is_today = d_str == cal.today_date %}
             <div class="py-3 px-2 {% if is_today %}bg-indigo-50/60{% endif %}">
-                <div class="text-xs font-semibold text-slate-500 uppercase">{{ d.strftime('%a') }}</div>
-                <div class="text-base font-bold mt-0.5 {% if is_today %}text-indigo-600{% else %}text-slate-800{% endif %}">
-                    {{ d.strftime('%b %d') }}
+                <div class="text-xs font-semibold text-slate-500 uppercase">{{ d | smart_weekday }}</div>
+                <div class="text-base font-bold mt-0.5 tnum {% if is_today %}text-indigo-600{% else %}text-slate-800{% endif %}">
+                    {{ d | smart_date_short }}
                 </div>
             </div>
         {% endfor %}
     </div>
 
-    <div class="grid grid-cols-7 divide-x divide-slate-100 min-h-[550px]">
+    <div class="grid grid-cols-7 divide-x rtl:divide-x-reverse divide-slate-100 min-h-[550px]">
         {% for d in cal.week_days %}
             {% set d_str = d.strftime('%Y-%m-%d') %}
             {% set is_today = d_str == cal.today_date %}
@@ -26,20 +26,20 @@
                         <div hx-get="/tutor/meetings/{{ m.id }}"
                              hx-target="#modal-container"
                              class="cursor-pointer p-2 rounded-lg border text-xs shadow-2xs transition hover:shadow-xs {% if m.status == 'CANCELLED' %}bg-slate-100 border-slate-200 text-slate-400 line-through{% elif m.status == 'COMPLETED' %}bg-emerald-50 border-emerald-200 text-emerald-900{% elif m.status == 'STUDENT_ABSENT' %}bg-amber-50 border-amber-200 text-amber-900{% elif m.meeting_type == 'ONLINE' %}bg-indigo-50 border-indigo-200 text-indigo-900{% else %}bg-cyan-50 border-cyan-200 text-cyan-900{% endif %}">
-                            <div class="flex items-center justify-between font-bold">
-                                <span>{{ item.time_str }}</span>
+                            <div class="flex items-center justify-between font-bold gap-1">
+                                <span class="tnum">{{ item.time_str | fa_digits }}</span>
                                 <span class="text-[10px] uppercase tracking-wider px-1.5 py-0.2 rounded font-semibold {% if m.meeting_type == 'ONLINE' %}bg-indigo-100 text-indigo-700{% else %}bg-cyan-100 text-cyan-700{% endif %}">
-                                    {{ m.meeting_type }}
+                                    {{ m.meeting_type | fa_status }}
                                 </span>
                             </div>
                             <div class="font-semibold text-slate-900 mt-1 truncate">{{ m.student.full_name }}</div>
-                            <div class="text-[11px] text-slate-500 mt-0.5 flex items-center justify-between">
-                                <span>{{ m.duration_minutes }} min</span>
-                                <span class="capitalize font-medium">{{ m.status.lower().replace('_', ' ') }}</span>
+                            <div class="text-[11px] text-slate-500 mt-0.5 flex items-center justify-between gap-1">
+                                <span class="tnum">{{ m.duration_minutes | fa_duration }}</span>
+                                <span class="font-medium">{{ m.status | fa_status }}</span>
                             </div>
                         </div>
                     {% else %}
-                        <div class="text-center py-8 text-xs text-slate-400 italic">No meetings</div>
+                        <div class="text-center py-8 text-xs text-slate-400 italic">{{ _('no_meetings_short') }}</div>
                     {% endfor %}
                 </div>
 
@@ -47,7 +47,7 @@
                         hx-get="/tutor/meetings/new?date={{ d_str }}"
                         hx-target="#modal-container"
                         class="w-full py-1.5 border border-dashed border-slate-200 hover:border-indigo-300 rounded text-center text-xs font-semibold text-slate-500 hover:text-indigo-600 hover:bg-white transition">
-                    + Add Slot
+                    + {{ _('add_slot_btn') }}
                 </button>
             </div>
         {% endfor %}

@@ -1,53 +1,53 @@
 {% extends "base.html" %}
 
-{% block title %}Create Test Book &mdash; Valhalla Tutor{% endblock %}
+{% block title %}{{ _("Create Test Book — Valhalla Tutor") }}{% endblock %}
 
 {% block content %}
 <div class="max-w-xl mx-auto space-y-6">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-            <h1 class="text-2xl font-bold tracking-tight text-slate-900">Create Test Book</h1>
-            <p class="text-sm text-slate-500 mt-1">Register a test book under an academic subject.</p>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900">{{ _("Create Test Book") }}</h1>
+            <p class="text-sm text-slate-500 mt-1">{{ _("Register a test book under an academic subject.") }}</p>
         </div>
-        <a href="/tutor/books" class="text-sm font-semibold text-slate-600 hover:text-slate-900">&larr; Back to Books</a>
+        <a href="/tutor/books" class="text-sm font-semibold text-slate-600 hover:text-slate-900"><span class="inline-block rtl:rotate-180">&larr;</span> {{ _("Back to Books") }}</a>
     </div>
 
     <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
         <form method="POST" action="/tutor/books" class="space-y-4">
             <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
             <div>
-                <label for="subject_id" class="block text-xs font-semibold text-slate-700">Subject *</label>
+                <label for="subject_id" class="block text-xs font-semibold text-slate-700">{{ _("Subject *") }}</label>
                 <select id="subject_id" name="subject_id" required class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500">
-                    <option value="">-- Select Subject --</option>
+                    <option value="">{{ _("-- Select Subject --") }}</option>
                     {% for s in subjects %}
                         <option value="{{ s.id }}" {% if selected_subject_id == s.id %}selected{% endif %}>{{ s.name }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div>
-                <label for="title" class="block text-xs font-semibold text-slate-700">Book Title *</label>
-                <input type="text" id="title" name="title" required placeholder="e.g. زیست‌شناسی جامع خیلی سبز"
+                <label for="title" class="block text-xs font-semibold text-slate-700">{{ _("Book Title *") }}</label>
+                <input type="text" id="title" name="title" required placeholder="{{ _('e.g. زیست‌شناسی جامع خیلی سبز') }}"
                     class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
             </div>
             <div>
-                <label for="grade" class="block text-xs font-semibold text-slate-700">Academic Grade *</label>
+                <label for="grade" class="block text-xs font-semibold text-slate-700">{{ _("Academic Grade *") }}</label>
                 <select id="grade" name="grade" required class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-indigo-500 focus:border-indigo-500">
-                    <option value="">-- Select Grade --</option>
-                    <option value="10">Grade 10</option>
-                    <option value="11">Grade 11</option>
-                    <option value="12">Grade 12</option>
+                    <option value="">{{ _("-- Select Grade --") }}</option>
+                    <option value="10">{{ _("Grade 10") }}</option>
+                    <option value="11">{{ _("Grade 11") }}</option>
+                    <option value="12">{{ _("Grade 12") }}</option>
                 </select>
-                <p class="text-[11px] text-slate-500 mt-1">Must be a grade supported by the selected subject.</p>
+                <p class="text-[11px] text-slate-500 mt-1">{{ _("Must be a grade supported by the selected subject.") }}</p>
             </div>
             <div>
-                <label for="description" class="block text-xs font-semibold text-slate-700">Description (Optional)</label>
+                <label for="description" class="block text-xs font-semibold text-slate-700">{{ _("Description (Optional)") }}</label>
                 <textarea id="description" name="description" rows="3"
                     class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
             </div>
-            <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
-                <a href="/tutor/books" class="px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 transition">Cancel</a>
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <a href="/tutor/books" class="px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 transition">{{ _("Cancel") }}</a>
                 <button type="submit" class="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-sm transition">
-                    Create Book
+                    {{ _("Create Book") }}
                 </button>
             </div>
         </form>

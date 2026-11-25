@@ -10,19 +10,12 @@
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     {% if is_rtl() %}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
-    <style>
-        body, input, button, select, textarea, h1, h2, h3, h4, h5, h6, p, span, a, label {
-            font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-        }
-        [dir="rtl"] .space-x-2 > :not([hidden]) ~ :not([hidden]),
-        [dir="rtl"] .space-x-3 > :not([hidden]) ~ :not([hidden]),
-        [dir="rtl"] .space-x-4 > :not([hidden]) ~ :not([hidden]),
-        [dir="rtl"] .space-x-5 > :not([hidden]) ~ :not([hidden]),
-        [dir="rtl"] .space-x-6 > :not([hidden]) ~ :not([hidden]) {
-            --tw-space-x-reverse: 1;
-        }
-    </style>
     {% endif %}
+    <link rel="stylesheet" href="/static/css/persian-ui.css">
+    <script>
+        window.VALHALLA_I18N = {{ client_i18n_json() | safe }};
+    </script>
+    <script src="/static/js/i18n.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             document.body.addEventListener('htmx:configRequest', (evt) => {
@@ -52,186 +45,187 @@
     </script>
 </head>
 
+{% set current_req_url = (request.url.path ~ ('?' ~ request.url.query if request.url.query else '')) if request else '/' %}
 <body class="min-h-screen flex flex-col text-slate-800 antialiased font-sans overflow-x-hidden">
     <nav class="bg-white border-b border-slate-200 px-4 py-2.5 sm:px-6 sm:py-3 shadow-xs sticky top-0 z-40">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center space-x-4">
-                <a href="/" class="text-lg sm:text-xl font-bold tracking-tight text-indigo-700 flex items-center space-x-2 shrink-0">
+        <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-4 lg:gap-6">
+                <a href="/" class="text-lg sm:text-xl font-bold tracking-tight text-indigo-700 flex items-center gap-2 shrink-0">
                     <span>⚔️</span>
-                    <span>Valhalla Tutor</span>
+                    <span>{{ _('app_name') }}</span>
                 </a>
-                <div class="hidden lg:flex items-center space-x-5">
+                <div class="hidden lg:flex items-center gap-5">
             {% if current_user and current_user.role == "TUTOR" %}
             <a href="/tutor/students"
                 class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">{{ _('students') }}</a>
-            <div class="relative group inline-block text-left">
+            <div class="relative group inline-block text-start">
                 <button type="button" class="inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-indigo-600 py-1 transition">
                     <span>{{ _('schedule') }}</span>
                     <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 transition-transform group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
                 </button>
-                <div class="absolute ltr:left-0 rtl:right-0 top-full pt-1.5 w-52 z-50 hidden group-hover:block group-focus-within:block">
+                <div class="absolute start-0 top-full pt-1.5 w-56 z-50 hidden group-hover:block group-focus-within:block">
                     <div class="bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 overflow-hidden">
                         <a href="/tutor/calendar" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
-                            <span class="ltr:mr-2.5 rtl:ml-2.5 text-base">📅</span>
+                            <span class="me-2.5 text-base">📅</span>
                             <div>
                                 <div class="font-bold">{{ _('calendar_and_meetings') }}</div>
-                                <div class="text-[10px] text-slate-400 font-normal">Monthly & daily schedule</div>
+                                <div class="text-[10px] text-slate-400 font-normal">{{ _('nav_sub_calendar') }}</div>
                             </div>
                         </a>
                         <a href="/tutor/scheduler" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
-                            <span class="ltr:mr-2.5 rtl:ml-2.5 text-base">⏰</span>
+                            <span class="me-2.5 text-base">⏰</span>
                             <div>
                                 <div class="font-bold">{{ _('weekly_availability') }}</div>
-                                <div class="text-[10px] text-slate-400 font-normal">Recurring availability slots</div>
+                                <div class="text-[10px] text-slate-400 font-normal">{{ _('nav_sub_scheduler') }}</div>
                             </div>
                         </a>
                     </div>
                 </div>
             </div>
-            <div class="relative group inline-block text-left">
+            <div class="relative group inline-block text-start">
                 <button type="button" class="inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-indigo-600 py-1 transition">
                     <span>{{ _('assessments') }}</span>
                     <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 transition-transform group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
                 </button>
-                <div class="absolute ltr:left-0 rtl:right-0 top-full pt-1.5 w-56 z-50 hidden group-hover:block group-focus-within:block">
+                <div class="absolute start-0 top-full pt-1.5 w-60 z-50 hidden group-hover:block group-focus-within:block">
                     <div class="bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 overflow-hidden">
                         <a href="/tutor/exams" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
-                            <span class="ltr:mr-2.5 rtl:ml-2.5 text-base">📝</span>
+                            <span class="me-2.5 text-base">📝</span>
                             <div>
                                 <div class="font-bold">{{ _('external_exams') }}</div>
-                                <div class="text-[10px] text-slate-400 font-normal">Exam series & test sessions</div>
+                                <div class="text-[10px] text-slate-400 font-normal">{{ _('nav_sub_external_exams') }}</div>
                             </div>
                         </a>
                         <a href="/tutor/practice-exams" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
-                            <span class="ltr:mr-2.5 rtl:ml-2.5 text-base">✍️</span>
+                            <span class="me-2.5 text-base">✍️</span>
                             <div>
                                 <div class="font-bold">{{ _('practice_exams') }}</div>
-                                <div class="text-[10px] text-slate-400 font-normal">Booklets & mock assessments</div>
+                                <div class="text-[10px] text-slate-400 font-normal">{{ _('nav_sub_practice_exams') }}</div>
                             </div>
                         </a>
                         <a href="/tutor/historical-exams" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
-                            <span class="ltr:mr-2.5 rtl:ml-2.5 text-base">📊</span>
+                            <span class="me-2.5 text-base">📊</span>
                             <div>
                                 <div class="font-bold">{{ _('historical_results') }}</div>
-                                <div class="text-[10px] text-slate-400 font-normal">Past scores & report cards</div>
+                                <div class="text-[10px] text-slate-400 font-normal">{{ _('nav_sub_historical_exams') }}</div>
                             </div>
                         </a>
                     </div>
                 </div>
             </div>
-            <div class="relative group inline-block text-left">
+            <div class="relative group inline-block text-start">
                 <button type="button" class="inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-indigo-600 py-1 transition">
                     <span>{{ _('curriculum') }}</span>
                     <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 transition-transform group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
                 </button>
-                <div class="absolute ltr:left-0 rtl:right-0 top-full pt-1.5 w-52 z-50 hidden group-hover:block group-focus-within:block">
+                <div class="absolute start-0 top-full pt-1.5 w-56 z-50 hidden group-hover:block group-focus-within:block">
                     <div class="bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 overflow-hidden">
                         <a href="/tutor/tracks" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
-                            <span class="ltr:mr-2.5 rtl:ml-2.5 text-base">🧭</span>
+                            <span class="me-2.5 text-base">🧭</span>
                             <div>
                                 <div class="font-bold">{{ _('academic_tracks') }}</div>
-                                <div class="text-[10px] text-slate-400 font-normal">Fields & grade programs</div>
+                                <div class="text-[10px] text-slate-400 font-normal">{{ _('nav_sub_tracks') }}</div>
                             </div>
                         </a>
                         <a href="/tutor/subjects" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
-                            <span class="ltr:mr-2.5 rtl:ml-2.5 text-base">📚</span>
+                            <span class="me-2.5 text-base">📚</span>
                             <div>
                                 <div class="font-bold">{{ _('subjects') }}</div>
-                                <div class="text-[10px] text-slate-400 font-normal">Course subject directory</div>
+                                <div class="text-[10px] text-slate-400 font-normal">{{ _('nav_sub_subjects') }}</div>
                             </div>
                         </a>
                         <a href="/tutor/videos" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
-                            <span class="ltr:mr-2.5 rtl:ml-2.5 text-base">🎬</span>
+                            <span class="me-2.5 text-base">🎬</span>
                             <div>
                                 <div class="font-bold">{{ _('video_courses') }}</div>
-                                <div class="text-[10px] text-slate-400 font-normal">Educational video library</div>
+                                <div class="text-[10px] text-slate-400 font-normal">{{ _('nav_sub_videos') }}</div>
                             </div>
                         </a>
                         <a href="/tutor/books" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
-                            <span class="ltr:mr-2.5 rtl:ml-2.5 text-base">📖</span>
+                            <span class="me-2.5 text-base">📖</span>
                             <div>
                                 <div class="font-bold">{{ _('textbooks') }}</div>
-                                <div class="text-[10px] text-slate-400 font-normal">Reference books & resources</div>
+                                <div class="text-[10px] text-slate-400 font-normal">{{ _('nav_sub_books') }}</div>
                             </div>
                         </a>
                     </div>
                 </div>
             </div>
             <a href="/tutor/messages"
-                class="inline-flex items-center text-sm font-medium text-slate-600 hover:text-indigo-600 transition">
+                class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-indigo-600 transition">
                 <span>{{ _('messages') }}</span>
                 <span id="tutor-unread-badge" hx-get="/tutor/messages/unread-count" hx-trigger="load, every 15s" hx-swap="outerHTML"></span>
             </a>
             {% elif current_user and current_user.role == "STUDENT" %}
             <a href="/student/dashboard"
                 class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">{{ _('dashboard') }}</a>
-            <div class="relative group inline-block text-left">
+            <div class="relative group inline-block text-start">
                 <button type="button" class="inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-indigo-600 py-1 transition">
                     <span>{{ _('study_plans') }}</span>
                     <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 transition-transform group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
                 </button>
-                <div class="absolute ltr:left-0 rtl:right-0 top-full pt-1.5 w-56 z-50 hidden group-hover:block group-focus-within:block">
+                <div class="absolute start-0 top-full pt-1.5 w-60 z-50 hidden group-hover:block group-focus-within:block">
                     <div class="bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 overflow-hidden">
                         <a href="/student/plan" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
-                            <span class="ltr:mr-2.5 rtl:ml-2.5 text-base">🎯</span>
+                            <span class="me-2.5 text-base">🎯</span>
                             <div>
                                 <div class="font-bold">{{ _('current_study_plan') }}</div>
-                                <div class="text-[10px] text-slate-400 font-normal">Active assignments & tasks</div>
+                                <div class="text-[10px] text-slate-400 font-normal">{{ _('nav_sub_current_plan') }}</div>
                             </div>
                         </a>
                         <a href="/student/plans/history" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
-                            <span class="ltr:mr-2.5 rtl:ml-2.5 text-base">🗂️</span>
+                            <span class="me-2.5 text-base">🗂️</span>
                             <div>
                                 <div class="font-bold">{{ _('plan_archives') }}</div>
-                                <div class="text-[10px] text-slate-400 font-normal">Past study plan iterations</div>
+                                <div class="text-[10px] text-slate-400 font-normal">{{ _('nav_sub_plan_archives') }}</div>
                             </div>
                         </a>
                         <a href="/student/history" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
-                            <span class="ltr:mr-2.5 rtl:ml-2.5 text-base">📜</span>
+                            <span class="me-2.5 text-base">📜</span>
                             <div>
                                 <div class="font-bold">{{ _('task_completion_log') }}</div>
-                                <div class="text-[10px] text-slate-400 font-normal">All logged & finished tasks</div>
+                                <div class="text-[10px] text-slate-400 font-normal">{{ _('nav_sub_completion_log') }}</div>
                             </div>
                         </a>
                     </div>
                 </div>
             </div>
-            <div class="relative group inline-block text-left">
+            <div class="relative group inline-block text-start">
                 <button type="button" class="inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-indigo-600 py-1 transition">
                     <span>{{ _('assessments') }}</span>
                     <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 transition-transform group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
                 </button>
-                <div class="absolute ltr:left-0 rtl:right-0 top-full pt-1.5 w-56 z-50 hidden group-hover:block group-focus-within:block">
+                <div class="absolute start-0 top-full pt-1.5 w-60 z-50 hidden group-hover:block group-focus-within:block">
                     <div class="bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 overflow-hidden">
                         <a href="/student/practice-exams" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
-                            <span class="ltr:mr-2.5 rtl:ml-2.5 text-base">✍️</span>
+                            <span class="me-2.5 text-base">✍️</span>
                             <div>
                                 <div class="font-bold">{{ _('practice_exams') }}</div>
-                                <div class="text-[10px] text-slate-400 font-normal">Booklet tests & instant grading</div>
+                                <div class="text-[10px] text-slate-400 font-normal">{{ _('nav_sub_student_practice') }}</div>
                             </div>
                         </a>
                         <a href="/student/exams" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
-                            <span class="ltr:mr-2.5 rtl:ml-2.5 text-base">📝</span>
+                            <span class="me-2.5 text-base">📝</span>
                             <div>
                                 <div class="font-bold">{{ _('external_exams') }}</div>
-                                <div class="text-[10px] text-slate-400 font-normal">Registered exam series</div>
+                                <div class="text-[10px] text-slate-400 font-normal">{{ _('nav_sub_student_external') }}</div>
                             </div>
                         </a>
                         <a href="/student/historical-exams" class="flex items-center px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition">
-                            <span class="ltr:mr-2.5 rtl:ml-2.5 text-base">📊</span>
+                            <span class="me-2.5 text-base">📊</span>
                             <div>
                                 <div class="font-bold">{{ _('historical_results') }}</div>
-                                <div class="text-[10px] text-slate-400 font-normal">Score records & reports</div>
+                                <div class="text-[10px] text-slate-400 font-normal">{{ _('nav_sub_student_historical') }}</div>
                             </div>
                         </a>
                     </div>
@@ -239,7 +233,7 @@
             </div>
             <a href="/student/curriculum" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">{{ _('curriculum') }}</a>
             <a href="/student/chat"
-                class="inline-flex items-center text-sm font-medium text-slate-600 hover:text-indigo-600 transition">
+                class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-indigo-600 transition">
                 <span>{{ _('messages') }}</span>
                 <span id="student-unread-badge" hx-get="/student/chat/unread-count" hx-trigger="load, every 15s" hx-swap="outerHTML"></span>
             </a>
@@ -248,9 +242,9 @@
             </div>
 
             <!-- Desktop User Profile & Logout -->
-            <div class="hidden lg:flex items-center space-x-3">
+            <div class="hidden lg:flex items-center gap-3">
                 <!-- Language Selector -->
-                <div class="relative group inline-block text-left">
+                <div class="relative group inline-block text-start">
                     <button type="button" class="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-200 transition">
                         {% if get_locale() == 'fa' %}
                         <span>🇮🇷</span>
@@ -263,13 +257,13 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
                     </button>
-                    <div class="absolute right-0 top-full pt-1.5 w-32 z-50 hidden group-hover:block group-focus-within:block">
+                    <div class="absolute end-0 top-full pt-1.5 w-36 z-50 hidden group-hover:block group-focus-within:block">
                         <div class="bg-white rounded-xl shadow-xl border border-slate-200 py-1 overflow-hidden text-xs">
-                            <a href="/set-language?lang=en&redirect_url={{ request.url.path if request else '/' }}" class="flex items-center justify-between px-3 py-1.5 hover:bg-indigo-50 font-medium {% if get_locale() == 'en' %}text-indigo-600 font-bold bg-indigo-50/60{% else %}text-slate-700{% endif %}">
+                            <a href="/set-language?lang=en&redirect_url={{ current_req_url | urlencode }}" class="flex items-center justify-between px-3 py-1.5 hover:bg-indigo-50 font-medium {% if get_locale() == 'en' %}text-indigo-600 font-bold bg-indigo-50/60{% else %}text-slate-700{% endif %}">
                                 <span>🇺🇸 English</span>
                                 {% if get_locale() == 'en' %}<span>✓</span>{% endif %}
                             </a>
-                            <a href="/set-language?lang=fa&redirect_url={{ request.url.path if request else '/' }}" class="flex items-center justify-between px-3 py-1.5 hover:bg-indigo-50 font-medium {% if get_locale() == 'fa' %}text-indigo-600 font-bold bg-indigo-50/60{% else %}text-slate-700{% endif %}">
+                            <a href="/set-language?lang=fa&redirect_url={{ current_req_url | urlencode }}" class="flex items-center justify-between px-3 py-1.5 hover:bg-indigo-50 font-medium {% if get_locale() == 'fa' %}text-indigo-600 font-bold bg-indigo-50/60{% else %}text-slate-700{% endif %}">
                                 <span>🇮🇷 فارسی</span>
                                 {% if get_locale() == 'fa' %}<span>✓</span>{% endif %}
                             </a>
@@ -284,7 +278,7 @@
                 <span class="text-sm font-medium text-slate-700">{{ current_user.full_name }}</span>
                 <span
                     class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {% if current_user.role == 'TUTOR' %}bg-indigo-100 text-indigo-800{% else %}bg-emerald-100 text-emerald-800{% endif %}">
-                    {{ current_user.role }}
+                    {{ current_user.role | fa_role }}
                 </span>
                 <form action="/auth/logout" method="POST" class="inline">
                     <input type="hidden" name="csrf_token"
@@ -300,14 +294,14 @@
             </div>
 
             <!-- Mobile Controls -->
-            <div class="flex items-center space-x-2 lg:hidden">
+            <div class="flex items-center gap-2 lg:hidden">
                 <!-- Mobile Quick Language Switcher -->
                 {% if get_locale() == 'fa' %}
-                <a href="/set-language?lang=en&redirect_url={{ request.url.path if request else '/' }}" class="px-2 py-1 text-xs font-bold text-slate-700 bg-slate-100 rounded-lg border border-slate-200" title="Switch to English">
+                <a href="/set-language?lang=en&redirect_url={{ current_req_url | urlencode }}" class="px-2 py-1 text-xs font-bold text-slate-700 bg-slate-100 rounded-lg border border-slate-200" title="{{ _('switch_to_english') }}">
                     🇺🇸 EN
                 </a>
                 {% else %}
-                <a href="/set-language?lang=fa&redirect_url={{ request.url.path if request else '/' }}" class="px-2 py-1 text-xs font-bold text-slate-700 bg-slate-100 rounded-lg border border-slate-200" title="تغییر به فارسی">
+                <a href="/set-language?lang=fa&redirect_url={{ current_req_url | urlencode }}" class="px-2 py-1 text-xs font-bold text-slate-700 bg-slate-100 rounded-lg border border-slate-200" title="{{ _('switch_to_persian') }}">
                     🇮🇷 FA
                 </a>
                 {% endif %}
@@ -315,12 +309,12 @@
                 <div id="tutor-reminders-mobile" hx-get="/tutor/reminders/unread" hx-trigger="load" hx-swap="innerHTML"></div>
                 {% endif %}
                 {% if current_user and current_user.role == "STUDENT" %}
-                <a href="/student/chat" class="relative p-2 text-slate-600 hover:text-indigo-600 rounded-lg hover:bg-slate-100 transition" title="Chat">
+                <a href="/student/chat" class="relative p-2 text-slate-600 hover:text-indigo-600 rounded-lg hover:bg-slate-100 transition" title="{{ _('chat') }}">
                     <span class="text-base">💬</span>
                     <span id="student-unread-badge-mobile" hx-get="/student/chat/unread-count" hx-trigger="load, every 15s" hx-swap="outerHTML"></span>
                 </a>
                 {% endif %}
-                <button id="mobile-menu-btn" type="button" onclick="toggleMobileMenu()" aria-label="Toggle Menu"
+                <button id="mobile-menu-btn" type="button" onclick="toggleMobileMenu()" aria-label="{{ _('toggle_menu') }}"
                         class="p-2 rounded-lg text-slate-600 hover:text-indigo-600 hover:bg-slate-100 transition focus:outline-hidden min-h-[44px] min-w-[44px] flex items-center justify-center">
                     <svg id="hamburger-icon" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
@@ -339,7 +333,7 @@
         {% block content %}{% endblock %}
     </main>
     <footer class="bg-white border-t border-slate-200 py-3 text-center text-xs text-slate-500">
-        Valhalla Tutor &copy; 2026 &mdash; Academic Planner
+        {{ _('app_name') }} &copy; {{ 2026 | fa_digits }} &mdash; {{ _('footer_tagline') }}
     </footer>
 </body>
 

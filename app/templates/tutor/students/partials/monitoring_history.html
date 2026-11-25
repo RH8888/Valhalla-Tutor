@@ -2,11 +2,11 @@
 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 space-y-4">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
         <div>
-            <h3 class="text-base font-black text-slate-900">Recent Completed Tasks</h3>
-            <p class="text-xs text-slate-500 mt-0.5">Audit log preserved when resetting accidental completions.</p>
+            <h3 class="text-base font-black text-slate-900">{{ _('Recent Completed Tasks') }}</h3>
+            <p class="text-xs text-slate-500 mt-0.5">{{ _('Audit log preserved when resetting accidental completions.') }}</p>
         </div>
         <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 self-start sm:self-auto">
-            {{ monitoring.recent_completed|length }} recorded
+            {{ _('recorded_count_label', count=(monitoring.recent_completed|length | fa_digits)) }}
         </span>
     </div>
 
@@ -14,40 +14,40 @@
     <div class="divide-y divide-slate-100">
         {% for task in monitoring.recent_completed %}
         <div class="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3" id="recent-task-row-{{ task.id }}">
-            <div class="flex items-start space-x-3 flex-1 min-w-0">
+            <div class="flex items-start gap-3 flex-1 min-w-0">
                 <span class="text-base">
                     {% if task.task_type == 'VIDEO' %}🎥{% elif task.task_type == 'TEST' %}📝{% else %}📌{% endif %}
                 </span>
                 <div class="min-w-0 flex-1">
-                    <div class="flex items-center space-x-2">
+                    <div class="flex items-center gap-2 flex-wrap">
                         <span class="font-bold text-xs text-slate-900 truncate">{{ task.title }}</span>
                         <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700">
                             {{ task.subject.name }}
                         </span>
                     </div>
                     <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 mt-1">
-                        <span>⏱️ Rec: {{ task.recommended_duration_minutes }}m</span>
+                        <span class="tnum">⏱️ {{ _('rec_short') }} {{ task.recommended_duration_minutes | fa_duration }}</span>
                         {% if task.actual_duration_minutes %}
                         <span>&bull;</span>
-                        <span class="text-indigo-700 font-bold">Reported: {{ task.actual_duration_minutes }}m</span>
+                        <span class="text-indigo-700 font-bold tnum">{{ _('reported_prefix') }} {{ task.actual_duration_minutes | fa_duration }}</span>
                         {% endif %}
                         <span>&bull;</span>
-                        <span class="text-emerald-700 font-semibold">Completed: {{ task.completed_at.strftime('%Y-%m-%d %H:%M') if task.completed_at else 'Done' }}</span>
+                        <span class="text-emerald-700 font-semibold">{{ _('completed_prefix') }} {{ task.completed_at | local_dt if task.completed_at else _('done_short') }}</span>
                     </div>
                 </div>
             </div>
 
             <!-- Tutor Actions: Reset & Audit Trail -->
-            <div class="flex items-center space-x-2 shrink-0">
+            <div class="flex items-center gap-2 shrink-0">
                 <a href="/tutor/assignments/{{ task.id }}/audits" class="px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-indigo-600 hover:bg-slate-50 border border-slate-200 rounded-lg transition">
-                    Audit Log
+                    {{ _('Audit Log') }}
                 </a>
                 <form method="POST" action="/tutor/assignments/{{ task.id }}/reset-completion" class="inline">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                     <input type="hidden" name="redirect_url" value="/tutor/students/{{ student.id }}?msg=Assignment completion reset successfully.">
-                    <button type="submit" onclick="return confirm('Reset completion for this task? An audit record will be logged.')"
+                    <button type="submit" onclick="return confirm('{{ _('reset_completion_confirm') }}')"
                         class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg text-xs font-bold transition">
-                        Reset Completion
+                        {{ _('Reset Completion') }}
                     </button>
                 </form>
             </div>
@@ -56,7 +56,7 @@
     </div>
     {% else %}
     <div class="py-6 text-center text-xs text-slate-400 italic">
-        No completed tasks logged for this student yet.
+        {{ _('No completed tasks logged for this student yet.') }}
     </div>
     {% endif %}
 </div>
@@ -65,33 +65,34 @@
 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
     <div class="flex items-center justify-between pb-3 border-b border-slate-100">
         <div>
-            <h3 class="text-base font-black text-slate-900">Archived &amp; Previous Plans</h3>
-            <p class="text-xs text-slate-500 mt-0.5">Historical study plans for progress comparison.</p>
+            <h3 class="text-base font-black text-slate-900">{{ _('Archived & Previous Plans') }}</h3>
+            <p class="text-xs text-slate-500 mt-0.5">{{ _('Historical study plans for progress comparison.') }}</p>
         </div>
         <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
-            {{ monitoring.archived_plans|length }} plans
+            {{ _('plans_count_label', count=(monitoring.archived_plans|length | fa_digits)) }}
         </span>
     </div>
 
     {% if monitoring.archived_plans %}
     <div class="divide-y divide-slate-100">
         {% for ap in monitoring.archived_plans %}
-        <div class="py-3 flex items-center justify-between">
+        <div class="py-3 flex items-center justify-between gap-2">
             <div>
                 <span class="font-bold text-xs text-slate-900">{{ ap.title }}</span>
                 <span class="text-[11px] text-slate-500 block mt-0.5">
-                    {{ ap.start_date.strftime('%b %d') }} &mdash; {{ ap.end_date.strftime('%b %d, %Y') }} &bull; {{ ap.status.value }}
+                    {{ ap.start_date | smart_date_short }} &mdash; {{ ap.end_date | smart_date }} &bull; {{ ap.status | fa_status }}
                 </span>
             </div>
-            <a href="/tutor/plans/{{ ap.id }}" class="text-xs font-bold text-indigo-600 hover:text-indigo-800">
-                Review Plan &rarr;
+            <a href="/tutor/plans/{{ ap.id }}" class="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 shrink-0">
+                <span>{{ _('Review Plan') }}</span>
+                <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
             </a>
         </div>
         {% endfor %}
     </div>
     {% else %}
     <div class="py-4 text-center text-xs text-slate-400 italic">
-        No archived plans for this student yet.
+        {{ _('No archived plans for this student yet.') }}
     </div>
     {% endif %}
 </div>

@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Configure Grade & Track - {{ exam.title }}{% endblock %}
+{% block title %}{{ _("Configure Grade & Track - {title}", title=exam.title) }}{% endblock %}
 
 {% block content %}
 <div class="max-w-3xl mx-auto space-y-6">
     <div class="border-b border-slate-200 pb-4">
-        <a href="/tutor/exams/{{ exam.id }}" class="text-sm text-slate-500 hover:text-slate-800 transition">&larr; Back to {{ exam.title }}</a>
-        <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-2">Configure Grade & Track Report Structure</h1>
-        <p class="text-sm text-slate-500 mt-1">Configure which subjects and reporting groups appear when students of this grade/track submit their results.</p>
+        <a href="/tutor/exams/{{ exam.id }}" class="text-sm text-slate-500 hover:text-slate-800 transition"><span class="inline-block rtl:rotate-180">&larr;</span> {{ _("Back to {title}", title=exam.title) }}</a>
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-2">{{ _("Configure Grade & Track Report Structure") }}</h1>
+        <p class="text-sm text-slate-500 mt-1">{{ _("Configure which subjects and reporting groups appear when students of this grade/track submit their results.") }}</p>
     </div>
 
     {% if error %}
@@ -18,15 +18,15 @@
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4 border-b border-slate-200">
             <div>
-                <label for="grade" class="block text-sm font-semibold text-slate-700">Academic Grade *</label>
+                <label for="grade" class="block text-sm font-semibold text-slate-700">{{ _("Academic Grade *") }}</label>
                 <select id="grade" name="grade" required class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                    <option value="10">دهم (Grade 10)</option>
-                    <option value="11">یازدهم (Grade 11)</option>
-                    <option value="12" selected>دوازدهم (Grade 12)</option>
+                    <option value="10">{{ _("دهم (Grade 10)") }}</option>
+                    <option value="11">{{ _("یازدهم (Grade 11)") }}</option>
+                    <option value="12" selected>{{ _("دوازدهم (Grade 12)") }}</option>
                 </select>
             </div>
             <div>
-                <label for="track_id" class="block text-sm font-semibold text-slate-700">Academic Track *</label>
+                <label for="track_id" class="block text-sm font-semibold text-slate-700">{{ _("Academic Track *") }}</label>
                 <select id="track_id" name="track_id" required class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                     {% for t in tracks %}
                         <option value="{{ t.id }}">{{ t.name }}</option>
@@ -38,8 +38,8 @@
         <div class="space-y-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <h3 class="text-base font-bold text-slate-900">Reporting Groups</h3>
-                    <p class="text-xs text-slate-500">A reporting group can represent a single subject or combine multiple subjects into one percentage (e.g. حسابان + هندسه = ریاضی).</p>
+                    <h3 class="text-base font-bold text-slate-900">{{ _("Reporting Groups") }}</h3>
+                    <p class="text-xs text-slate-500">{{ _("A reporting group can represent a single subject or combine multiple subjects into one percentage (e.g. حسابان + هندسه = ریاضی).") }}</p>
                 </div>
             </div>
 
@@ -47,13 +47,13 @@
             <div id="groups-container" class="space-y-4">
                 {% for t in tracks %}
                     <div class="track-subjects-block border border-slate-200 rounded-xl p-4 bg-slate-50/50 space-y-3" id="track-block-{{ t.id }}" {% if not loop.first %}style="display:none;"{% endif %}>
-                        <div class="text-xs font-semibold text-indigo-700 uppercase">Subjects available in {{ t.name }}:</div>
+                        <div class="text-xs font-semibold text-indigo-700 uppercase">{{ _("Subjects available in {name}:", name=t.name) }}</div>
                         {% for sub in t.subjects %}
-                            <div class="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-lg text-sm">
+                            <div class="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-white border border-slate-200 rounded-lg text-sm">
                                 <span class="font-medium text-slate-800">{{ sub.name }}</span>
                                 <div class="flex items-center gap-3">
                                     <label class="text-xs text-slate-500 flex items-center gap-1">
-                                        Group Name:
+                                        {{ _("Group Name:") }}
                                         <input type="text" name="subject_group_{{ sub.id }}" value="{{ sub.name }}" class="px-2 py-1 text-xs border border-slate-300 rounded-md w-36">
                                     </label>
                                     <input type="checkbox" name="selected_subjects" value="{{ sub.id }}" checked class="h-4 w-4 text-indigo-600 rounded">
@@ -80,9 +80,9 @@
             updateActiveTrack();
         </script>
 
-        <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
-            <a href="/tutor/exams/{{ exam.id }}" class="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition">Cancel</a>
-            <button type="submit" class="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition">Save Reporting Structure</button>
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+            <a href="/tutor/exams/{{ exam.id }}" class="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition">{{ _("Cancel") }}</a>
+            <button type="submit" class="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition">{{ _("Save Reporting Structure") }}</button>
         </div>
     </form>
 </div>

@@ -1,16 +1,16 @@
 {% extends "base.html" %}
-{% block title %}{{ student.full_name }} - Exam Performance - Valhalla Tutor{% endblock %}
+{% block title %}{{ _("{name} - Exam Performance - Valhalla Tutor", name=student.full_name) }}{% endblock %}
 
 {% block content %}
 <div class="space-y-8">
     <div class="border-b border-slate-200 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-            <a href="/tutor/exams" class="text-sm text-slate-500 hover:text-slate-800 transition">&larr; Back to Exams</a>
-            <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-1">{{ student.full_name }} &mdash; Exam Analytics</h1>
-            <p class="text-sm text-slate-500">Track: <span class="font-semibold text-slate-700">{{ student.academic_track.name if student.academic_track else 'Not assigned' }}</span> &bull; Grade: <span class="font-semibold text-slate-700">{{ student.grade or 'N/A' }}</span></p>
+            <a href="/tutor/exams" class="text-sm text-slate-500 hover:text-slate-800 transition"><span class="inline-block rtl:rotate-180">&larr;</span> {{ _("Back to Exams") }}</a>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-1">{{ _("{name} — Exam Analytics", name=student.full_name) }}</h1>
+            <p class="text-sm text-slate-500 tnum">{{ _("Track:") }} <span class="font-semibold text-slate-700">{{ student.academic_track.name if student.academic_track else _("Not assigned") }}</span> &bull; {{ _("Grade:") }} <span class="font-semibold text-slate-700">{{ (student.grade | fa_digits) if student.grade else _("N/A") }}</span></p>
         </div>
         <a href="/tutor/students/{{ student.id }}" class="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition">
-            View Student Profile
+            {{ _("View Student Profile") }}
         </a>
     </div>
 
@@ -18,35 +18,35 @@
         <!-- Summary Cards -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Exams Taken</span>
-                <p class="text-2xl font-bold text-slate-900 mt-1">{{ analytics.results_count }}</p>
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">{{ _("Total Exams Taken") }}</span>
+                <p class="text-2xl font-bold text-slate-900 mt-1 tnum">{{ analytics.results_count | fa_digits }}</p>
             </div>
             <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Improving Subjects</span>
-                <p class="text-2xl font-bold text-emerald-600 mt-1">{{ analytics.improving_declining.improving|length }}</p>
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">{{ _("Improving Subjects") }}</span>
+                <p class="text-2xl font-bold text-emerald-600 mt-1 tnum">{{ analytics.improving_declining.improving|length | fa_digits }}</p>
                 <div class="flex flex-wrap gap-1 mt-1">
                     {% for item in analytics.improving_declining.improving %}
-                        <span class="text-xs text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-medium">+{{ item.delta }}% {{ item.name }}</span>
+                        <span class="text-xs text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-medium tnum">+{{ item.delta | fa_percent if is_rtl() else (item.delta|string ~ '%') }} {{ item.name }}</span>
                     {% endfor %}
                 </div>
             </div>
             <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Declining Subjects</span>
-                <p class="text-2xl font-bold text-red-500 mt-1">{{ analytics.improving_declining.declining|length }}</p>
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">{{ _("Declining Subjects") }}</span>
+                <p class="text-2xl font-bold text-red-500 mt-1 tnum">{{ analytics.improving_declining.declining|length | fa_digits }}</p>
                 <div class="flex flex-wrap gap-1 mt-1">
                     {% for item in analytics.improving_declining.declining %}
-                        <span class="text-xs text-red-700 bg-red-50 px-1.5 py-0.5 rounded font-medium">{{ item.delta }}% {{ item.name }}</span>
+                        <span class="text-xs text-red-700 bg-red-50 px-1.5 py-0.5 rounded font-medium tnum">{{ item.delta | fa_percent if is_rtl() else (item.delta|string ~ '%') }} {{ item.name }}</span>
                     {% endfor %}
                 </div>
             </div>
             <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Overall Trend</span>
-                <p class="text-2xl font-bold text-indigo-600 mt-1">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">{{ _("Overall Trend") }}</span>
+                <p class="text-2xl font-bold text-indigo-600 mt-1 tnum">
                     {% if analytics.overall_trends %}
-                        {{ analytics.overall_trends[-1].average_percentage }}%
+                        {{ analytics.overall_trends[-1].average_percentage | fa_percent if is_rtl() else (analytics.overall_trends[-1].average_percentage|string ~ '%') }}
                     {% else %}—{% endif %}
                 </p>
-                <span class="text-xs text-slate-500">Latest exam average</span>
+                <span class="text-xs text-slate-500">{{ _("Latest exam average") }}</span>
             </div>
         </div>
 
@@ -54,7 +54,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                 <h3 class="text-sm font-bold text-slate-800 mb-4 flex items-center justify-between">
-                    <span>📈 Subject Percentage Trends Over Time</span>
+                    <span>📈 {{ _("Subject Percentage Trends Over Time") }}</span>
                 </h3>
                 <div class="h-64 relative">
                     <canvas id="subjectTrendsChart"></canvas>
@@ -62,7 +62,7 @@
             </div>
             <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                 <h3 class="text-sm font-bold text-slate-800 mb-4 flex items-center justify-between">
-                    <span>🎯 Correct vs. Incorrect Answers Trend</span>
+                    <span>🎯 {{ _("Correct vs. Incorrect Answers Trend") }}</span>
                 </h3>
                 <div class="h-64 relative">
                     <canvas id="answersTrendChart"></canvas>
@@ -72,26 +72,26 @@
 
         <!-- Subject Performance Summary Cards -->
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
-            <h3 class="text-base font-bold text-slate-900">Subject-by-Subject Performance Comparison</h3>
+            <h3 class="text-base font-bold text-slate-900">{{ _("Subject-by-Subject Performance Comparison") }}</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {% for name, s in analytics.subject_stats.items() %}
                     <div class="border border-slate-100 rounded-lg p-4 bg-slate-50/50 space-y-2">
                         <div class="flex items-center justify-between">
                             <span class="font-bold text-slate-900">{{ name }}</span>
-                            <span class="text-xs bg-indigo-50 text-indigo-700 font-semibold px-2 py-0.5 rounded">{{ s.count }} tests</span>
+                            <span class="text-xs bg-indigo-50 text-indigo-700 font-semibold px-2 py-0.5 rounded tnum">{{ _("{count} tests", count=(s.count | fa_digits)) }}</span>
                         </div>
                         <div class="grid grid-cols-3 gap-2 text-center pt-2 border-t border-slate-200/60">
                             <div>
-                                <span class="text-xs text-slate-400 block">Avg</span>
-                                <span class="text-sm font-bold text-slate-800">{{ s.average }}%</span>
+                                <span class="text-xs text-slate-400 block">{{ _("Avg") }}</span>
+                                <span class="text-sm font-bold text-slate-800 tnum">{{ s.average | fa_percent if is_rtl() else (s.average|string ~ '%') }}</span>
                             </div>
                             <div>
-                                <span class="text-xs text-slate-400 block">Latest</span>
-                                <span class="text-sm font-bold text-indigo-600">{{ s.latest }}%</span>
+                                <span class="text-xs text-slate-400 block">{{ _("Latest") }}</span>
+                                <span class="text-sm font-bold text-indigo-600 tnum">{{ s.latest | fa_percent if is_rtl() else (s.latest|string ~ '%') }}</span>
                             </div>
                             <div>
-                                <span class="text-xs text-slate-400 block">Peak</span>
-                                <span class="text-sm font-bold text-emerald-600">{{ s.max }}%</span>
+                                <span class="text-xs text-slate-400 block">{{ _("Peak") }}</span>
+                                <span class="text-sm font-bold text-emerald-600 tnum">{{ s.max | fa_percent if is_rtl() else (s.max|string ~ '%') }}</span>
                             </div>
                         </div>
                     </div>
@@ -102,34 +102,34 @@
         <!-- Exam History Table -->
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-200 bg-slate-50/50">
-                <h3 class="text-base font-bold text-slate-900">Exam History & Subject Details</h3>
+                <h3 class="text-base font-bold text-slate-900">{{ _("Exam History & Subject Details") }}</h3>
             </div>
             <div class="divide-y divide-slate-100">
                 {% for h in analytics.history %}
                     <div class="p-6 space-y-3">
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                            <div>
+                            <div class="flex flex-wrap items-center gap-2">
                                 <span class="font-bold text-slate-900">{{ h.exam_title }}</span>
-                                <span class="text-xs text-slate-500 ml-2">Date: {{ h.date }}</span>
+                                <span class="text-xs text-slate-500 tnum">{{ _("Date:") }} {{ h.date | smart_date if is_rtl() else h.date }}</span>
                                 {% if h.overall_rank %}
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-700 ml-2">Rank {{ h.overall_rank }}</span>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-700 tnum">{{ _("Rank {rank}", rank=(h.overall_rank | fa_digits)) }}</span>
                                 {% endif %}
                             </div>
-                            <div class="text-sm font-semibold text-indigo-600">
-                                Average: {{ h.average_percentage }}%
-                                <span class="text-xs font-normal text-slate-500 ml-2">({{ h.total_correct }} correct / {{ h.total_incorrect }} incorrect)</span>
+                            <div class="text-sm font-semibold text-indigo-600 tnum">
+                                {{ _("Average:") }} {{ h.average_percentage | fa_percent if is_rtl() else (h.average_percentage|string ~ '%') }}
+                                <span class="text-xs font-normal text-slate-500 ms-2">{{ _("({correct} correct / {incorrect} incorrect)", correct=(h.total_correct | fa_digits), incorrect=(h.total_incorrect | fa_digits)) }}</span>
                             </div>
                         </div>
                         {% if h.notes %}
-                            <p class="text-xs text-slate-500 italic bg-slate-50 p-2 rounded">Notes: {{ h.notes | e }}</p>
+                            <p class="text-xs text-slate-500 italic bg-slate-50 p-2 rounded">{{ _("Notes:") }} {{ h.notes | e }}</p>
                         {% endif %}
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
                             {% for sub in h.subjects %}
                                 <div class="bg-slate-50 border border-slate-100 p-2.5 rounded-lg text-xs">
                                     <span class="font-semibold text-slate-800 block">{{ sub.subject_name }}</span>
-                                    <div class="flex items-center justify-between mt-1 text-slate-500">
-                                        <span>{{ sub.percentage }}%</span>
-                                        <span class="text-emerald-600 font-medium">+{{ sub.correct }} / -{{ sub.incorrect }}</span>
+                                    <div class="flex items-center justify-between mt-1 text-slate-500 tnum">
+                                        <span>{{ sub.percentage | fa_percent if is_rtl() else (sub.percentage|string ~ '%') }}</span>
+                                        <span class="text-emerald-600 font-medium bidi-ltr">+{{ sub.correct | fa_digits }} / -{{ sub.incorrect | fa_digits }}</span>
                                     </div>
                                 </div>
                             {% endfor %}
@@ -142,12 +142,16 @@
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
+                if (typeof vtApplyChartDefaults === 'function' && typeof Chart !== 'undefined') {
+                    vtApplyChartDefaults(Chart);
+                }
                 const data = {{ analytics | tojson }};
                 
                 // 1. Subject Trends Chart
                 const colors = ['#4f46e5', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
                 const subNames = Object.keys(data.subject_trends);
                 const allDates = [...new Set(data.overall_trends.map(t => t.date))].sort();
+                const allLabels = allDates.map(d => typeof vtFormatDate === 'function' ? vtFormatDate(d) : d);
 
                 const datasets = subNames.map((name, idx) => {
                     const trend = data.subject_trends[name];
@@ -163,13 +167,29 @@
                     };
                 });
 
+                const yPos = (typeof vtIsRtl === 'function' && vtIsRtl()) ? 'right' : 'left';
                 new Chart(document.getElementById('subjectTrendsChart'), {
                     type: 'line',
-                    data: { labels: allDates, datasets: datasets },
+                    data: { labels: allLabels, datasets: datasets },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } }
+                        plugins: {
+                            tooltip: {
+                                rtl: typeof vtIsRtl === 'function' ? vtIsRtl() : false,
+                                callbacks: {
+                                    label: ctx => `${ctx.dataset.label}: ${vtPercent(ctx.parsed.y, 1)}`
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                position: yPos,
+                                min: 0,
+                                max: 100,
+                                ticks: { callback: v => typeof vtPercent === 'function' ? vtPercent(v, 0) : (v + '%') }
+                            }
+                        }
                     }
                 });
 
@@ -177,21 +197,38 @@
                 new Chart(document.getElementById('answersTrendChart'), {
                     type: 'bar',
                     data: {
-                        labels: data.overall_trends.map(t => t.date),
+                        labels: data.overall_trends.map(t => typeof vtFormatDate === 'function' ? vtFormatDate(t.date) : t.date),
                         datasets: [
-                            { label: 'Correct', data: data.overall_trends.map(t => t.total_correct), backgroundColor: '#10b981' },
-                            { label: 'Incorrect', data: data.overall_trends.map(t => t.total_incorrect), backgroundColor: '#ef4444' }
+                            { label: vt('js_total_correct'), data: data.overall_trends.map(t => t.total_correct), backgroundColor: '#10b981' },
+                            { label: vt('js_total_incorrect'), data: data.overall_trends.map(t => t.total_incorrect), backgroundColor: '#ef4444' }
                         ]
                     },
-                    options: { responsive: true, maintainAspectRatio: false }
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            tooltip: {
+                                rtl: typeof vtIsRtl === 'function' ? vtIsRtl() : false,
+                                callbacks: {
+                                    label: ctx => `${ctx.dataset.label}: ${vtDigits(ctx.parsed.y)}`
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                position: yPos,
+                                ticks: { callback: v => vtDigits(v) }
+                            }
+                        }
+                    }
                 });
             });
         </script>
     {% else %}
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center text-slate-500">
             <span class="text-4xl block mb-2">📊</span>
-            <p class="text-base font-semibold text-slate-700">No exam results recorded for this student yet.</p>
-            <p class="text-xs text-slate-400 mt-1">Once the student submits results for scheduled exams, full performance trends and analytics will appear here.</p>
+            <p class="text-base font-semibold text-slate-700">{{ _("No exam results recorded for this student yet.") }}</p>
+            <p class="text-xs text-slate-400 mt-1">{{ _("Once the student submits results for scheduled exams, full performance trends and analytics will appear here.") }}</p>
         </div>
     {% endif %}
 </div>

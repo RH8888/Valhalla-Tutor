@@ -1,21 +1,21 @@
 {% extends "base.html" %}
-{% block title %}{{ exam.title }} - Practice Exam - Valhalla Tutor{% endblock %}
+{% block title %}{{ _("{title} - Practice Exam - Valhalla Tutor", title=exam.title) }}{% endblock %}
 
 {% block content %}
 <div class="space-y-8">
     <div class="border-b border-slate-200 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-            <a href="/tutor/practice-exams" class="text-sm text-slate-500 hover:text-slate-800 transition">&larr; Back to Practice Exams</a>
+            <a href="/tutor/practice-exams" class="text-sm text-slate-500 hover:text-slate-800 transition"><span class="inline-block rtl:rotate-180">&larr;</span> {{ _("Back to Practice Exams") }}</a>
             <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-1">{{ exam.title }}</h1>
-            <p class="text-sm text-slate-500">
-                Grade: <strong class="text-slate-700">{{ exam.grade }}</strong> &bull;
-                Track: <strong class="text-slate-700">{{ exam.track.name }}</strong> &bull;
-                Mode: <span class="font-semibold {% if exam.is_timed %}text-amber-600{% else %}text-slate-600{% endif %}">{% if exam.is_timed %}Timed Exam{% else %}Untimed{% endif %}</span>
+            <p class="text-sm text-slate-500 tnum">
+                {{ _("Grade:") }} <strong class="text-slate-700">{{ exam.grade | fa_digits }}</strong> &bull;
+                {{ _("Track:") }} <strong class="text-slate-700">{{ exam.track.name }}</strong> &bull;
+                {{ _("Mode:") }} <span class="font-semibold {% if exam.is_timed %}text-amber-600{% else %}text-slate-600{% endif %}">{% if exam.is_timed %}{{ _("Timed Exam") }}{% else %}{{ _("Untimed") }}{% endif %}</span>
             </p>
         </div>
-        <div class="flex items-center space-x-2">
-            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
-                {{ exam.attempts|length }} Submissions
+        <div class="flex items-center gap-2">
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800 tnum">
+                {{ _("{count} Submissions", count=(exam.attempts|length | fa_digits)) }}
             </span>
         </div>
     </div>
@@ -32,54 +32,56 @@
         <!-- PDF Booklets -->
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
             <h2 class="text-lg font-bold text-slate-900 flex items-center justify-between">
-                <span>PDF Booklets (دفترچه‌های سوال)</span>
-                <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{{ exam.booklets|length }} booklets</span>
+                <span>{{ _("PDF Booklets (دفترچه‌های سوال)") }}</span>
+                <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded tnum">{{ _("{count} booklets", count=(exam.booklets|length | fa_digits)) }}</span>
             </h2>
 
             <div class="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
                 {% for b in exam.booklets %}
-                    <div class="p-3 bg-slate-50/50 flex items-center justify-between">
+                    <div class="p-3 bg-slate-50/50 flex items-center justify-between gap-2">
                         <div>
-                            <p class="font-semibold text-slate-800 text-sm">#{{ b.order_index }}: {{ b.title }}</p>
-                            <p class="text-xs text-slate-500">Questions: {{ b.question_start }}–{{ b.question_end }} &bull; Duration: {{ b.duration_minutes or 'Untimed' }} min</p>
+                            <p class="font-semibold text-slate-800 text-sm tnum">#{{ b.order_index | fa_digits }}: {{ b.title }}</p>
+                            <p class="text-xs text-slate-500 tnum">
+                                {{ _("Questions: {start}–{end} • Duration: {dur}", start=(b.question_start | fa_digits), end=(b.question_end | fa_digits), dur=(_("{min} min", min=(b.duration_minutes | fa_digits)) if b.duration_minutes else _("Untimed"))) }}
+                            </p>
                         </div>
                         <a href="/tutor/practice-exams/{{ exam.id }}/download-booklet/{{ b.id }}" target="_blank"
-                           class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded text-indigo-700 bg-white border border-indigo-200 hover:bg-indigo-50 shadow-sm transition">
-                            Download PDF
+                           class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded text-indigo-700 bg-white border border-indigo-200 hover:bg-indigo-50 shadow-sm transition whitespace-nowrap">
+                            {{ _("Download PDF") }}
                         </a>
                     </div>
                 {% else %}
-                    <div class="p-4 text-center text-xs text-slate-500">No booklets uploaded yet.</div>
+                    <div class="p-4 text-center text-xs text-slate-500">{{ _("No booklets uploaded yet.") }}</div>
                 {% endfor %}
             </div>
 
             <!-- Upload Booklet Form -->
             <form method="POST" action="/tutor/practice-exams/{{ exam.id }}/booklets" enctype="multipart/form-data" class="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
                 <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
-                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">+ Upload New Booklet PDF</h3>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">{{ _("+ Upload New Booklet PDF") }}</h3>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div class="sm:col-span-2">
-                        <label class="block text-xs font-medium text-slate-600">Booklet Title *</label>
-                        <input type="text" name="title" required placeholder="e.g. دفترچه عمومی یا دفترچه ۱" class="mt-0.5 block w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-indigo-500 focus:border-indigo-500">
+                        <label class="block text-xs font-medium text-slate-600">{{ _("Booklet Title *") }}</label>
+                        <input type="text" name="title" required placeholder="{{ _('e.g. دفترچه عمومی یا دفترچه ۱') }}" class="mt-0.5 block w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-indigo-500 focus:border-indigo-500">
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-slate-600">Start Question # *</label>
-                        <input type="number" name="question_start" min="1" required placeholder="1" class="mt-0.5 block w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-indigo-500 focus:border-indigo-500">
+                        <label class="block text-xs font-medium text-slate-600">{{ _("Start Question # *") }}</label>
+                        <input type="number" name="question_start" min="1" required placeholder="1" class="mt-0.5 block w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-indigo-500 focus:border-indigo-500 tnum">
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-slate-600">End Question # *</label>
-                        <input type="number" name="question_end" min="1" required placeholder="60" class="mt-0.5 block w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-indigo-500 focus:border-indigo-500">
+                        <label class="block text-xs font-medium text-slate-600">{{ _("End Question # *") }}</label>
+                        <input type="number" name="question_end" min="1" required placeholder="60" class="mt-0.5 block w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-indigo-500 focus:border-indigo-500 tnum">
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-slate-600">Duration (Minutes)</label>
-                        <input type="number" name="duration_minutes" min="1" placeholder="60 (leave empty if untimed)" class="mt-0.5 block w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-indigo-500 focus:border-indigo-500">
+                        <label class="block text-xs font-medium text-slate-600">{{ _("Duration (Minutes)") }}</label>
+                        <input type="number" name="duration_minutes" min="1" placeholder="{{ _('60 (leave empty if untimed)') }}" class="mt-0.5 block w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-indigo-500 focus:border-indigo-500 tnum">
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-slate-600">PDF File *</label>
-                        <input type="file" name="file" accept=".pdf" required class="mt-0.5 block w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-indigo-50 file:text-indigo-700">
+                        <label class="block text-xs font-medium text-slate-600">{{ _("PDF File *") }}</label>
+                        <input type="file" name="file" accept=".pdf" required class="mt-0.5 block w-full text-xs text-slate-500 file:me-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-indigo-50 file:text-indigo-700">
                     </div>
                 </div>
-                <button type="submit" class="w-full mt-2 px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded shadow-sm transition">Upload Booklet</button>
+                <button type="submit" class="w-full mt-2 px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded shadow-sm transition">{{ _("Upload Booklet") }}</button>
             </form>
         </div>
         <!-- Reporting Groups & Assignments -->
@@ -87,10 +89,10 @@
             <!-- Reporting Groups -->
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
                 <h2 class="text-lg font-bold text-slate-900 flex items-center justify-between">
-                    <span>Subject Reporting Groups (گروه‌های ترکیبی گزارش)</span>
-                    <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{{ exam.reporting_groups|length }} groups</span>
+                    <span>{{ _("Subject Reporting Groups (گروه‌های ترکیبی گزارش)") }}</span>
+                    <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded tnum">{{ _("{count} groups", count=(exam.reporting_groups|length | fa_digits)) }}</span>
                 </h2>
-                <p class="text-xs text-slate-500">Combine multiple subjects (e.g. Geometry + Calculus + Stats &rarr; "Mathematics") into a single combined percentage report, or leave individual.</p>
+                <p class="text-xs text-slate-500">{% if is_rtl() %}{{ _('Combine multiple subjects (e.g. Geometry + Calculus + Stats -> "Mathematics") into a single combined percentage report, or leave individual.') }}{% else %}Combine multiple subjects (e.g. Geometry + Calculus + Stats &rarr; "Mathematics") into a single combined percentage report, or leave individual.{% endif %}</p>
 
                 <div class="flex flex-wrap gap-2">
                     {% for g in exam.reporting_groups %}
@@ -98,24 +100,24 @@
                             {{ g.title }}
                         </span>
                     {% else %}
-                        <span class="text-xs text-slate-400">No combined groups defined (subjects scored individually).</span>
+                        <span class="text-xs text-slate-400">{{ _("No combined groups defined (subjects scored individually).") }}</span>
                     {% endfor %}
                 </div>
 
                 <form method="POST" action="/tutor/practice-exams/{{ exam.id }}/reporting-groups" class="flex gap-2 pt-2 border-t border-slate-100">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
-                    <input type="text" name="title" required placeholder="New group title (e.g. ریاضیات کنکور)" class="flex-1 px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-indigo-500 focus:border-indigo-500">
-                    <button type="submit" class="px-3 py-1.5 text-xs font-semibold text-white bg-slate-800 hover:bg-slate-900 rounded shadow-sm transition">+ Add Group</button>
+                    <input type="text" name="title" required placeholder="{{ _('New group title (e.g. ریاضیات کنکور)') }}" class="flex-1 px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-indigo-500 focus:border-indigo-500">
+                    <button type="submit" class="px-3 py-1.5 text-xs font-semibold text-white bg-slate-800 hover:bg-slate-900 rounded shadow-sm transition">{{ _("+ Add Group") }}</button>
                 </form>
             </div>
 
             <!-- Student Assignment -->
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
                 <h2 class="text-lg font-bold text-slate-900 flex items-center justify-between">
-                    <span>Student Assignment (تخصیص به دانش‌آموزان)</span>
-                    <span class="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded">{{ exam.assignments|length }} assigned</span>
+                    <span>{{ _("Student Assignment (تخصیص به دانش‌آموزان)") }}</span>
+                    <span class="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded tnum">{{ _("{count} assigned", count=(exam.assignments|length | fa_digits)) }}</span>
                 </h2>
-                <p class="text-xs text-slate-500">By default eligible students in Grade {{ exam.grade }} &bull; {{ exam.track.name }} can take this exam. You can also assign it directly.</p>
+                <p class="text-xs text-slate-500 tnum">{{ _("By default eligible students in Grade {grade} • {track} can take this exam. You can also assign it directly.", grade=(exam.grade | fa_digits), track=exam.track.name) }}</p>
 
                 <form method="POST" action="/tutor/practice-exams/{{ exam.id }}/assign" class="space-y-3">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
@@ -125,25 +127,25 @@
                             {% for a in exam.assignments %}
                                 {% if a.student_id == st.id %}{% set is_assigned = true %}{% endif %}
                             {% endfor %}
-                            <label class="flex items-center space-x-2 text-xs text-slate-700 hover:bg-white p-1 rounded cursor-pointer">
+                            <label class="flex items-center gap-2 text-xs text-slate-700 hover:bg-white p-1 rounded cursor-pointer">
                                 <input type="checkbox" name="student_ids" value="{{ st.id }}" {% if is_assigned %}checked{% endif %} class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
-                                <span>{{ st.full_name }} (Grade {{ st.grade or '—' }} &bull; {{ st.academic_track.name if st.academic_track else 'No Track' }})</span>
+                                <span class="tnum">{{ st.full_name }} ({{ _("Grade {g}", g=((st.grade | fa_digits) if st.grade else '—')) }} &bull; {{ st.academic_track.name if st.academic_track else _("No Track") }})</span>
                             </label>
                         {% endfor %}
                     </div>
-                    <button type="submit" class="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded shadow-sm transition">Save Assignments</button>
+                    <button type="submit" class="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded shadow-sm transition">{{ _("Save Assignments") }}</button>
                 </form>
             </div>
         </div>
     </div>
     <!-- Question Answer Keys & Subject Mapping -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
-        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
             <div>
-                <h2 class="text-lg font-bold text-slate-900">Answer Keys &amp; Subject Mapping</h2>
-                <p class="text-xs text-slate-500">Configure correct choices (1-4), subject assignment, and optional combined reporting group.</p>
+                <h2 class="text-lg font-bold text-slate-900">{{ _("Answer Keys & Subject Mapping") }}</h2>
+                <p class="text-xs text-slate-500">{{ _("Configure correct choices (1-4), subject assignment, and optional combined reporting group.") }}</p>
             </div>
-            <span class="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded font-semibold">{{ exam.questions|length }} configured</span>
+            <span class="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded font-semibold tnum">{{ _("{count} configured", count=(exam.questions|length | fa_digits)) }}</span>
         </div>
 
         {% set effective_max_q = max_q if (max_q is defined and max_q > 0) else (exam.booklets|map(attribute='question_end')|max if exam.booklets else 0) %}
@@ -152,39 +154,39 @@
 
             <!-- Quick Configuration Helpers -->
             <div class="bg-indigo-50/50 rounded-lg p-4 border border-indigo-100 space-y-3">
-                <h3 class="text-xs font-bold text-indigo-900 uppercase tracking-wider">⚡ Quick Configuration Tools (ابزارهای ورود سریع)</h3>
+                <h3 class="text-xs font-bold text-indigo-900 uppercase tracking-wider">{{ _("⚡ Quick Configuration Tools (ابزارهای ورود سریع)") }}</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <!-- Tool 1: Paste Answer Key -->
                     <div class="space-y-1.5">
-                        <label class="block text-xs font-semibold text-slate-700">1. Paste Answer Key (چسباندن سریع کلید پاسخ‌ها):</label>
+                        <label class="block text-xs font-semibold text-slate-700">{{ _("1. Paste Answer Key (چسباندن سریع کلید پاسخ‌ها):") }}</label>
                         <div class="flex gap-2">
-                            <input type="text" id="quick_keys_input" placeholder="e.g. 1423124431... or 1,4,2,3..."
+                            <input type="text" id="quick_keys_input" placeholder="{{ _('e.g. 1423124431... or 1,4,2,3...') }}" dir="ltr"
                                    class="flex-1 px-2.5 py-1.5 border border-slate-300 rounded text-xs font-mono focus:ring-indigo-500 focus:border-indigo-500 bg-white">
                             <button type="button" onclick="applyQuickKeys()" class="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded shadow-sm transition">
-                                Apply Keys
+                                {{ _("Apply Keys") }}
                             </button>
                         </div>
-                        <p class="text-[11px] text-slate-500">Paste numbers (1–4) or letters (A–D). Applies sequentially starting at Q#1.</p>
+                        <p class="text-[11px] text-slate-500">{{ _("Paste numbers (1–4) or letters (A–D). Applies sequentially starting at Q#1.") }}</p>
                     </div>
 
                     <!-- Tool 2: Bulk Assign Subject -->
                     <div class="space-y-1.5">
-                        <label class="block text-xs font-semibold text-slate-700">2. Bulk Assign Subject (تخصیص درس به بازه سوال):</label>
-                        <div class="flex gap-2">
+                        <label class="block text-xs font-semibold text-slate-700">{{ _("2. Bulk Assign Subject (تخصیص درس به بازه سوال):") }}</label>
+                        <div class="flex flex-wrap gap-2">
                             <select id="bulk_subject_select" class="flex-1 px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-indigo-500 focus:border-indigo-500 bg-white">
-                                <option value="">Select Subject...</option>
+                                <option value="">{{ _("Select Subject...") }}</option>
                                 {% for s in exam.track.subjects %}
                                     <option value="{{ s.id }}">{{ s.name }}</option>
                                 {% endfor %}
                             </select>
-                            <input type="number" id="bulk_from_q" value="1" min="1" max="{{ effective_max_q }}" class="w-12 px-1.5 py-1.5 border border-slate-300 rounded text-xs text-center">
-                            <span class="text-xs text-slate-400 self-center">to</span>
-                            <input type="number" id="bulk_to_q" value="{{ effective_max_q }}" min="1" max="{{ effective_max_q }}" class="w-12 px-1.5 py-1.5 border border-slate-300 rounded text-xs text-center">
+                            <input type="number" id="bulk_from_q" value="1" min="1" max="{{ effective_max_q }}" class="w-12 px-1.5 py-1.5 border border-slate-300 rounded text-xs text-center tnum">
+                            <span class="text-xs text-slate-400 self-center">{{ _("to") }}</span>
+                            <input type="number" id="bulk_to_q" value="{{ effective_max_q }}" min="1" max="{{ effective_max_q }}" class="w-12 px-1.5 py-1.5 border border-slate-300 rounded text-xs text-center tnum">
                             <button type="button" onclick="applyBulkSubject()" class="px-3 py-1.5 text-xs font-semibold text-white bg-slate-800 hover:bg-slate-900 rounded shadow-sm transition">
-                                Set
+                                {{ _("Set") }}
                             </button>
                         </div>
-                        <p class="text-[11px] text-slate-500">Assigns chosen subject to questions within range.</p>
+                        <p class="text-[11px] text-slate-500">{{ _("Assigns chosen subject to questions within range.") }}</p>
                     </div>
                 </div>
             </div>
@@ -195,22 +197,22 @@
                     {% for q_num in range(1, effective_max_q + 1) %}
                         {% set curr_q = q_map.get(q_num) %}
                         <div class="p-2.5 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-50">
-                            <span class="text-xs font-bold text-slate-800 w-16">Q #{{ q_num }}</span>
-                            <div class="flex items-center gap-3 flex-1">
+                            <span class="text-xs font-bold text-slate-800 w-16 tnum">{{ _("Q #{num}", num=(q_num | fa_digits)) }}</span>
+                            <div class="flex flex-wrap items-center gap-3 flex-1">
                                 <!-- Choice 1-4 -->
-                                <div class="flex items-center space-x-1">
-                                    <span class="text-xs text-slate-500 mr-1">Key:</span>
+                                <div class="flex items-center gap-1">
+                                    <span class="text-xs text-slate-500 me-1">{{ _("Key:") }}</span>
                                     {% for ch in [1, 2, 3, 4] %}
-                                        <label class="q-choice-lbl-{{ q_num }} inline-flex items-center justify-center w-7 h-7 rounded border {% if curr_q and curr_q.correct_choice == ch %}bg-indigo-600 text-white border-indigo-600{% else %}border-slate-300 text-slate-700 hover:bg-indigo-50{% endif %} text-xs font-semibold cursor-pointer transition">
+                                        <label class="q-choice-lbl-{{ q_num }} inline-flex items-center justify-center w-7 h-7 rounded border {% if curr_q and curr_q.correct_choice == ch %}bg-indigo-600 text-white border-indigo-600{% else %}border-slate-300 text-slate-700 hover:bg-indigo-50{% endif %} text-xs font-semibold cursor-pointer transition tnum">
                                             <input type="radio" name="q_{{ q_num }}_choice" value="{{ ch }}" onchange="highlightRow({{ q_num }})" {% if curr_q and curr_q.correct_choice == ch %}checked{% endif %} class="sr-only">
-                                            {{ ch }}
+                                            {{ ch | fa_digits }}
                                         </label>
                                     {% endfor %}
                                 </div>
                                 <!-- Subject -->
-                                <div class="flex-1">
+                                <div class="flex-1 min-w-[140px]">
                                     <select name="q_{{ q_num }}_subject" class="block w-full px-2 py-1 text-xs border border-slate-300 rounded focus:ring-indigo-500 focus:border-indigo-500">
-                                        <option value="">Select Subject...</option>
+                                        <option value="">{{ _("Select Subject...") }}</option>
                                         {% for s in exam.track.subjects %}
                                             <option value="{{ s.id }}" {% if curr_q and curr_q.subject_id == s.id %}selected{% endif %}>{{ s.name }}</option>
                                         {% endfor %}
@@ -219,9 +221,9 @@
                                 <!-- Reporting Group (Optional) -->
                                 <div class="w-48">
                                     <select name="q_{{ q_num }}_group" class="block w-full px-2 py-1 text-xs border border-slate-300 rounded focus:ring-indigo-500 focus:border-indigo-500">
-                                        <option value="">Individual Subject Score</option>
+                                        <option value="">{{ _("Individual Subject Score") }}</option>
                                         {% for g in exam.reporting_groups %}
-                                            <option value="{{ g.id }}" {% if curr_q and curr_q.reporting_group_id == g.id %}selected{% endif %}>Group: {{ g.title }}</option>
+                                            <option value="{{ g.id }}" {% if curr_q and curr_q.reporting_group_id == g.id %}selected{% endif %}>{{ _("Group: {title}", title=g.title) }}</option>
                                         {% endfor %}
                                     </select>
                                 </div>
@@ -229,9 +231,9 @@
                         </div>
                     {% endfor %}
                 </div>
-                <div class="flex items-center justify-between pt-2">
-                    <p class="text-xs text-slate-500">All questions configured here will be automatically graded using multiple-choice negative marking.</p>
-                    <button type="submit" class="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition">Save Question Keys &amp; Groups</button>
+                <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+                    <p class="text-xs text-slate-500">{{ _("All questions configured here will be automatically graded using multiple-choice negative marking.") }}</p>
+                    <button type="submit" class="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition">{{ _("Save Question Keys & Groups") }}</button>
                 </div>
             </form>
 
@@ -241,9 +243,9 @@
                 radios.forEach(r => {
                     const lbl = r.closest('label');
                     if (r.checked) {
-                        lbl.className = "q-choice-lbl-" + qNum + " inline-flex items-center justify-center w-7 h-7 rounded border bg-indigo-600 text-white border-indigo-600 text-xs font-semibold cursor-pointer transition";
+                        lbl.className = "q-choice-lbl-" + qNum + " inline-flex items-center justify-center w-7 h-7 rounded border bg-indigo-600 text-white border-indigo-600 text-xs font-semibold cursor-pointer transition tnum";
                     } else {
-                        lbl.className = "q-choice-lbl-" + qNum + " inline-flex items-center justify-center w-7 h-7 rounded border border-slate-300 text-slate-700 hover:bg-indigo-50 text-xs font-semibold cursor-pointer transition";
+                        lbl.className = "q-choice-lbl-" + qNum + " inline-flex items-center justify-center w-7 h-7 rounded border border-slate-300 text-slate-700 hover:bg-indigo-50 text-xs font-semibold cursor-pointer transition tnum";
                     }
                 });
             }
@@ -251,10 +253,10 @@
             function applyQuickKeys() {
                 const raw = (document.getElementById('quick_keys_input').value || '').trim();
                 if (!raw) {
-                    alert('Please paste an answer key string first (e.g. 142312... or 1,4,2,3).');
+                    alert(vt('js_paste_keys_alert'));
                     return;
                 }
-                const mapChar = {'1': '1', '2': '2', '3': '3', '4': '4', 'A': '1', 'B': '2', 'C': '3', 'D': '4', 'a': '1', 'b': '2', 'c': '3', 'd': '4', 'الف': '1', 'ب': '2', 'ج': '3', 'د': '4'};
+                const mapChar = {'1': '1', '2': '2', '3': '3', '4': '4', '۱': '1', '۲': '2', '۳': '3', '۴': '4', 'A': '1', 'B': '2', 'C': '3', 'D': '4', 'a': '1', 'b': '2', 'c': '3', 'd': '4', 'الف': '1', 'ب': '2', 'ج': '3', 'د': '4'};
                 const clean = [];
                 for (let i = 0; i < raw.length; i++) {
                     const ch = raw[i];
@@ -273,13 +275,13 @@
                         }
                     }
                 });
-                alert(`Successfully applied answer keys for ${count} questions!`);
+                alert(vt('js_applied_keys_alert', {count: vtDigits(count)}));
             }
 
             function applyBulkSubject() {
                 const subjId = document.getElementById('bulk_subject_select').value;
                 if (!subjId) {
-                    alert('Please select a subject first from the dropdown.');
+                    alert(vt('js_select_subject_first'));
                     return;
                 }
                 const fromQ = parseInt(document.getElementById('bulk_from_q').value) || 1;
@@ -292,30 +294,30 @@
                         count++;
                     }
                 }
-                alert(`Applied subject to questions ${fromQ} through ${toQ} (${count} questions).`);
+                alert(vt('js_applied_subject_range', {fromQ: vtDigits(fromQ), toQ: vtDigits(toQ), count: vtDigits(count)}));
             }
             </script>
         {% else %}
-            <p class="text-xs text-slate-500">Please upload at least one PDF booklet first to define question numbers.</p>
+            <p class="text-xs text-slate-500">{{ _("Please upload at least one PDF booklet first to define question numbers.") }}</p>
         {% endif %}
     </div>
 
     <!-- Student Attempts Table -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-200 bg-slate-50/50">
-            <h2 class="text-base font-bold text-slate-900">Student Attempts &amp; Submissions</h2>
+            <h2 class="text-base font-bold text-slate-900">{{ _("Student Attempts & Submissions") }}</h2>
         </div>
         {% if exam.attempts %}
             <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm text-slate-600">
+                <table class="w-full text-start text-sm text-slate-600">
                     <thead class="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
                         <tr>
-                            <th class="px-6 py-3">Student</th>
-                            <th class="px-4 py-3 text-center">Status</th>
-                            <th class="px-6 py-3">Started</th>
-                            <th class="px-6 py-3">Completed</th>
-                            <th class="px-4 py-3 text-center">Score %</th>
-                            <th class="px-6 py-3 text-right">Detailed Results</th>
+                            <th class="px-6 py-3 text-start">{{ _("Student") }}</th>
+                            <th class="px-4 py-3 text-center">{{ _("Status") }}</th>
+                            <th class="px-6 py-3 text-start">{{ _("Started") }}</th>
+                            <th class="px-6 py-3 text-start">{{ _("Completed") }}</th>
+                            <th class="px-4 py-3 text-center">{{ _("Score %") }}</th>
+                            <th class="px-6 py-3 text-end">{{ _("Detailed Results") }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
@@ -324,17 +326,17 @@
                                 <td class="px-6 py-4 font-semibold text-slate-900 whitespace-nowrap">{{ att.student.full_name }}</td>
                                 <td class="px-4 py-4 text-center whitespace-nowrap">
                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold {% if att.status == 'COMPLETED' %}bg-emerald-50 text-emerald-700{% else %}bg-amber-50 text-amber-700{% endif %}">
-                                        {{ att.status }}
+                                        {{ att.status | fa_status }}
                                     </span>
                                 </td>
-                                <td class="px-6 py-4 text-xs text-slate-500 whitespace-nowrap">{{ att.started_at.strftime('%Y-%m-%d %H:%M') if att.started_at else '—' }}</td>
-                                <td class="px-6 py-4 text-xs text-slate-500 whitespace-nowrap">{{ att.completed_at.strftime('%Y-%m-%d %H:%M') if att.completed_at else 'In Progress' }}</td>
-                                <td class="px-4 py-4 text-center font-bold text-indigo-600 whitespace-nowrap">
-                                    {{ "%.1f"|format(att.overall_percentage) if att.overall_percentage is not none else '—' }}%
+                                <td class="px-6 py-4 text-xs text-slate-500 whitespace-nowrap tnum">{{ (att.started_at | local_dt if is_rtl() else att.started_at.strftime('%Y-%m-%d %H:%M')) if att.started_at else '—' }}</td>
+                                <td class="px-6 py-4 text-xs text-slate-500 whitespace-nowrap tnum">{{ (att.completed_at | local_dt if is_rtl() else att.completed_at.strftime('%Y-%m-%d %H:%M')) if att.completed_at else _("In Progress") }}</td>
+                                <td class="px-4 py-4 text-center font-bold text-indigo-600 whitespace-nowrap tnum">
+                                    {{ (att.overall_percentage | fa_percent(1) if is_rtl() else ("%.1f"|format(att.overall_percentage) ~ '%')) if att.overall_percentage is not none else '—' }}
                                 </td>
-                                <td class="px-6 py-4 text-right whitespace-nowrap">
+                                <td class="px-6 py-4 text-end whitespace-nowrap">
                                     <a href="/tutor/practice-exams/attempts/{{ att.id }}" class="text-indigo-600 hover:text-indigo-900 font-medium text-xs bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-md transition">
-                                        View Results &rarr;
+                                        {{ _("View Results") }} <span class="inline-block rtl:rotate-180">&rarr;</span>
                                     </a>
                                 </td>
                             </tr>
@@ -343,7 +345,7 @@
                 </table>
             </div>
         {% else %}
-            <div class="p-8 text-center text-xs text-slate-500">No student attempts recorded for this practice exam yet.</div>
+            <div class="p-8 text-center text-xs text-slate-500">{{ _("No student attempts recorded for this practice exam yet.") }}</div>
         {% endif %}
     </div>
 </div>

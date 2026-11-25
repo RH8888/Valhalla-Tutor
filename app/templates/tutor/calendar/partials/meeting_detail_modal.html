@@ -2,11 +2,11 @@
     <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all my-4" onclick="event.stopPropagation()">
         <!-- Header -->
         <div class="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-            <div class="flex items-center space-x-2">
+            <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-lg">{% if meeting.meeting_type == 'ONLINE' %}🌐{% else %}📍{% endif %}</span>
-                <h3 class="text-base font-bold text-slate-900">Meeting Details</h3>
+                <h3 class="text-base font-bold text-slate-900">{{ _('Meeting Details') }}</h3>
                 <span class="px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider {% if meeting.status == 'SCHEDULED' %}bg-indigo-100 text-indigo-800{% elif meeting.status == 'COMPLETED' %}bg-emerald-100 text-emerald-800{% elif meeting.status == 'STUDENT_ABSENT' %}bg-amber-100 text-amber-800{% else %}bg-slate-200 text-slate-600 line-through{% endif %}">
-                    {{ meeting.status.replace('_', ' ') }}
+                    {{ meeting.status | fa_status }}
                 </span>
             </div>
             <button type="button" onclick="document.getElementById('meeting-modal-backdrop').remove()" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1">&times;</button>
@@ -22,14 +22,14 @@
             <!-- Student & Time info -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs bg-slate-50 p-4 rounded-xl border border-slate-100">
                 <div>
-                    <span class="text-slate-400 font-medium block">Student</span>
+                    <span class="text-slate-400 font-medium block">{{ _('Student') }}</span>
                     <span class="font-bold text-slate-900 text-sm block mt-0.5">{{ meeting.student.full_name }}</span>
-                    <span class="text-slate-500">@{{ meeting.student.username }}</span>
+                    <span class="text-slate-500 bidi-ltr" dir="ltr">@{{ meeting.student.username }}</span>
                 </div>
                 <div>
-                    <span class="text-slate-400 font-medium block">Schedule ({{ current_user.timezone }})</span>
-                    <span class="font-bold text-slate-900 text-sm block mt-0.5">{{ date_str }}</span>
-                    <span class="text-indigo-700 font-semibold">{{ time_str }} ({{ meeting.duration_minutes }} min)</span>
+                    <span class="text-slate-400 font-medium block">{{ _('schedule_tz', tz=current_user.timezone) }}</span>
+                    <span class="font-bold text-slate-900 text-sm block mt-0.5 tnum">{{ local_start | smart_date }}</span>
+                    <span class="text-indigo-700 font-semibold tnum">{{ time_str | fa_digits }} ({{ meeting.duration_minutes | fa_duration }})</span>
                 </div>
             </div>
 
@@ -37,55 +37,55 @@
             <div class="space-y-3 text-xs">
                 {% if meeting.meeting_type == 'ONLINE' %}
                     <div>
-                        <span class="font-semibold text-slate-500 block">Meeting URL:</span>
+                        <span class="font-semibold text-slate-500 block">{{ _('Meeting URL:') }}</span>
                         {% if meeting.meeting_url %}
-                            <a href="{{ meeting.meeting_url }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline font-medium break-all">
+                            <a href="{{ meeting.meeting_url }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline font-medium break-all bidi-ltr inline-block" dir="ltr">
                                 {{ meeting.meeting_url }} &nearr;
                             </a>
                         {% else %}
-                            <span class="text-slate-400 italic">No link provided</span>
+                            <span class="text-slate-400 italic">{{ _('No link provided') }}</span>
                         {% endif %}
                     </div>
                 {% else %}
                     <div>
-                        <span class="font-semibold text-slate-500 block">Location / Address:</span>
-                        <span class="text-slate-800 font-medium">{{ meeting.location or 'No address provided' }}</span>
+                        <span class="font-semibold text-slate-500 block">{{ _('Location / Address:') }}</span>
+                        <span class="text-slate-800 font-medium">{{ meeting.location or _('No address provided') }}</span>
                     </div>
                 {% endif %}
 
                 <div>
-                    <span class="font-semibold text-slate-500 block">Reminder:</span>
+                    <span class="font-semibold text-slate-500 block">{{ _('Reminder:') }}</span>
                     <span class="text-slate-700">
-                        {% if meeting.reminder_minutes == 0 %}At meeting time
-                        {% elif meeting.reminder_minutes == 5 %}5 minutes before
-                        {% elif meeting.reminder_minutes == 15 %}15 minutes before
-                        {% elif meeting.reminder_minutes == 30 %}30 minutes before
-                        {% elif meeting.reminder_minutes == 60 %}1 hour before
-                        {% elif meeting.reminder_minutes == 1440 %}1 day before
-                        {% else %}No reminder
+                        {% if meeting.reminder_minutes == 0 %}{{ _('at_meeting_time_opt') }}
+                        {% elif meeting.reminder_minutes == 5 %}{{ _('mins_before_opt', m=(5 | fa_digits)) }}
+                        {% elif meeting.reminder_minutes == 15 %}{{ _('mins_before_opt', m=(15 | fa_digits)) }}
+                        {% elif meeting.reminder_minutes == 30 %}{{ _('mins_before_opt', m=(30 | fa_digits)) }}
+                        {% elif meeting.reminder_minutes == 60 %}{{ _('hour_before_opt') }}
+                        {% elif meeting.reminder_minutes == 1440 %}{{ _('day_before_opt') }}
+                        {% else %}{{ _('no_reminder_opt') }}
                         {% endif %}
                     </span>
                 </div>
 
                 {% if meeting.notes %}
                     <div class="bg-amber-50/60 border border-amber-200/70 p-3 rounded-lg">
-                        <span class="font-bold text-amber-900 block mb-1">🔒 Private Tutor Notes:</span>
-                        <p class="text-slate-800 whitespace-pre-wrap">{{ meeting.notes }}</p>
+                        <span class="font-bold text-amber-900 block mb-1">🔒 {{ _('Private Tutor Notes:') }}</span>
+                        <p class="text-slate-800 whitespace-pre-wrap bidi-auto">{{ meeting.notes }}</p>
                     </div>
                 {% endif %}
             </div>
             <!-- Reschedule History -->
             {% if meeting.reschedule_history %}
                 <div class="border-t border-slate-100 pt-3">
-                    <span class="font-bold text-slate-700 text-xs block mb-2">📜 Rescheduling History</span>
+                    <span class="font-bold text-slate-700 text-xs block mb-2">📜 {{ _('Rescheduling History') }}</span>
                     <div class="space-y-1.5 max-h-28 overflow-y-auto">
                         {% for h in meeting.reschedule_history %}
                             <div class="bg-slate-50 p-2 rounded text-[11px] text-slate-600 border border-slate-100">
-                                <div class="font-semibold text-slate-800">
-                                    {{ h.created_at.strftime('%Y-%m-%d %H:%M UTC') }} &bull; Changed to {{ h.new_duration_minutes }} min
+                                <div class="font-semibold text-slate-800 tnum">
+                                    {{ h.created_at | local_dt(current_user.timezone) }} &bull; {{ _('changed_to_duration', dur=(h.new_duration_minutes | fa_digits)) }}
                                 </div>
                                 {% if h.reason %}
-                                    <div class="text-slate-500 italic mt-0.5">Reason: {{ h.reason }}</div>
+                                    <div class="text-slate-500 italic mt-0.5">{{ _('reason_prefix') }} {{ h.reason }}</div>
                                 {% endif %}
                             </div>
                         {% endfor %}
@@ -101,18 +101,18 @@
                       hx-target="#modal-container"
                       class="p-2.5 rounded-lg border border-indigo-100 bg-indigo-50/40 space-y-2">
                     <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
-                    <div class="flex items-center justify-between">
-                        <span class="font-bold text-indigo-900 text-[11px]">⚡ Quick Swap Slot & Notify Student</span>
-                        <label class="inline-flex items-center space-x-1 text-[10px] text-slate-500">
+                    <div class="flex items-center justify-between gap-2 flex-wrap">
+                        <span class="font-bold text-indigo-900 text-[11px]">⚡ {{ _('Quick Swap Slot & Notify Student') }}</span>
+                        <label class="inline-flex items-center gap-1 text-[10px] text-slate-500">
                             <input type="checkbox" name="notify" value="true" checked class="rounded border-slate-300 text-indigo-600">
-                            <span>Send in-app notice</span>
+                            <span>{{ _('Send in-app notice') }}</span>
                         </label>
                     </div>
-                    <div class="flex items-center space-x-2">
+                    <div class="flex items-center gap-2 flex-wrap">
                         <input type="date" name="target_date" value="{{ local_start.strftime('%Y-%m-%d') }}" required class="border rounded px-2 py-1 text-xs bg-white flex-1">
                         <input type="time" name="target_time" value="{{ local_start.strftime('%H:%M') }}" required class="border rounded px-2 py-1 text-xs bg-white">
                         <button type="submit" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-bold text-xs shadow-2xs">
-                            Swap
+                            {{ _('swap_btn') }}
                         </button>
                     </div>
                 </form>
@@ -122,7 +122,7 @@
             {% if meeting.status == 'SCHEDULED' %}
                 <details class="group border border-slate-200 rounded-xl p-3 bg-slate-50/50">
                     <summary class="cursor-pointer text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center justify-between select-none">
-                        <span>🗓️ Reschedule Appointment</span>
+                        <span>🗓️ {{ _('Reschedule Appointment') }}</span>
                         <span class="group-open:rotate-180 transition text-slate-400">&darr;</span>
                     </summary>
                     <form method="POST"
@@ -133,25 +133,25 @@
                         <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                         <div class="grid grid-cols-2 gap-2">
                             <div>
-                                <label class="font-semibold text-slate-600 block mb-1">New Date</label>
+                                <label class="font-semibold text-slate-600 block mb-1">{{ _('new_date_label') }}</label>
                                 <input type="date" name="new_date" value="{{ local_start.strftime('%Y-%m-%d') }}" required class="w-full border rounded-lg px-2.5 py-1.5 bg-white text-xs">
                             </div>
                             <div>
-                                <label class="font-semibold text-slate-600 block mb-1">New Time</label>
+                                <label class="font-semibold text-slate-600 block mb-1">{{ _('new_time_label') }}</label>
                                 <input type="time" name="new_time" value="{{ local_start.strftime('%H:%M') }}" required class="w-full border rounded-lg px-2.5 py-1.5 bg-white text-xs">
                             </div>
                         </div>
                         <div>
-                            <label class="font-semibold text-slate-600 block mb-1">Duration (minutes)</label>
-                            <input type="number" name="new_duration_minutes" value="{{ meeting.duration_minutes }}" min="5" max="360" required class="w-full border rounded-lg px-2.5 py-1.5 bg-white text-xs">
+                            <label class="font-semibold text-slate-600 block mb-1">{{ _('duration_minutes_label') }}</label>
+                            <input type="number" name="new_duration_minutes" value="{{ meeting.duration_minutes }}" min="5" max="360" required dir="ltr" class="w-full border rounded-lg px-2.5 py-1.5 bg-white text-xs text-start">
                         </div>
                         <div>
-                            <label class="font-semibold text-slate-600 block mb-1">Reason for Rescheduling</label>
-                            <input type="text" name="reason" placeholder="e.g. Student requested later slot" class="w-full border rounded-lg px-2.5 py-1.5 bg-white text-xs">
+                            <label class="font-semibold text-slate-600 block mb-1">{{ _('Reason for Rescheduling') }}</label>
+                            <input type="text" name="reason" placeholder="{{ _('reschedule_reason_placeholder') }}" class="w-full border rounded-lg px-2.5 py-1.5 bg-white text-xs">
                         </div>
                         <div class="flex justify-end">
                             <button type="submit" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold shadow-xs transition">
-                                Confirm Reschedule
+                                {{ _('Confirm Reschedule') }}
                             </button>
                         </div>
                     </form>
@@ -161,28 +161,28 @@
             <!-- Status Actions -->
             {% if meeting.status == 'SCHEDULED' %}
                 <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                    <div class="flex items-center space-x-2">
+                    <div class="flex items-center gap-2">
                         <form method="POST" action="/tutor/meetings/{{ meeting.id }}/status" hx-post="/tutor/meetings/{{ meeting.id }}/status" hx-target="#modal-container">
                             <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                             <input type="hidden" name="new_status" value="COMPLETED">
                             <button type="submit" class="px-2.5 py-1.5 rounded-lg border border-emerald-300 text-emerald-700 hover:bg-emerald-50 text-xs font-semibold transition">
-                                ✓ Complete
+                                ✓ {{ _('Complete') }}
                             </button>
                         </form>
                         <form method="POST" action="/tutor/meetings/{{ meeting.id }}/status" hx-post="/tutor/meetings/{{ meeting.id }}/status" hx-target="#modal-container">
                             <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                             <input type="hidden" name="new_status" value="STUDENT_ABSENT">
                             <button type="submit" class="px-2.5 py-1.5 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 text-xs font-semibold transition">
-                                Mark Absent
+                                {{ _('Mark Absent') }}
                             </button>
                         </form>
                     </div>
 
-                    <form method="POST" action="/tutor/meetings/{{ meeting.id }}/status" hx-post="/tutor/meetings/{{ meeting.id }}/status" hx-target="#modal-container" onsubmit="return confirm('Cancel this meeting?')">
+                    <form method="POST" action="/tutor/meetings/{{ meeting.id }}/status" hx-post="/tutor/meetings/{{ meeting.id }}/status" hx-target="#modal-container" onsubmit="return confirm('{{ _('cancel_meeting_confirm') }}')">
                         <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                         <input type="hidden" name="new_status" value="CANCELLED">
                         <button type="submit" class="px-2.5 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold transition">
-                            Cancel Meeting
+                            {{ _('Cancel Meeting') }}
                         </button>
                     </form>
                 </div>
@@ -195,10 +195,10 @@
                     hx-get="/tutor/meetings/{{ meeting.id }}/edit"
                     hx-target="#modal-container"
                     class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition">
-                ✏️ Edit Notes & Details
+                ✏️ {{ _('Edit Notes & Details') }}
             </button>
             <button type="button" onclick="document.getElementById('meeting-modal-backdrop').remove()" class="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-lg transition">
-                Close
+                {{ _('close') }}
             </button>
         </div>
     </div>

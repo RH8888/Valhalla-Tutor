@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Assign Students - {{ exam.title }}{% endblock %}
+{% block title %}{{ _("Assign Students - {title}", title=exam.title) }}{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto space-y-6">
     <div class="border-b border-slate-200 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-            <a href="/tutor/exams/{{ exam.id }}" class="text-sm text-slate-500 hover:text-slate-800 transition">&larr; Back to {{ exam.title }}</a>
-            <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-2">Assign Students to Exam Series</h1>
-            <p class="text-sm text-slate-500 mt-1">Valhalla automatically detects each student's grade and track to apply their matching report structure.</p>
+            <a href="/tutor/exams/{{ exam.id }}" class="text-sm text-slate-500 hover:text-slate-800 transition"><span class="inline-block rtl:rotate-180">&larr;</span> {{ _("Back to {title}", title=exam.title) }}</a>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-2">{{ _("Assign Students to Exam Series") }}</h1>
+            <p class="text-sm text-slate-500 mt-1">{% if is_rtl() %}{{ _("Valhalla automatically detects each student's grade and track to apply their matching report structure.") }}{% else %}Valhalla automatically detects each student's grade and track to apply their matching report structure.{% endif %}</p>
         </div>
     </div>
 
@@ -22,8 +22,8 @@
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-200 bg-emerald-50/40 flex items-center justify-between">
                 <div>
-                    <h2 class="text-base font-bold text-slate-900">Eligible Students ({{ eligible|length }})</h2>
-                    <p class="text-xs text-slate-500">Students matching this series' configured grade/track combinations.</p>
+                    <h2 class="text-base font-bold text-slate-900">{{ _("Eligible Students ({count})", count=(eligible|length | fa_digits)) }}</h2>
+                    <p class="text-xs text-slate-500">{% if is_rtl() %}{{ _("Students matching this series' configured grade/track combinations.") }}{% else %}Students matching this series' configured grade/track combinations.{% endif %}</p>
                 </div>
             </div>
             {% if eligible %}
@@ -31,20 +31,20 @@
                     {% for item in eligible %}
                         {% set st = item.student %}
                         {% set cfg = item.config %}
-                        <label class="p-4 flex items-center justify-between hover:bg-slate-50 cursor-pointer transition block">
-                            <div class="flex items-center space-x-3">
+                        <label class="p-4 flex items-center justify-between gap-3 hover:bg-slate-50 cursor-pointer transition block">
+                            <div class="flex items-center gap-3">
                                 <input type="checkbox" name="student_ids" value="{{ st.id }}" {% if st.id in currently_assigned_ids %}checked{% endif %}
                                        class="h-4 w-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500">
                                 <div>
                                     <span class="font-bold text-slate-900 text-sm">{{ st.full_name }}</span>
                                     <div class="text-xs text-slate-500">
-                                        پایه {{ st.grade }} &bull; {{ st.academic_track.name if st.academic_track else '—' }}
+                                        {{ _("Grade {g}", g=(st.grade | fa_digits)) }} &bull; {{ st.academic_track.name if st.academic_track else '—' }}
                                     </div>
                                 </div>
                             </div>
-                            <div class="text-right">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                                    {{ cfg.reporting_groups|length }} reporting groups configured
+                            <div class="text-end">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 tnum">
+                                    {{ _("{count} reporting groups configured", count=(cfg.reporting_groups|length | fa_digits)) }}
                                 </span>
                             </div>
                         </label>
@@ -52,7 +52,7 @@
                 </div>
             {% else %}
                 <div class="p-6 text-center text-slate-500 text-sm">
-                    No eligible students found matching the configured grade/track combinations.
+                    {{ _("No eligible students found matching the configured grade/track combinations.") }}
                 </div>
             {% endif %}
         </div>
@@ -62,22 +62,22 @@
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden opacity-85">
                 <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
                     <div>
-                        <h2 class="text-base font-bold text-slate-700">Ineligible Students ({{ ineligible|length }})</h2>
-                        <p class="text-xs text-slate-500">Students whose grade/track is not configured in this series cannot be assigned.</p>
+                        <h2 class="text-base font-bold text-slate-700">{{ _("Ineligible Students ({count})", count=(ineligible|length | fa_digits)) }}</h2>
+                        <p class="text-xs text-slate-500">{{ _("Students whose grade/track is not configured in this series cannot be assigned.") }}</p>
                     </div>
                 </div>
                 <div class="divide-y divide-slate-100">
                     {% for item in ineligible %}
                         {% set st = item.student %}
-                        <div class="p-4 flex items-center justify-between bg-slate-50/50">
+                        <div class="p-4 flex flex-wrap items-center justify-between gap-2 bg-slate-50/50">
                             <div>
                                 <span class="font-semibold text-slate-700 text-sm">{{ st.full_name if st else item.student_id }}</span>
                                 <div class="text-xs text-slate-400">
-                                    پایه {{ st.grade if st else '—' }} &bull; {{ st.academic_track.name if (st and st.academic_track) else '—' }}
+                                    {{ _("Grade {g}", g=((st.grade | fa_digits) if st else '—')) }} &bull; {{ st.academic_track.name if (st and st.academic_track) else '—' }}
                                 </div>
                             </div>
                             <span class="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-md">
-                                {{ item.reason }}
+                                {{ item.reason | t }}
                             </span>
                         </div>
                     {% endfor %}
@@ -85,10 +85,10 @@
             </div>
         {% endif %}
 
-        <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-200">
-            <a href="/tutor/exams/{{ exam.id }}" class="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition">Cancel</a>
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+            <a href="/tutor/exams/{{ exam.id }}" class="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition">{{ _("Cancel") }}</a>
             <button type="submit" class="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition">
-                Confirm Assignments
+                {{ _("Confirm Assignments") }}
             </button>
         </div>
     </form>

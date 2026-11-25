@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Schedule Exam Session - Valhalla Tutor{% endblock %}
+{% block title %}{{ _("Schedule Exam Session - Valhalla Tutor") }}{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto space-y-6">
     <div class="border-b border-slate-200 pb-4">
-        <a href="/tutor/exams" class="text-sm text-slate-500 hover:text-slate-800 transition">&larr; Back to Exams</a>
-        <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-2">Schedule Exam Session</h1>
-        <p class="text-sm text-slate-500 mt-1">Configure date and select which subjects are included for each participating academic track.</p>
+        <a href="/tutor/exams" class="text-sm text-slate-500 hover:text-slate-800 transition"><span class="inline-block rtl:rotate-180">&larr;</span> {{ _("Back to Exams") }}</a>
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900 mt-2">{{ _("Schedule Exam Session") }}</h1>
+        <p class="text-sm text-slate-500 mt-1">{{ _("Configure date and select which subjects are included for each participating academic track.") }}</p>
     </div>
 
     {% if error %}
@@ -18,51 +18,51 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-                <label for="exam_id" class="block text-sm font-semibold text-slate-700">Exam Definition *</label>
+                <label for="exam_id" class="block text-sm font-semibold text-slate-700">{{ _("Exam Definition *") }}</label>
                 <select id="exam_id" name="exam_id" required class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                    <option value="">-- Select Exam --</option>
+                    <option value="">{{ _("-- Select Exam --") }}</option>
                     {% for e in active_exams %}
                         <option value="{{ e.id }}">{{ e.title }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div>
-                <label for="date" class="block text-sm font-semibold text-slate-700">Exam Date *</label>
-                <input type="date" id="date" name="date" value="{{ today_date }}" required
-                       class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                <label for="date" class="block text-sm font-semibold text-slate-700">{{ _("Exam Date *") }}</label>
+                <input type="date" id="date" name="date" value="{{ today_date }}" required dir="ltr"
+                       class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-start">
             </div>
         </div>
 
         <div>
-            <label for="title" class="block text-sm font-semibold text-slate-700">Session Title / Notes (Optional)</label>
-            <input type="text" id="title" name="title" placeholder="e.g. نوبت اول - آذرماه"
+            <label for="title" class="block text-sm font-semibold text-slate-700">{{ _("Session Title / Notes (Optional)") }}</label>
+            <input type="text" id="title" name="title" placeholder="{{ _('e.g. نوبت اول - آذرماه') }}"
                    class="mt-1 block w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
         </div>
 
         <div class="space-y-4 pt-4 border-t border-slate-200">
             <div>
-                <h3 class="text-base font-semibold text-slate-900">Academic Tracks & Track-Specific Subjects</h3>
-                <p class="text-xs text-slate-500 mt-0.5">Select each track participating in this exam, and choose which subjects will be included for that track.</p>
+                <h3 class="text-base font-semibold text-slate-900">{{ _("Academic Tracks & Track-Specific Subjects") }}</h3>
+                <p class="text-xs text-slate-500 mt-0.5">{{ _("Select each track participating in this exam, and choose which subjects will be included for that track.") }}</p>
             </div>
 
             <div class="space-y-4">
                 {% for t in tracks %}
                     <div class="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
-                        <div class="flex items-center space-x-3 mb-3">
+                        <div class="flex items-center gap-3 mb-3">
                             <input type="checkbox" id="track_{{ t.id }}" name="track_ids" value="{{ t.id }}"
                                    onchange="document.getElementById('subjects_for_{{ t.id }}').classList.toggle('hidden', !this.checked)"
                                    class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded">
                             <label for="track_{{ t.id }}" class="text-sm font-bold text-slate-800 cursor-pointer">
                                 {{ t.name }}
-                                {% if t.is_default %}<span class="text-xs font-normal text-slate-500">(Default)</span>{% endif %}
+                                {% if t.is_default %}<span class="text-xs font-normal text-slate-500">{{ _("(Default)") }}</span>{% endif %}
                             </label>
                         </div>
-                        <div id="subjects_for_{{ t.id }}" class="hidden pl-7 space-y-2 border-t border-slate-200/80 pt-3">
-                            <span class="text-xs font-medium text-slate-600 block mb-2">Included Subjects for {{ t.name }}:</span>
+                        <div id="subjects_for_{{ t.id }}" class="hidden ps-7 space-y-2 border-t border-slate-200/80 pt-3">
+                            <span class="text-xs font-medium text-slate-600 block mb-2">{{ _("Included Subjects for {name}:", name=t.name) }}</span>
                             {% if t.subjects %}
                                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                     {% for s in t.subjects %}
-                                        <label class="inline-flex items-center space-x-2 text-xs text-slate-700 hover:text-slate-900 cursor-pointer">
+                                        <label class="inline-flex items-center gap-2 text-xs text-slate-700 hover:text-slate-900 cursor-pointer">
                                             <input type="checkbox" name="track_{{ t.id }}_subjects" value="{{ s.id }}" checked
                                                    class="h-3.5 w-3.5 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded">
                                             <span>{{ s.name }}</span>
@@ -70,7 +70,7 @@
                                     {% endfor %}
                                 </div>
                             {% else %}
-                                <p class="text-xs text-amber-600 italic">No subjects configured in this academic track yet.</p>
+                                <p class="text-xs text-amber-600 italic">{{ _("No subjects configured in this academic track yet.") }}</p>
                             {% endif %}
                         </div>
                     </div>
@@ -78,9 +78,9 @@
             </div>
         </div>
 
-        <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
-            <a href="/tutor/exams" class="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition">Cancel</a>
-            <button type="submit" class="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition">Create & Schedule Exam</button>
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+            <a href="/tutor/exams" class="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition">{{ _("Cancel") }}</a>
+            <button type="submit" class="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition">{{ _("Create & Schedule Exam") }}</button>
         </div>
     </form>
 </div>
