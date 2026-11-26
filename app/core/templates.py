@@ -106,6 +106,12 @@ def format_chat_time(context: Any, dt: Optional[datetime], tz_name: Optional[str
 
 
 @pass_context
+def client_i18n_data(context: Any) -> dict[str, str]:
+    locale = jinja_get_locale(context)
+    return get_client_translations(locale)
+
+
+@pass_context
 def client_i18n_json(context: Any) -> str:
     locale = jinja_get_locale(context)
     return json.dumps(get_client_translations(locale), ensure_ascii=False)
@@ -130,6 +136,7 @@ templates.env.filters["fa_status"] = jinja_status_format
 templates.env.globals["_"] = jinja_translate
 templates.env.globals["get_locale"] = jinja_get_locale
 templates.env.globals["is_rtl"] = jinja_is_rtl
+templates.env.globals["client_i18n_data"] = client_i18n_data
 templates.env.globals["client_i18n_json"] = client_i18n_json
 
 

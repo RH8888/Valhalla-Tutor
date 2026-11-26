@@ -12,9 +12,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
     {% endif %}
     <link rel="stylesheet" href="/static/css/persian-ui.css">
-    <script>
-        window.VALHALLA_I18N = {{ client_i18n_json() | safe }};
-    </script>
+    <script id="valhalla-i18n-data" type="application/json">{{ client_i18n_data() | tojson }}</script>
     <script src="/static/js/i18n.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {

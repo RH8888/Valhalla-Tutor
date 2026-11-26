@@ -775,3 +775,119 @@ def test_settings_debug_defaults_false_and_prod_disables_docs():
         text=True,
     ).strip()
     assert out == "None None None"
+
+
+
+# ---------------------------------------------------------------------------
+# FastAPI DoS / Practice Runner DOM XSS / Jinja2 Safe HTML
+# ---------------------------------------------------------------------------
+
+
+def test_fastapi_version_patched_against_quadratic_parameter_dos():
+    from importlib.metadata import version as pkg_version
+    from packaging.version import Version
+
+    req_lines = Path("requirements.txt").read_text(encoding="utf-8").splitlines()
+    fastapi_specs = [line.strip() for line in req_lines if line.strip().lower().startswith("fastapi")]
+    assert fastapi_specs, "FastAPI dependency must be declared in requirements.txt"
+
+    declared = fastapi_specs[0].split("==")[-1].split(">=")[-1].strip()
+    assert Version(declared) >= Version("0.163.2")
+    assert Version(pkg_version("fastapi")) >= Version("0.163.2")
+
+
+def test_practice_exam_runner_uses_safe_dom_apis_without_innerhtml(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    from app.services.practice_exam_service import (
+        add_practice_exam_booklet,
+        configure_practice_exam_questions,
+        create_practice_exam,
+        start_practice_attempt,
+    )
+
+    monkeypatch.setattr(settings, "UPLOAD_DIR", str(tmp_path))
+
+    runner_src = Path("app/templates/student/practice_exams/runner.html").read_text(encoding="utf-8")
+    assert ".innerHTML" not in runner_src
+    assert "document.createElement('span')" in runner_src
+    assert ".textContent" in runner_src
+    assert ".replaceChildren(" in runner_src
+
+    sub = create_subject(db_session, name=f"DOM_XSS_Sub_{uuid.uuid4().hex[:6]}", grades=["11"])
+    track = create_track(db_session, name=f"DOM_XSS_Track_{uuid.uuid4().hex[:6]}", subject_ids=[sub.id])
+    student = create_student(
+        db_session,
+        username=f"domxss_{uuid.uuid4().hex[:6]}",
+        full_name="DOM XSS Student",
+        password="Password123!",
+        grade="11",
+    )
+    assign_student_track(db_session, student.id, track.id)
+
+    exam = create_practice_exam(db_session, title="Safe DOM Runner Exam", grade="11", academic_track_id=track.id)
+    pdf_path = tmp_path / "runner.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4\n%test\n")
+    booklet = add_practice_exam_booklet(
+        db_session,
+        practice_exam_id=exam.id,
+        title="Booklet 1",
+        pdf_file_path=str(pdf_path),
+        pdf_file_name="runner.pdf",
+        question_start=1,
+        question_end=1,
+        duration_minutes=10,
+    )
+    configure_practice_exam_questions(
+        db_session,
+        exam.id,
+        [{"question_number": 1, "correct_choice": 1, "subject_id": sub.id}],
+    )
+    attempt = start_practice_attempt(db_session, student, exam.id)
+
+    tok_s, _ = create_session(db_session, student)
+    client.cookies.set(SESSION_COOKIE_NAME, tok_s)
+    resp = client.get(f"/student/practice-exams/attempts/{attempt.id}/booklets/{booklet.id}")
+    assert resp.status_code == 200
+    assert "save_status_indicator" in resp.text
+    assert ".innerHTML" not in resp.text
+    assert "replaceChildren(dot, label)" in resp.text
+
+
+def test_base_template_embeds_i18n_json_without_jinja_safe_and_escapes_script_breakout(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    import json
+    from app.core import templates as tmpl_mod
+
+    for tpl in Path("app/templates").rglob("*.html"):
+        content = tpl.read_text(encoding="utf-8")
+        assert "| safe" not in content and "|safe" not in content, f"Unsafe Jinja filter found in {tpl}"
+
+    i18n_js = Path("app/static/js/i18n.js").read_text(encoding="utf-8")
+    assert "valhalla-i18n-data" in i18n_js
+
+    payload = "</script><script>alert(1)</script>&'\"test"
+    monkeypatch.setattr(
+        tmpl_mod,
+        "get_client_translations",
+        lambda locale="en": {"error": payload, "js_saving_answer": "Saving..."},
+    )
+
+    resp = client.get("/auth/login")
+    assert resp.status_code == 200
+    assert "</script><script>alert(1)</script>" not in resp.text
+    assert 'id="valhalla-i18n-data" type="application/json"' in resp.text
+
+    match = re.search(
+        r'<script id="valhalla-i18n-data" type="application/json">(.*?)</script>',
+        resp.text,
+        re.DOTALL,
+    )
+    assert match is not None
+    parsed = json.loads(match.group(1))
+    assert parsed["error"] == payload

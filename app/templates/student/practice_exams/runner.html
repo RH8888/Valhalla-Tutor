@@ -164,16 +164,27 @@
     function setStatus(type, text) {
         const el = document.getElementById('save_status_indicator');
         if (!el) return;
+
+        const dot = document.createElement('span');
+        const label = document.createElement('span');
+
         if (type === 'saving') {
             el.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-medium transition';
-            el.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span><span>' + (text || vt('js_saving_answer')) + '</span>';
+            dot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-ping';
+            label.textContent = text || vt('js_saving_answer');
         } else if (type === 'saved') {
             el.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium transition';
-            el.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>' + (text || vt('js_all_answers_saved')) + '</span>';
+            dot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+            label.textContent = text || vt('js_all_answers_saved');
         } else if (type === 'error') {
             el.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-50 text-red-700 text-xs font-medium transition';
-            el.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span><span>' + (text || vt('js_failed_to_save')) + '</span>';
+            dot.className = 'w-2 h-2 rounded-full bg-red-500';
+            label.textContent = text || vt('js_failed_to_save');
+        } else {
+            return;
         }
+
+        el.replaceChildren(dot, label);
     }
 
     function revertChoice(qNum) {

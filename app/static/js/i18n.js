@@ -2,6 +2,15 @@
 (function () {
     const PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
 
+    if (!window.VALHALLA_I18N) {
+        try {
+            const dataEl = document.getElementById("valhalla-i18n-data");
+            window.VALHALLA_I18N = dataEl && dataEl.textContent ? JSON.parse(dataEl.textContent) : {};
+        } catch (_) {
+            window.VALHALLA_I18N = {};
+        }
+    }
+
     window.vtLocale = function () {
         return document.documentElement.lang === "fa" ? "fa" : "en";
     };
