@@ -404,11 +404,19 @@ def post_delete_grade_track(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    delete_exam_grade_track_config(db, config_id)
-    return RedirectResponse(
-        url=f"/tutor/exams/{exam_id}?msg=Grade/track configuration removed",
-        status_code=status.HTTP_303_SEE_OTHER,
-    )
+    try:
+        delete_exam_grade_track_config(db, config_id, exam_id=exam_id)
+        return RedirectResponse(
+            url=f"/tutor/exams/{exam_id}?msg=Grade/track configuration removed",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except ExamValidationError as exc:
+        return RedirectResponse(
+            url=f"/tutor/exams/{exam_id}?err={quote(str(exc), safe='')}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except ExamNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @router.post("/{exam_id}/schedule/generate")
@@ -459,11 +467,21 @@ def post_restore_session(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    session = restore_exam_session(db, session_id, actor_id=current_user.id)
-    return RedirectResponse(
-        url=f"/tutor/exams/{session.exam_id}?msg=Occurrence on {session.date} restored to Scheduled",
-        status_code=status.HTTP_303_SEE_OTHER,
-    )
+    try:
+        session = restore_exam_session(db, session_id, actor_id=current_user.id)
+        return RedirectResponse(
+            url=f"/tutor/exams/{session.exam_id}?msg=Occurrence on {session.date} restored to Scheduled",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except ExamValidationError as exc:
+        sess = get_exam_session_by_id(db, session_id)
+        redirect_url = f"/tutor/exams/{sess.exam_id}" if sess else "/tutor/exams"
+        return RedirectResponse(
+            url=f"{redirect_url}?err={quote(str(exc), safe='')}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except ExamSessionNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @router.post("/{exam_id}/sessions/manual")
@@ -535,15 +553,15 @@ async def post_assign_students(
 
     form_data = await request.form()
     student_ids_raw = form_data.getlist("student_ids")
-    student_ids = [uuid.UUID(str(sid)) for sid in student_ids_raw if sid]
-
     try:
-        res = assign_exam_series_to_students(db, exam_id, student_ids)
+        student_ids = [uuid.UUID(str(sid)) for sid in student_ids_raw if sid]
+        res = assign_exam_series_to_students(db, exam_id, student_ids, sync_omitted=True, actor_id=current_user.id)
         return RedirectResponse(
-            url=f"/tutor/exams/{exam_id}?msg=Series assigned to {res['assigned_count']} student(s) successfully",
+            url=f"/tutor/exams/{exam_id}?msg=Series assignments updated ({res['assigned_count']} added, {res['revoked_count']} revoked)",
             status_code=status.HTTP_303_SEE_OTHER,
         )
-    except ExamValidationError as exc:
+    except (ValueError, ExamValidationError) as exc:
+        err_msg = "Invalid student selection." if isinstance(exc, ValueError) else str(exc)
         all_students = db.query(User).filter(User.role == "STUDENT", User.is_active == True).all()
         eval_result = evaluate_students_eligibility(db, exam_id, [s.id for s in all_students])
         currently_assigned_ids = {sa.student_id for sa in exam.series_assignments}
@@ -555,7 +573,7 @@ async def post_assign_students(
                 "eligible": eval_result["eligible"],
                 "ineligible": eval_result["ineligible"],
                 "currently_assigned_ids": currently_assigned_ids,
-                "error": str(exc),
+                "error": err_msg,
                 "current_user": current_user,
                 "current_session": current_session,
             },

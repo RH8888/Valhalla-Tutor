@@ -48,8 +48,7 @@
                     <div class="space-y-1 flex-1 overflow-y-auto max-h-[90px]">
                         {% for item in day_meetings %}
                             {% set m = item.meeting %}
-                            <div draggable="true"
-                                 ondragstart="handleMeetingDragStart(event, '{{ m.id }}')"
+                            <div {% if m.status == 'SCHEDULED' %}draggable="true" ondragstart="handleMeetingDragStart(event, '{{ m.id }}')"{% endif %}
                                  hx-get="/tutor/meetings/{{ m.id }}"
                                  hx-target="#modal-container"
                                  class="cursor-pointer text-[11px] leading-tight px-1.5 py-1 rounded border flex items-center justify-between gap-1 transition shadow-2xs truncate {% if m.status == 'CANCELLED' %}bg-slate-100 border-slate-200 text-slate-400 line-through{% elif m.status == 'COMPLETED' %}bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100{% elif m.status == 'STUDENT_ABSENT' %}bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100{% elif m.meeting_type == 'ONLINE' %}bg-indigo-50 border-indigo-200 text-indigo-900 hover:bg-indigo-100{% else %}bg-cyan-50 border-cyan-200 text-cyan-900 hover:bg-cyan-100{% endif %}"

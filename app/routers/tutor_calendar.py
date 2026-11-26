@@ -34,6 +34,7 @@ from app.models.user import User
 from app.services.meeting_service import (
     MeetingNotFoundError,
     MeetingOverlapError,
+    MeetingServiceError,
     MeetingValidationError,
     create_meeting,
     dismiss_reminder,
@@ -500,6 +501,8 @@ def post_reschedule_meeting(
             new_duration_minutes=new_duration_minutes,
             reason=reason,
         )
+    except MeetingNotFoundError:
+        raise HTTPException(status_code=404, detail="Meeting not found")
     except (MeetingValidationError, MeetingOverlapError) as e:
         meeting = get_meeting_by_id(db, meeting_id, tutor_id=current_user.id)
         local_start = to_local(meeting.start_time, current_user.timezone)
@@ -534,13 +537,18 @@ def post_meeting_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    status_enum = MeetingStatus(new_status)
-    update_meeting_status(
-        db=db,
-        meeting_id=meeting_id,
-        tutor=current_user,
-        new_status=status_enum,
-    )
+    try:
+        status_enum = MeetingStatus(new_status)
+        update_meeting_status(
+            db=db,
+            meeting_id=meeting_id,
+            tutor=current_user,
+            new_status=status_enum,
+        )
+    except MeetingNotFoundError:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    except (MeetingValidationError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     response = Response(status_code=200)
     response.headers["HX-Trigger"] = "meetingChanged"
     return response

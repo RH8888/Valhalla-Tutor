@@ -249,7 +249,7 @@ class PlanAssignment(Base):
     completion_audits: Mapped[List["CompletionAuditLog"]] = relationship(
         "CompletionAuditLog",
         back_populates="assignment",
-        cascade="all, delete-orphan",
+        passive_deletes=True,
         order_by="desc(CompletionAuditLog.created_at)",
     )
 
@@ -271,7 +271,7 @@ class CompletionAuditLog(Base):
     )
     assignment_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
-        ForeignKey("plan_assignments.id", ondelete="CASCADE"),
+        ForeignKey("plan_assignments.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
     )

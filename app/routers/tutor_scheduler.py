@@ -23,6 +23,10 @@ from app.models.meeting import (
 )
 from app.models.session import UserSession
 from app.models.user import User
+from app.services.meeting_service import (
+    MeetingOverlapError,
+    MeetingValidationError,
+)
 from app.services.scheduler_service import (
     SchedulerError,
     approve_weekly_proposal,
@@ -366,7 +370,7 @@ def post_quick_move(
             notify_student=notify,
         )
     except Exception as e:
-        if isinstance(e, (SchedulerError, ValueError)):
+        if isinstance(e, (SchedulerError, MeetingValidationError, MeetingOverlapError, ValueError)):
             error_msg = str(e)
         else:
             error_msg = "Unable to reschedule meeting."

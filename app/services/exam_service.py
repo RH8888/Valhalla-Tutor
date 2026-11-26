@@ -68,6 +68,42 @@ def _validate_percentage(raw_val: Any, subject_label: Optional[str] = None) -> f
     return pct
 
 
+def _lock_exam_row(db: Session, exam_id: uuid.UUID, share: bool = False) -> Optional[uuid.UUID]:
+    row = (
+        db.query(Exam.id)
+        .filter(Exam.id == exam_id)
+        .with_for_update(read=share)
+        .first()
+    )
+    return row[0] if row else None
+
+
+def _lock_session_row(db: Session, session_id: uuid.UUID, share: bool = False) -> Optional[uuid.UUID]:
+    if not session_id:
+        return None
+    parent_row = db.query(ExamSession.exam_id).filter(ExamSession.id == session_id).first()
+    if not parent_row:
+        return None
+    _lock_exam_row(db, parent_row[0], share=True)
+    row = (
+        db.query(ExamSession.id)
+        .filter(ExamSession.id == session_id)
+        .with_for_update(read=share)
+        .first()
+    )
+    return row[0] if row else None
+
+
+def _lock_result_row(db: Session, result_id: uuid.UUID) -> Optional[uuid.UUID]:
+    row = (
+        db.query(StudentExamResult.id)
+        .filter(StudentExamResult.id == result_id)
+        .with_for_update()
+        .first()
+    )
+    return row[0] if row else None
+
+
 def log_exam_audit(
     db: Session,
     entity_type: str,
@@ -248,9 +284,13 @@ def update_exam(
     submission_days_after_exam: Optional[int] = None,
     actor_id: Optional[uuid.UUID] = None,
 ) -> Exam:
+    if not _lock_exam_row(db, exam_id):
+        raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
     exam = get_exam_by_id(db, exam_id)
     if not exam:
         raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
+    if exam.is_archived:
+        raise ExamValidationError("Cannot modify configuration of an archived exam series.")
 
     clean_title = (title or "").strip()
     if not clean_title:
@@ -294,7 +334,9 @@ def update_exam(
 
 
 def archive_exam(db: Session, exam_id: uuid.UUID, actor_id: Optional[uuid.UUID] = None, reason: Optional[str] = None) -> Exam:
-    exam = get_exam_by_id(db, exam_id)
+    if not _lock_exam_row(db, exam_id):
+        raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
+    exam = get_exam_by_id(db, exam_id, populate_existing=True)
     if not exam:
         raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
     exam.is_active = False
@@ -306,7 +348,9 @@ def archive_exam(db: Session, exam_id: uuid.UUID, actor_id: Optional[uuid.UUID] 
 
 
 def restore_archived_exam_series(db: Session, exam_id: uuid.UUID, actor_id: Optional[uuid.UUID] = None, reason: Optional[str] = None) -> Exam:
-    exam = get_exam_by_id(db, exam_id)
+    if not _lock_exam_row(db, exam_id):
+        raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
+    exam = get_exam_by_id(db, exam_id, populate_existing=True)
     if not exam:
         raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
     exam.is_active = True
@@ -342,9 +386,12 @@ def safe_delete_exam_series(db: Session, exam_id: uuid.UUID, actor_id: Optional[
     db.commit()
 
 
-def get_exam_by_id(db: Session, exam_id: uuid.UUID) -> Optional[Exam]:
+def get_exam_by_id(db: Session, exam_id: uuid.UUID, populate_existing: bool = False) -> Optional[Exam]:
+    query = db.query(Exam)
+    if populate_existing:
+        query = query.populate_existing()
     return (
-        db.query(Exam)
+        query
         .options(
             joinedload(Exam.grade_track_configs).joinedload(ExamGradeTrackConfig.track),
             joinedload(Exam.grade_track_configs)
@@ -366,9 +413,12 @@ def list_exams(db: Session, include_inactive: bool = True) -> List[Exam]:
 
 
 
-def get_exam_session_by_id(db: Session, session_id: uuid.UUID) -> Optional[ExamSession]:
+def get_exam_session_by_id(db: Session, session_id: uuid.UUID, populate_existing: bool = False) -> Optional[ExamSession]:
+    query = db.query(ExamSession)
+    if populate_existing:
+        query = query.populate_existing()
     return (
-        db.query(ExamSession)
+        query
         .options(
             joinedload(ExamSession.exam),
             joinedload(ExamSession.track_configs)
@@ -421,9 +471,13 @@ def configure_exam_grade_track(
 ) -> ExamGradeTrackConfig:
     """Configure reporting groups and subject combinations for an eligible grade/track."""
     reporting_groups_data = reporting_groups_data if reporting_groups_data is not None else (groups or [])
+    if not _lock_exam_row(db, exam_id):
+        raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
     exam = get_exam_by_id(db, exam_id)
     if not exam:
         raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
+    if exam.is_archived:
+        raise ExamValidationError("Cannot modify grade/track configuration of an archived exam series.")
 
     clean_grade = (grade or "").strip()
     if not clean_grade:
@@ -525,11 +579,22 @@ def list_exam_grade_track_configs(db: Session, exam_id: uuid.UUID) -> List[ExamG
     )
 
 
-def delete_exam_grade_track_config(db: Session, config_id: uuid.UUID) -> None:
+def delete_exam_grade_track_config(
+    db: Session,
+    config_id: uuid.UUID,
+    exam_id: Optional[uuid.UUID] = None,
+) -> None:
     config = db.query(ExamGradeTrackConfig).filter(ExamGradeTrackConfig.id == config_id).first()
-    if config:
-        db.delete(config)
-        db.commit()
+    if not config:
+        return
+    if exam_id is not None and config.exam_id != exam_id:
+        raise ExamNotFoundError("Grade/track configuration does not belong to this exam series.")
+    _lock_exam_row(db, config.exam_id)
+    exam = get_exam_by_id(db, config.exam_id)
+    if exam and exam.is_archived:
+        raise ExamValidationError("Cannot modify grade/track configuration of an archived exam series.")
+    db.delete(config)
+    db.commit()
 
 
 def create_exam_session(
@@ -545,7 +610,9 @@ def create_exam_session(
     allow_late_submission: bool = True,
     commit: bool = True,
 ) -> ExamSession:
-    exam = get_exam_by_id(db, exam_id)
+    if not _lock_exam_row(db, exam_id, share=True):
+        raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
+    exam = get_exam_by_id(db, exam_id, populate_existing=True)
     if not exam:
         raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
     if not exam.is_active or getattr(exam, 'is_archived', False):
@@ -643,9 +710,13 @@ def update_exam_session(
     title: Optional[str] = None,
     track_subjects_map: Optional[Dict[uuid.UUID, List[uuid.UUID]]] = None,
 ) -> ExamSession:
+    if not _lock_session_row(db, session_id):
+        raise ExamSessionNotFoundError(f"Exam session with id {session_id} not found.")
     session = get_exam_session_by_id(db, session_id)
     if not session:
         raise ExamSessionNotFoundError(f"Exam session with id {session_id} not found.")
+    if session.exam and (session.exam.is_archived or not session.exam.is_active):
+        raise ExamValidationError("Cannot modify occurrences of an archived or inactive exam series.")
 
     session.date = exam_date
     session.title = title.strip() if title and title.strip() else None
@@ -740,9 +811,13 @@ def cancel_exam_session(
     actor_id: Optional[uuid.UUID] = None,
     reason: Optional[str] = None,
 ) -> ExamSession:
+    if not _lock_session_row(db, session_id):
+        raise ExamSessionNotFoundError(f"Exam session with id {session_id} not found.")
     session = get_exam_session_by_id(db, session_id)
     if not session:
         raise ExamSessionNotFoundError(f"Exam session with id {session_id} not found.")
+    if session.exam and session.exam.is_archived:
+        raise ExamValidationError("Cannot modify occurrences of an archived exam series.")
 
     session.status = "CANCELLED"
     session.skip_reason = reason.strip() if reason and reason.strip() else None
@@ -768,9 +843,13 @@ def generate_series_sessions(
     actor_id: Optional[uuid.UUID] = None,
 ) -> List[ExamSession]:
     """Generate all scheduled occurrences for an exam series, preventing duplicates."""
+    if not _lock_exam_row(db, exam_id):
+        raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
     exam = get_exam_by_id(db, exam_id)
     if not exam:
         raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
+    if exam.is_archived or not exam.is_active:
+        raise ExamValidationError(f"Cannot generate sessions for archived or inactive exam '{exam.title}'.")
 
     if dates is None:
         if not exam.first_exam_date or not exam.last_exam_date or not exam.recurrence_interval_weeks:
@@ -824,9 +903,15 @@ def skip_exam_session(
     force_if_results: bool = False,
 ) -> ExamSession:
     """Mark an occurrence as No Exam (skipped) without shifting later dates."""
+    if not _lock_session_row(db, session_id):
+        raise ExamSessionNotFoundError(f"Exam session with id {session_id} not found.")
     session = get_exam_session_by_id(db, session_id)
     if not session:
         raise ExamSessionNotFoundError(f"Exam session with id {session_id} not found.")
+    if session.exam and session.exam.is_archived:
+        raise ExamValidationError("Cannot skip occurrences of an archived exam series.")
+    if session.status == "CANCELLED":
+        raise ExamValidationError("Cancelled occurrences are terminal and cannot be marked as skipped.")
 
     if session.results and len(session.results) > 0 and not force_if_results:
         raise ExamValidationError("This occurrence already has submitted results. Confirmation required before skipping.")
@@ -853,9 +938,15 @@ def restore_exam_session(
     reason: Optional[str] = None,
 ) -> ExamSession:
     """Restore a previously skipped occurrence back to SCHEDULED."""
+    if not _lock_session_row(db, session_id):
+        raise ExamSessionNotFoundError(f"Exam session with id {session_id} not found.")
     session = get_exam_session_by_id(db, session_id)
     if not session:
         raise ExamSessionNotFoundError(f"Exam session with id {session_id} not found.")
+    if session.exam and session.exam.is_archived:
+        raise ExamValidationError("Cannot restore occurrences of an archived exam series.")
+    if session.status != "SKIPPED":
+        raise ExamValidationError("Only skipped occurrences can be restored; cancelled occurrences cannot be reopened.")
 
     session.status = "SCHEDULED"
     session.skip_reason = None
@@ -911,9 +1002,13 @@ def update_future_recurrence(
     """
     Update recurrence rules for future occurrences while strictly preserving completed/submitted occurrences.
     """
+    if not _lock_exam_row(db, exam_id):
+        raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
     exam = get_exam_by_id(db, exam_id)
     if not exam:
         raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
+    if exam.is_archived or not exam.is_active:
+        raise ExamValidationError("Cannot modify schedule of an archived or inactive exam series.")
 
     exam.recurrence_interval_weeks = new_interval_weeks
     exam.first_exam_date = new_first_date
@@ -978,9 +1073,15 @@ def bulk_skip_exam_sessions(
     skipped = []
     skipped_count = 0
     with_results = 0
-    for sid in session_ids:
+    for sid in sorted(set(session_ids)):
+        if not _lock_session_row(db, sid):
+            continue
         sess = get_exam_session_by_id(db, sid)
         if not sess:
+            continue
+        if sess.exam and sess.exam.is_archived:
+            continue
+        if sess.status == "CANCELLED":
             continue
         if sess.results and len(sess.results) > 0:
             with_results += 1
@@ -1002,9 +1103,13 @@ def bulk_cancel_exam_sessions(
     reason: Optional[str] = None,
 ) -> Dict[str, Any]:
     cancelled = []
-    for sid in session_ids:
+    for sid in sorted(set(session_ids)):
+        if not _lock_session_row(db, sid):
+            continue
         sess = get_exam_session_by_id(db, sid)
         if not sess:
+            continue
+        if sess.exam and sess.exam.is_archived:
             continue
         sess.status = "CANCELLED"
         sess.skip_reason = reason.strip() if reason and reason.strip() else None
@@ -1021,9 +1126,15 @@ def bulk_restore_exam_sessions(
     reason: Optional[str] = None,
 ) -> Dict[str, Any]:
     restored = []
-    for sid in session_ids:
+    for sid in sorted(set(session_ids)):
+        if not _lock_session_row(db, sid):
+            continue
         sess = get_exam_session_by_id(db, sid)
         if not sess:
+            continue
+        if sess.exam and sess.exam.is_archived:
+            continue
+        if sess.status != "SKIPPED":
             continue
         sess.status = "SCHEDULED"
         sess.skip_reason = None
@@ -1040,9 +1151,13 @@ def extend_exam_recurrence(
     actor_id: Optional[uuid.UUID] = None,
 ) -> List[ExamSession]:
     """Extend a recurring exam series to a later date without modifying earlier occurrences."""
+    if not _lock_exam_row(db, exam_id):
+        raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
     exam = get_exam_by_id(db, exam_id)
     if not exam:
         raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
+    if exam.is_archived or not exam.is_active:
+        raise ExamValidationError("Cannot extend schedule of an archived or inactive exam series.")
     if not exam.first_exam_date or not exam.recurrence_interval_weeks:
         raise ExamValidationError("Exam series does not have recurrence configured.")
     if exam.last_exam_date and new_last_exam_date <= exam.last_exam_date:
@@ -1097,9 +1212,13 @@ def bulk_add_manual_sessions(
     actor_id: Optional[uuid.UUID] = None,
 ) -> List[ExamSession]:
     """Add multiple manually specified dates to a series."""
+    if not _lock_exam_row(db, exam_id):
+        raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
     exam = get_exam_by_id(db, exam_id)
     if not exam:
         raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
+    if exam.is_archived or not exam.is_active:
+        raise ExamValidationError("Cannot add occurrences to an archived or inactive exam series.")
 
     created = []
     for item in dates_and_titles:
@@ -1213,9 +1332,13 @@ def get_student_exam_result(
 def get_student_exam_result_by_id(
     db: Session,
     result_id: uuid.UUID,
+    populate_existing: bool = False,
 ) -> Optional[StudentExamResult]:
+    query = db.query(StudentExamResult)
+    if populate_existing:
+        query = query.populate_existing()
     return (
-        db.query(StudentExamResult)
+        query
         .options(
             joinedload(StudentExamResult.student),
             joinedload(StudentExamResult.exam_session).joinedload(ExamSession.exam),
@@ -1260,7 +1383,9 @@ def submit_student_exam_result(
     if not student.academic_track_id:
         raise ExamValidationError("Student has no academic track assigned.")
 
-    session = get_exam_session_by_id(db, exam_session_id)
+    if not _lock_session_row(db, exam_session_id, share=True):
+        raise ExamSessionNotFoundError(f"Exam session with id {exam_session_id} not found.")
+    session = get_exam_session_by_id(db, exam_session_id, populate_existing=True)
     if not session:
         raise ExamSessionNotFoundError(f"Exam session with id {exam_session_id} not found.")
 
@@ -1351,14 +1476,14 @@ def submit_student_exam_result(
         configured_subject_ids = {sc.subject_id for sc in track_config.subject_configs} if track_config else set()
         effective_subjects = get_student_effective_subjects(student)
         effective_subject_ids = {s.id for s in effective_subjects}
-        allowed_subject_ids = configured_subject_ids.intersection(effective_subject_ids) if configured_subject_ids else effective_subject_ids
+        allowed_subject_ids = configured_subject_ids.intersection(effective_subject_ids) if track_config else effective_subject_ids
 
         seen_subjects: Set[uuid.UUID] = set()
         for item in subject_data:
             sub_id = item.get("subject_id")
             if isinstance(sub_id, str):
                 sub_id = uuid.UUID(sub_id)
-            if not sub_id or (allowed_subject_ids and sub_id not in allowed_subject_ids):
+            if not sub_id or (not is_tutor_override and sub_id not in allowed_subject_ids):
                 sub = get_subject_by_id(db, sub_id) if sub_id else None
                 sub_name = sub.name if sub else str(sub_id)
                 raise ExamValidationError(f"Subject '{sub_name}' is not allowed for your track in this exam.")
@@ -1432,7 +1557,9 @@ def mark_exam_result_reviewed(
     notes: Optional[str] = None,
 ) -> StudentExamResult:
     effective_actor = actor_id or tutor_id
-    result = get_student_exam_result_by_id(db, result_id)
+    if not _lock_result_row(db, result_id):
+        raise ExamResultNotFoundError(f"Result {result_id} not found.")
+    result = get_student_exam_result_by_id(db, result_id, populate_existing=True)
     if not result:
         raise ExamResultNotFoundError(f"Result {result_id} not found.")
 
@@ -1464,7 +1591,9 @@ def reopen_exam_result(
     reason: Optional[str] = None,
 ) -> StudentExamResult:
     effective_actor = actor_id or tutor_id
-    result = get_student_exam_result_by_id(db, result_id)
+    if not _lock_result_row(db, result_id):
+        raise ExamResultNotFoundError(f"Result {result_id} not found.")
+    result = get_student_exam_result_by_id(db, result_id, populate_existing=True)
     if not result:
         raise ExamResultNotFoundError(f"Result {result_id} not found.")
 
@@ -1499,7 +1628,9 @@ def tutor_correct_exam_result(
     reason: Optional[str] = None,
 ) -> StudentExamResult:
     effective_actor = actor_id or tutor_id
-    result = get_student_exam_result_by_id(db, result_id)
+    if not _lock_result_row(db, result_id):
+        raise ExamResultNotFoundError(f"Result {result_id} not found.")
+    result = get_student_exam_result_by_id(db, result_id, populate_existing=True)
     if not result:
         raise ExamResultNotFoundError(f"Result {result_id} not found.")
 
@@ -1620,7 +1751,14 @@ def update_student_exam_result(
     report_card_file_name: Optional[str] = None,
     is_tutor_override: bool = False,
 ) -> StudentExamResult:
-    result = get_student_exam_result_by_id(db, result_id)
+    # Acquire shared lock on parent exam/session before exclusive lock on result row (Exam -> ExamSession -> StudentExamResult)
+    sess_row = db.query(StudentExamResult.exam_session_id).filter(StudentExamResult.id == result_id).first()
+    if sess_row:
+        _lock_session_row(db, sess_row[0], share=True)
+
+    if not _lock_result_row(db, result_id):
+        raise ExamResultNotFoundError(f"Exam result with id {result_id} not found.")
+    result = get_student_exam_result_by_id(db, result_id, populate_existing=True)
     if not result:
         raise ExamResultNotFoundError(f"Exam result with id {result_id} not found.")
 
@@ -1724,7 +1862,7 @@ def update_student_exam_result(
         )
         configured_subject_ids = {sc.subject_id for sc in track_config.subject_configs} if track_config else set()
         effective_subject_ids = {s.id for s in get_student_effective_subjects(student)}
-        allowed_subject_ids = configured_subject_ids.intersection(effective_subject_ids) if configured_subject_ids else effective_subject_ids
+        allowed_subject_ids = configured_subject_ids.intersection(effective_subject_ids) if track_config else effective_subject_ids
 
         seen_subjects: Set[uuid.UUID] = set()
         parsed_update_subjects = []
@@ -1732,7 +1870,7 @@ def update_student_exam_result(
             sub_id = item.get("subject_id")
             if isinstance(sub_id, str):
                 sub_id = uuid.UUID(sub_id)
-            if not sub_id or (allowed_subject_ids and sub_id not in allowed_subject_ids and not is_tutor_override):
+            if not sub_id or (not is_tutor_override and sub_id not in allowed_subject_ids):
                 sub = get_subject_by_id(db, sub_id) if sub_id else None
                 sub_name = sub.name if sub else str(sub_id)
                 raise ExamValidationError(f"Subject '{sub_name}' is not allowed for your track in this exam.")
@@ -2105,9 +2243,15 @@ def assign_external_exam_to_students(
     exam_session_id: uuid.UUID,
     student_ids: List[uuid.UUID],
 ) -> None:
-    session = get_exam_session_by_id(db, exam_session_id)
+    if not _lock_session_row(db, exam_session_id, share=True):
+        raise ExamSessionNotFoundError(f"Exam session with id {exam_session_id} not found.")
+    session = get_exam_session_by_id(db, exam_session_id, populate_existing=True)
     if not session:
         raise ExamSessionNotFoundError(f"Exam session with id {exam_session_id} not found.")
+    if session.exam and (session.exam.is_archived or not session.exam.is_active):
+        raise ExamValidationError("Cannot assign students to an archived or inactive exam series.")
+    if session.status in ("CANCELLED", "SKIPPED"):
+        raise ExamValidationError("Cannot assign students to a skipped or cancelled exam occurrence.")
 
     for sid in student_ids:
         existing = db.query(ExternalExamAssignment).filter(
@@ -2124,18 +2268,26 @@ def assign_exam_series_to_students(
     db: Session,
     exam_id: uuid.UUID,
     student_ids: List[uuid.UUID],
+    sync_omitted: bool = True,
+    actor_id: Optional[uuid.UUID] = None,
 ) -> Dict[str, Any]:
-    """Assign an entire exam series to students, strictly rejecting ineligible students."""
+    """Assign an exam series to eligible students and optionally revoke omitted assignments."""
+    if not _lock_exam_row(db, exam_id):
+        raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
     exam = get_exam_by_id(db, exam_id)
     if not exam:
         raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
+    if exam.is_archived or not exam.is_active:
+        raise ExamValidationError("Cannot assign students to an archived or inactive exam series.")
 
-    eval_result = evaluate_students_eligibility(db, exam_id, student_ids)
+    unique_student_ids = list(dict.fromkeys(student_ids))
+    eval_result = evaluate_students_eligibility(db, exam_id, unique_student_ids)
     if eval_result["ineligible"]:
         reasons = "; ".join(f"Student {item.get('student').full_name if item.get('student') else item['student_id']}: {item['reason']}" for item in eval_result["ineligible"])
         raise IneligibleStudentError(f"Cannot assign series to incompatible students: {reasons}")
 
     assigned_count = 0
+    selected_ids = {item["student"].id for item in eval_result["eligible"]}
     for item in eval_result["eligible"]:
         st = item["student"]
         existing = db.query(ExamSeriesAssignment).filter(
@@ -2156,8 +2308,47 @@ def assign_exam_series_to_students(
                 if not existing_ea:
                     db.add(ExternalExamAssignment(exam_session_id=sess.id, student_id=st.id))
 
+    revoked_count = 0
+    if sync_omitted:
+        existing_series_assignments = db.query(ExamSeriesAssignment).filter(
+            ExamSeriesAssignment.exam_id == exam.id
+        ).all()
+        session_ids = [s.id for s in exam.sessions]
+        for sa in existing_series_assignments:
+            if sa.student_id not in selected_ids:
+                db.delete(sa)
+                revoked_count += 1
+                if session_ids:
+                    submitted_session_ids = {
+                        sr.exam_session_id
+                        for sr in db.query(StudentExamResult).filter(
+                            StudentExamResult.student_id == sa.student_id,
+                            StudentExamResult.exam_session_id.in_(session_ids),
+                        ).all()
+                    }
+                    unsubmitted_eas = db.query(ExternalExamAssignment).filter(
+                        ExternalExamAssignment.student_id == sa.student_id,
+                        ExternalExamAssignment.exam_session_id.in_(session_ids),
+                    ).all()
+                    for ea in unsubmitted_eas:
+                        if ea.exam_session_id not in submitted_session_ids:
+                            db.delete(ea)
+                log_exam_audit(
+                    db,
+                    "SERIES",
+                    exam.id,
+                    "UNASSIGNED",
+                    actor_id=actor_id,
+                    exam_id=exam.id,
+                    reason=f"Revoked omitted assignment for student {sa.student_id}",
+                )
+
     db.commit()
-    return {"assigned_count": assigned_count, "eligible_count": len(eval_result["eligible"])}
+    return {
+        "assigned_count": assigned_count,
+        "revoked_count": revoked_count,
+        "eligible_count": len(eval_result["eligible"]),
+    }
 
 
 def bulk_assign_occurrences_to_students(
@@ -2168,9 +2359,15 @@ def bulk_assign_occurrences_to_students(
     allow_partial: bool = False,
 ) -> Dict[str, Any]:
     """Assign specific exam occurrences to multiple students, validating eligibility."""
-    sessions = db.query(ExamSession).filter(ExamSession.id.in_(session_ids)).all()
+    sessions = db.query(ExamSession).options(joinedload(ExamSession.exam)).filter(ExamSession.id.in_(session_ids)).all()
     if not sessions:
         raise ExamValidationError("No valid exam sessions found.")
+
+    for sess in sessions:
+        if sess.exam and (sess.exam.is_archived or not sess.exam.is_active):
+            raise ExamValidationError("Cannot assign students to occurrences of an archived or inactive exam series.")
+        if sess.status in ("CANCELLED", "SKIPPED"):
+            raise ExamValidationError("Cannot assign students to a skipped or cancelled exam occurrence.")
 
     students = db.query(User).filter(User.id.in_(student_ids), User.role == "STUDENT", User.is_active == True).all()
     assigned_count = 0

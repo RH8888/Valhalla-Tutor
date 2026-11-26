@@ -69,9 +69,14 @@ def create_practice_exam(
     return exam
 
 
-def get_practice_exam_by_id(db: Session, exam_id: uuid.UUID) -> Optional[PracticeExam]:
+def get_practice_exam_by_id(
+    db: Session, exam_id: uuid.UUID, populate_existing: bool = False
+) -> Optional[PracticeExam]:
+    query = db.query(PracticeExam)
+    if populate_existing:
+        query = query.populate_existing()
     return (
-        db.query(PracticeExam)
+        query
         .options(
             joinedload(PracticeExam.track),
             joinedload(PracticeExam.booklets),
@@ -115,9 +120,29 @@ def add_practice_exam_booklet(
     duration_minutes: Optional[int] = None,
     order_index: Optional[int] = None,
 ) -> PracticeExamBooklet:
-    exam = get_practice_exam_by_id(db, practice_exam_id)
+    # Acquire exclusive row lock on the practice exam to serialize with attempt starts
+    locked_exam = (
+        db.query(PracticeExam.id)
+        .filter(PracticeExam.id == practice_exam_id)
+        .with_for_update()
+        .first()
+    )
+    if not locked_exam:
+        raise PracticeExamNotFoundError(f"Practice exam with id {practice_exam_id} not found.")
+
+    exam = get_practice_exam_by_id(db, practice_exam_id, populate_existing=True)
     if not exam:
         raise PracticeExamNotFoundError(f"Practice exam with id {practice_exam_id} not found.")
+
+    has_attempts = (
+        db.query(StudentPracticeAttempt.id)
+        .filter(StudentPracticeAttempt.practice_exam_id == exam.id)
+        .first()
+    )
+    if has_attempts:
+        raise PracticeExamValidationError(
+            "Cannot add booklets to a practice exam that already has student attempts."
+        )
 
     if question_start <= 0 or question_end < question_start:
         raise PracticeExamValidationError("Invalid question range: start must be >= 1 and end >= start.")
@@ -129,7 +154,9 @@ def add_practice_exam_booklet(
             )
 
     if order_index is None:
-        order_index = len(exam.booklets) + 1
+        order_index = max((b.order_index for b in exam.booklets), default=0) + 1
+    elif order_index < 1:
+        raise PracticeExamValidationError("Booklet order index must be at least 1.")
 
     booklet = PracticeExamBooklet(
         practice_exam_id=exam.id,
@@ -152,7 +179,7 @@ def create_practice_reporting_group(
     practice_exam_id: uuid.UUID,
     title: str,
 ) -> PracticeExamReportingGroup:
-    exam = get_practice_exam_by_id(db, practice_exam_id)
+    exam = get_practice_exam_by_id(db, practice_exam_id, populate_existing=True)
     if not exam:
         raise PracticeExamNotFoundError(f"Practice exam with id {practice_exam_id} not found.")
     clean_title = (title or "").strip()
@@ -175,7 +202,16 @@ def configure_practice_exam_questions(
     question_definitions: List[Dict[str, Any]],
 ) -> List[PracticeExamQuestion]:
     """Configure questions, answer key (1, 2, 3, 4), and subject/reporting group assignment."""
-    exam = get_practice_exam_by_id(db, practice_exam_id)
+    locked_exam = (
+        db.query(PracticeExam.id)
+        .filter(PracticeExam.id == practice_exam_id)
+        .with_for_update()
+        .first()
+    )
+    if not locked_exam:
+        raise PracticeExamNotFoundError(f"Practice exam with id {practice_exam_id} not found.")
+
+    exam = get_practice_exam_by_id(db, practice_exam_id, populate_existing=True)
     if not exam:
         raise PracticeExamNotFoundError(f"Practice exam with id {practice_exam_id} not found.")
 
@@ -242,12 +278,26 @@ def assign_practice_exam_to_students(
     db: Session,
     practice_exam_id: uuid.UUID,
     student_ids: List[uuid.UUID],
+    sync_omitted: bool = True,
 ) -> None:
-    exam = get_practice_exam_by_id(db, practice_exam_id)
+    locked = (
+        db.query(PracticeExam.id)
+        .filter(PracticeExam.id == practice_exam_id)
+        .with_for_update()
+        .first()
+    )
+    if not locked:
+        raise PracticeExamNotFoundError(f"Practice exam with id {practice_exam_id} not found.")
+    exam = get_practice_exam_by_id(db, practice_exam_id, populate_existing=True)
     if not exam:
         raise PracticeExamNotFoundError(f"Practice exam with id {practice_exam_id} not found.")
+    if not exam.is_active:
+        raise PracticeExamValidationError("Cannot assign students to an inactive practice exam.")
 
-    for sid in student_ids:
+    unique_ids = list(dict.fromkeys(student_ids))
+    selected_set = set(unique_ids)
+
+    for sid in unique_ids:
         existing = db.query(PracticeExamAssignment).filter(
             PracticeExamAssignment.practice_exam_id == exam.id,
             PracticeExamAssignment.student_id == sid,
@@ -255,6 +305,15 @@ def assign_practice_exam_to_students(
         if not existing:
             assignment = PracticeExamAssignment(practice_exam_id=exam.id, student_id=sid)
             db.add(assignment)
+
+    if sync_omitted:
+        existing_assignments = db.query(PracticeExamAssignment).filter(
+            PracticeExamAssignment.practice_exam_id == exam.id,
+        ).all()
+        for existing_row in existing_assignments:
+            if existing_row.student_id not in selected_set:
+                db.delete(existing_row)
+
     db.commit()
 
 
@@ -291,10 +350,11 @@ def start_practice_attempt(
     student: User,
     practice_exam_id: uuid.UUID,
 ) -> StudentPracticeAttempt:
-    # Concurrency control: lock student row to serialize concurrent attempt starts
+    # Concurrency control: lock student row then share-lock exam row to serialize against booklet/question changes
     db.query(User.id).filter(User.id == student.id).with_for_update().first()
+    db.query(PracticeExam.id).filter(PracticeExam.id == practice_exam_id).with_for_update(read=True).first()
 
-    exam = get_practice_exam_by_id(db, practice_exam_id)
+    exam = get_practice_exam_by_id(db, practice_exam_id, populate_existing=True)
     if not exam:
         raise PracticeExamNotFoundError(f"Practice exam with id {practice_exam_id} not found.")
     if not exam.is_active:

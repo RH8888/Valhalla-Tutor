@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 from sqlalchemy import desc, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.timezone import now_utc, today_local
 from app.models.book import Book, BookChapter
@@ -299,14 +299,63 @@ def create_study_plan(
     return plan
 
 
+def _lock_study_plan_row(
+    db: Session,
+    plan_id: uuid.UUID,
+    share: bool = False,
+) -> Optional[uuid.UUID]:
+    row = (
+        db.query(StudyPlan.id)
+        .filter(StudyPlan.id == plan_id)
+        .with_for_update(read=share)
+        .first()
+    )
+    return row[0] if row else None
+
+
+def _lock_assignment_with_plan(
+    db: Session,
+    assignment_id: uuid.UUID,
+    share_plan: bool = True,
+) -> Optional[PlanAssignment]:
+    """Acquire hierarchical row locks (StudyPlan -> PlanAssignment) and refresh ORM state."""
+    plan_row = (
+        db.query(PlanAssignment.study_plan_id)
+        .filter(PlanAssignment.id == assignment_id)
+        .first()
+    )
+    if not plan_row:
+        return None
+    _lock_study_plan_row(db, plan_row[0], share=share_plan)
+    locked_row = (
+        db.query(PlanAssignment.id)
+        .filter(PlanAssignment.id == assignment_id)
+        .with_for_update()
+        .first()
+    )
+    if not locked_row:
+        return None
+    return (
+        db.query(PlanAssignment)
+        .populate_existing()
+        .options(joinedload(PlanAssignment.study_plan))
+        .filter(PlanAssignment.id == assignment_id)
+        .first()
+    )
+
+
 def get_study_plan(
     db: Session,
     plan_id: uuid.UUID,
     tutor_id: Optional[uuid.UUID] = None,
     student_id: Optional[uuid.UUID] = None,
     exclude_drafts: bool = False,
+    populate_existing: bool = False,
 ) -> Optional[StudyPlan]:
-    query = db.query(StudyPlan).filter(StudyPlan.id == plan_id)
+    query = db.query(StudyPlan)
+    if populate_existing:
+        query = query.populate_existing()
+    query = query.filter(StudyPlan.id == plan_id)
     if tutor_id is not None:
         query = query.filter(StudyPlan.tutor_id == tutor_id)
     if student_id is not None:
@@ -351,7 +400,9 @@ def get_active_student_plan(
 
 def publish_study_plan(db: Session, plan_id: uuid.UUID, tutor_id: Optional[uuid.UUID] = None) -> StudyPlan:
     """Publish a draft plan and safely archive any previously published plan for this student."""
-    plan = get_study_plan(db, plan_id, tutor_id=tutor_id)
+    if not _lock_study_plan_row(db, plan_id, share=True):
+        raise PlanNotFoundError(f"Plan with id {plan_id} not found.")
+    plan = get_study_plan(db, plan_id, tutor_id=tutor_id, populate_existing=True)
     if not plan:
         raise PlanNotFoundError(f"Plan with id {plan_id} not found.")
 
@@ -390,7 +441,9 @@ def publish_study_plan(db: Session, plan_id: uuid.UUID, tutor_id: Optional[uuid.
 
 
 def archive_study_plan(db: Session, plan_id: uuid.UUID, tutor_id: Optional[uuid.UUID] = None) -> StudyPlan:
-    plan = get_study_plan(db, plan_id, tutor_id=tutor_id)
+    if not _lock_study_plan_row(db, plan_id):
+        raise PlanNotFoundError(f"Plan with id {plan_id} not found.")
+    plan = get_study_plan(db, plan_id, tutor_id=tutor_id, populate_existing=True)
     if not plan:
         raise PlanNotFoundError(f"Plan with id {plan_id} not found.")
     plan.status = PlanStatus.ARCHIVED
@@ -400,11 +453,21 @@ def archive_study_plan(db: Session, plan_id: uuid.UUID, tutor_id: Optional[uuid.
 
 
 def delete_study_plan(db: Session, plan_id: uuid.UUID, tutor_id: Optional[uuid.UUID] = None) -> None:
-    plan = get_study_plan(db, plan_id, tutor_id=tutor_id)
+    if not _lock_study_plan_row(db, plan_id):
+        raise PlanNotFoundError(f"Plan with id {plan_id} not found.")
+    plan = get_study_plan(db, plan_id, tutor_id=tutor_id, populate_existing=True)
     if not plan:
         raise PlanNotFoundError(f"Plan with id {plan_id} not found.")
     if plan.status != PlanStatus.DRAFT:
         raise PlanValidationError("Only DRAFT study plans can be deleted. Published plans must be archived.")
+    has_audit_history = (
+        db.query(CompletionAuditLog.id)
+        .join(PlanAssignment, CompletionAuditLog.assignment_id == PlanAssignment.id)
+        .filter(PlanAssignment.study_plan_id == plan.id)
+        .first()
+    )
+    if has_audit_history:
+        raise PlanValidationError("Cannot delete a study plan that has completion audit history.")
     db.delete(plan)
     db.commit()
 
@@ -433,7 +496,9 @@ def create_assignment(
     test_end_num: Optional[int] = None,
     tutor_id: Optional[uuid.UUID] = None,
 ) -> PlanAssignment:
-    plan = get_study_plan(db, plan_id, tutor_id=tutor_id)
+    if not _lock_study_plan_row(db, plan_id, share=True):
+        raise PlanNotFoundError(f"Plan with id {plan_id} not found.")
+    plan = get_study_plan(db, plan_id, tutor_id=tutor_id, populate_existing=True)
     if not plan:
         raise PlanNotFoundError(f"Plan with id {plan_id} not found.")
 
@@ -612,8 +677,8 @@ def update_assignment(
     display_order: Optional[int] = None,
     tutor_id: Optional[uuid.UUID] = None,
 ) -> PlanAssignment:
-    assignment = get_assignment(db, assignment_id, tutor_id=tutor_id)
-    if not assignment:
+    assignment = _lock_assignment_with_plan(db, assignment_id, share_plan=True)
+    if not assignment or (tutor_id is not None and (not assignment.study_plan or assignment.study_plan.tutor_id != tutor_id)):
         raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
 
     if assignment.study_plan and assignment.study_plan.status == PlanStatus.ARCHIVED:
@@ -667,13 +732,20 @@ def update_assignment(
 
 
 def delete_assignment(db: Session, assignment_id: uuid.UUID, tutor_id: Optional[uuid.UUID] = None) -> None:
-    assignment = get_assignment(db, assignment_id, tutor_id=tutor_id)
-    if not assignment:
+    assignment = _lock_assignment_with_plan(db, assignment_id, share_plan=True)
+    if not assignment or (tutor_id is not None and (not assignment.study_plan or assignment.study_plan.tutor_id != tutor_id)):
         raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
     if assignment.study_plan and assignment.study_plan.status == PlanStatus.ARCHIVED:
         raise PlanValidationError("Cannot delete assignments from an archived study plan.")
     if assignment.is_completed:
         raise PlanValidationError("Cannot delete a completed assignment. Reset its completion status first.")
+    has_audit_history = (
+        db.query(CompletionAuditLog.id)
+        .filter(CompletionAuditLog.assignment_id == assignment.id)
+        .first()
+    )
+    if has_audit_history:
+        raise PlanValidationError("Cannot delete an assignment with existing completion audit history.")
     db.delete(assignment)
     db.commit()
 
@@ -685,8 +757,8 @@ def reorder_assignment(
     tutor_id: Optional[uuid.UUID] = None,
 ) -> PlanAssignment:
     """Move assignment up or down within its cell (same scheduled_date and subject_id)."""
-    assignment = get_assignment(db, assignment_id, tutor_id=tutor_id)
-    if not assignment:
+    assignment = _lock_assignment_with_plan(db, assignment_id, share_plan=True)
+    if not assignment or (tutor_id is not None and (not assignment.study_plan or assignment.study_plan.tutor_id != tutor_id)):
         raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
     if assignment.study_plan and assignment.study_plan.status == PlanStatus.ARCHIVED:
         raise PlanValidationError("Cannot reorder assignments in an archived study plan.")
@@ -728,17 +800,15 @@ def complete_assignment(
     performed_by_id: Optional[uuid.UUID] = None,
 ) -> PlanAssignment:
     """Mark an assignment completed with fresh server timestamp and audit record."""
-    assignment = (
-        db.query(PlanAssignment)
-        .filter(PlanAssignment.id == assignment_id)
-        .with_for_update()
-        .first()
-    )
+    assignment = _lock_assignment_with_plan(db, assignment_id, share_plan=True)
     if not assignment:
         raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
 
     if assignment.student_id != student_id:
         raise PlanValidationError("Unauthorized: assignment does not belong to this student.")
+
+    if assignment.study_plan and assignment.study_plan.status == PlanStatus.ARCHIVED:
+        raise PlanValidationError("Cannot complete assignments in an archived plan.")
 
     if actual_duration_minutes is not None and actual_duration_minutes <= 0:
         raise PlanValidationError("Actual duration must be a positive number of minutes.")
@@ -746,9 +816,6 @@ def complete_assignment(
     # Idempotent completion: if already completed, preserve original completed_at, duration, and audit history
     if assignment.is_completed:
         return assignment
-
-    if assignment.study_plan and assignment.study_plan.status == PlanStatus.ARCHIVED:
-        raise PlanValidationError("Cannot complete assignments in an archived plan.")
 
     if actual_duration_minutes is not None:
         final_actual = actual_duration_minutes
@@ -779,23 +846,18 @@ def undo_assignment_completion(
     student_id: uuid.UUID,
 ) -> PlanAssignment:
     """Return a completed assignment to pending state and log audit entry."""
-    assignment = (
-        db.query(PlanAssignment)
-        .filter(PlanAssignment.id == assignment_id)
-        .with_for_update()
-        .first()
-    )
+    assignment = _lock_assignment_with_plan(db, assignment_id, share_plan=True)
     if not assignment:
         raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
 
     if assignment.student_id != student_id:
         raise PlanValidationError("Unauthorized: assignment does not belong to this student.")
 
-    if not assignment.is_completed:
-        raise PlanValidationError("Assignment is not marked as completed.")
-
     if assignment.study_plan and assignment.study_plan.status == PlanStatus.ARCHIVED:
         raise PlanValidationError("Cannot undo assignments in an archived plan.")
+
+    if not assignment.is_completed:
+        raise PlanValidationError("Assignment is not marked as completed.")
 
     prev_completed_at = assignment.completed_at
     prev_actual = assignment.actual_duration_minutes
@@ -826,9 +888,11 @@ def reset_assignment_completion(
     note: Optional[str] = None,
 ) -> PlanAssignment:
     """Tutor-only: reset an accidentally completed assignment while preserving audit history."""
-    assignment = get_assignment(db, assignment_id, tutor_id=tutor_id)
-    if not assignment:
+    assignment = _lock_assignment_with_plan(db, assignment_id, share_plan=True)
+    if not assignment or (not assignment.study_plan or assignment.study_plan.tutor_id != tutor_id):
         raise AssignmentNotFoundError(f"Assignment with id {assignment_id} not found.")
+    if assignment.study_plan.status == PlanStatus.ARCHIVED:
+        raise PlanValidationError("Cannot reset assignment completion in an archived study plan.")
     if not assignment.is_completed:
         raise PlanValidationError("Assignment is not marked as completed.")
 

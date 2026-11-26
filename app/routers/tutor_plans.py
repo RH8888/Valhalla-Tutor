@@ -609,7 +609,10 @@ def post_reorder_assignment(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
     plan_id = assignment.study_plan_id
-    reorder_assignment(db, assignment_id, direction, tutor_id=current_user.id)
+    try:
+        reorder_assignment(db, assignment_id, direction, tutor_id=current_user.id)
+    except PlanValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return RedirectResponse(
         url=f"/tutor/plans/{plan_id}",
         status_code=status.HTTP_303_SEE_OTHER,

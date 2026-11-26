@@ -201,9 +201,21 @@ def reschedule_meeting(
     # Concurrency control: serialize meeting rescheduling per tutor
     db.query(User.id).filter(User.id == tutor.id).with_for_update().first()
 
-    meeting = db.query(TutorMeeting).filter(TutorMeeting.id == meeting_id).with_for_update().first()
+    meeting = (
+        db.query(TutorMeeting)
+        .populate_existing()
+        .filter(TutorMeeting.id == meeting_id)
+        .with_for_update()
+        .first()
+    )
     if not meeting or meeting.tutor_id != tutor.id:
         raise MeetingNotFoundError("Meeting not found.")
+
+    if meeting.status != MeetingStatus.SCHEDULED:
+        status_val = meeting.status.value if hasattr(meeting.status, "value") else str(meeting.status)
+        raise MeetingValidationError(
+            f"Cannot reschedule a meeting with status '{status_val}'. Only SCHEDULED meetings can be rescheduled."
+        )
 
     if new_duration_minutes <= 0:
         raise MeetingValidationError("Meeting duration must be positive.")
@@ -261,15 +273,24 @@ def update_meeting_status(
     new_status: MeetingStatus,
 ) -> TutorMeeting:
     """Transition meeting status (COMPLETED, CANCELLED, STUDENT_ABSENT)."""
-    meeting = db.query(TutorMeeting).filter(TutorMeeting.id == meeting_id).with_for_update().first()
+    meeting = (
+        db.query(TutorMeeting)
+        .populate_existing()
+        .filter(TutorMeeting.id == meeting_id)
+        .with_for_update()
+        .first()
+    )
     if not meeting or meeting.tutor_id != tutor.id:
         raise MeetingNotFoundError("Meeting not found.")
+
+    if meeting.status != MeetingStatus.SCHEDULED and new_status == MeetingStatus.SCHEDULED:
+        raise MeetingValidationError("Terminal meetings cannot be reactivated to SCHEDULED.")
 
     meeting.status = new_status
     meeting.updated_at = now_utc()
 
-    # Cancel future reminders if completed or cancelled
-    if new_status in (MeetingStatus.CANCELLED, MeetingStatus.COMPLETED):
+    # Cancel future reminders if no longer scheduled
+    if new_status != MeetingStatus.SCHEDULED:
         _sync_meeting_reminder(db, meeting)
 
     db.commit()
@@ -288,7 +309,13 @@ def update_meeting_details(
     reminder_minutes: Optional[int] = None,
 ) -> TutorMeeting:
     """Update meeting non-temporal attributes (notes, url, location, reminder config)."""
-    meeting = db.query(TutorMeeting).filter(TutorMeeting.id == meeting_id).with_for_update().first()
+    meeting = (
+        db.query(TutorMeeting)
+        .populate_existing()
+        .filter(TutorMeeting.id == meeting_id)
+        .with_for_update()
+        .first()
+    )
     if not meeting or meeting.tutor_id != tutor.id:
         raise MeetingNotFoundError("Meeting not found.")
 
