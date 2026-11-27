@@ -664,7 +664,7 @@ class ExamAuditLog(Base):
     )
     exam_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         Uuid,
-        ForeignKey("exams.id", ondelete="CASCADE"),
+        ForeignKey("exams.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )

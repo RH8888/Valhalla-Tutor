@@ -19,9 +19,9 @@
                 <label for="grade" class="sr-only">{{ _("Grade") }}</label>
                 <select name="grade" id="grade" onchange="this.form.submit()" class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white text-slate-800">
                     <option value="">{{ _("-- All Grades --") }}</option>
-                    <option value="دهم" {% if comparison.filter_grade == 'دهم' %}selected{% endif %}>{{ _("Grade 10 (دهم)") }}</option>
-                    <option value="یازدهم" {% if comparison.filter_grade == 'یازدهم' %}selected{% endif %}>{{ _("Grade 11 (یازدهم)") }}</option>
-                    <option value="دوازدهم" {% if comparison.filter_grade == 'دوازدهم' %}selected{% endif %}>{{ _("Grade 12 (دوازدهم)") }}</option>
+                    <option value="10" {% if comparison.filter_grade == '10' %}selected{% endif %}>{{ _("Grade 10 (دهم)") }}</option>
+                    <option value="11" {% if comparison.filter_grade == '11' %}selected{% endif %}>{{ _("Grade 11 (یازدهم)") }}</option>
+                    <option value="12" {% if comparison.filter_grade == '12' %}selected{% endif %}>{{ _("Grade 12 (دوازدهم)") }}</option>
                 </select>
             </div>
             <div>

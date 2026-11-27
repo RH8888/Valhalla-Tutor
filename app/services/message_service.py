@@ -311,30 +311,49 @@ def list_tutor_conversations(
     )
 
     conversations = list(db.execute(query).scalars().all())
-    items = []
-    for conv in conversations:
-        # Get latest message
-        latest_msg = db.execute(
-            select(Message)
-            .where(Message.conversation_id == conv.id)
-            .order_by(Message.created_at.desc())
-            .limit(1)
-        ).scalar_one_or_none()
+    if not conversations:
+        return []
 
-        # Unread count from this student
-        unread_count = db.execute(
-            select(func.count(Message.id))
-            .where(
-                Message.conversation_id == conv.id,
-                Message.sender_id == conv.student_id,
-                Message.is_read.is_(False),
+    conv_ids = [conv.id for conv in conversations]
+
+    unread_rows = db.execute(
+        select(Message.conversation_id, func.count(Message.id))
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .where(
+            Message.conversation_id.in_(conv_ids),
+            Message.sender_id == Conversation.student_id,
+            Message.is_read.is_(False),
+        )
+        .group_by(Message.conversation_id)
+    ).all()
+    unread_by_conv = {conv_id: int(count) for conv_id, count in unread_rows}
+
+    ranked_messages = (
+        select(
+            Message.id.label("msg_id"),
+            func.row_number()
+            .over(
+                partition_by=Message.conversation_id,
+                order_by=(Message.created_at.desc(), Message.id.desc()),
             )
-        ).scalar() or 0
+            .label("rn"),
+        )
+        .where(Message.conversation_id.in_(conv_ids))
+        .subquery()
+    )
+    latest_messages = db.execute(
+        select(Message)
+        .join(ranked_messages, Message.id == ranked_messages.c.msg_id)
+        .where(ranked_messages.c.rn == 1)
+    ).scalars().all()
+    latest_by_conv = {msg.conversation_id: msg for msg in latest_messages}
 
-        items.append({
+    return [
+        {
             "conversation": conv,
             "student": conv.student,
-            "latest_message": latest_msg,
-            "unread_count": unread_count,
-        })
-    return items
+            "latest_message": latest_by_conv.get(conv.id),
+            "unread_count": unread_by_conv.get(conv.id, 0),
+        }
+        for conv in conversations
+    ]

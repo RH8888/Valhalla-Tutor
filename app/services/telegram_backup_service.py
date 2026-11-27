@@ -646,23 +646,10 @@ def run_scheduled_backup_tick(
 ) -> bool:
     """
     Check whether an automatic scheduled Telegram backup is due and execute it.
-    Uses a non-blocking PostgreSQL advisory lock so multi-worker deployments do not duplicate runs.
+    Acquires a non-blocking PostgreSQL advisory lock before checking/advancing next_run_at
+    so multi-worker deployments serialize cleanly without duplicating runs or wedging locks.
     Returns True if a scheduled backup run was attempted, False otherwise.
     """
-    rec = get_or_create_telegram_settings(db)
-    if not rec.schedule_enabled or not rec.enabled or not rec.chat_id or not rec.encrypted_bot_token:
-        return False
-
-    now = now_utc()
-    if rec.next_run_at is None:
-        rec.next_run_at = compute_next_run_at(rec, now)
-        rec.updated_at = now
-        db.commit()
-        return False
-
-    if now < to_utc(rec.next_run_at):
-        return False
-
     is_postgres = db.bind is not None and db.bind.dialect.name == "postgresql"
     lock_acquired = False
     if is_postgres:
@@ -676,17 +663,18 @@ def run_scheduled_backup_tick(
             return False
 
     try:
-        db.expire(rec)
         rec = get_or_create_telegram_settings(db)
+        if not rec.schedule_enabled or not rec.enabled or not rec.chat_id or not rec.encrypted_bot_token:
+            return False
+
         now = now_utc()
-        if (
-            not rec.schedule_enabled
-            or not rec.enabled
-            or not rec.chat_id
-            or not rec.encrypted_bot_token
-            or rec.next_run_at is None
-            or now < to_utc(rec.next_run_at)
-        ):
+        if rec.next_run_at is None:
+            rec.next_run_at = compute_next_run_at(rec, now)
+            rec.updated_at = now
+            db.commit()
+            return False
+
+        if now < to_utc(rec.next_run_at):
             return False
 
         try:
@@ -694,24 +682,42 @@ def run_scheduled_backup_tick(
         except Exception as exc:
             err_msg = sanitize_telegram_error(str(exc), None)
             logger.warning("Scheduled Telegram backup failed: %s", err_msg)
-            _record_status(db, rec, success=False, message=err_msg)
+            try:
+                db.rollback()
+                rec = get_or_create_telegram_settings(db)
+                _record_status(db, rec, success=False, message=err_msg)
+            except Exception:
+                db.rollback()
+                logger.exception("Failed to record failed scheduled Telegram backup status")
         finally:
             # Always advance next_run_at even on failure to prevent 60-second retry loops
-            rec = get_or_create_telegram_settings(db)
-            rec.next_run_at = compute_next_run_at(rec, now_utc())
-            rec.updated_at = now_utc()
-            db.commit()
+            try:
+                rec = get_or_create_telegram_settings(db)
+                rec.next_run_at = compute_next_run_at(rec, now_utc())
+                rec.updated_at = now_utc()
+                db.commit()
+            except Exception:
+                db.rollback()
+                raise
 
         return True
     finally:
         if is_postgres and lock_acquired:
             try:
+                db.rollback()
+            except Exception:
+                pass
+            try:
                 db.execute(
                     text("SELECT pg_advisory_unlock(:lock_id)"),
                     {"lock_id": _SCHEDULER_ADVISORY_LOCK_ID},
                 )
+                db.commit()
             except Exception:
-                pass
+                try:
+                    db.invalidate()
+                except Exception:
+                    pass
 
 
 def _cli_main() -> int:

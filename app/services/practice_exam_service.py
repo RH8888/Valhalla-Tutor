@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
-from sqlalchemy import desc
+from sqlalchemy import and_, desc, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.timezone import now_utc
@@ -317,32 +317,61 @@ def assign_practice_exam_to_students(
     db.commit()
 
 
-def get_student_available_practice_exams(db: Session, student: User) -> List[Dict[str, Any]]:
+def get_student_available_practice_exams(db: Session, student: User) -> List[PracticeExam]:
     """Retrieve practice exams eligible for student by grade/track or direct assignment."""
-    query = (
+    assigned_exam_ids = [
+        row[0]
+        for row in db.query(PracticeExamAssignment.practice_exam_id)
+        .filter(PracticeExamAssignment.student_id == student.id)
+        .all()
+    ]
+
+    eligibility_clauses = []
+    if assigned_exam_ids:
+        eligibility_clauses.append(PracticeExam.id.in_(assigned_exam_ids))
+    if student.grade and student.academic_track_id:
+        eligibility_clauses.append(
+            and_(
+                PracticeExam.grade == student.grade,
+                PracticeExam.academic_track_id == student.academic_track_id,
+            )
+        )
+    if not eligibility_clauses:
+        return []
+
+    eligible_exams = (
         db.query(PracticeExam)
         .options(
             joinedload(PracticeExam.track),
             joinedload(PracticeExam.booklets),
-            joinedload(PracticeExam.attempts),
         )
-        .filter(PracticeExam.is_active.is_(True))
+        .filter(
+            PracticeExam.is_active.is_(True),
+            or_(*eligibility_clauses),
+        )
+        .order_by(desc(PracticeExam.created_at))
+        .all()
     )
-    all_exams = query.order_by(desc(PracticeExam.created_at)).all()
-    results = []
+    if not eligible_exams:
+        return []
 
-    for exam in all_exams:
-        # Check direct assignment or grade + track eligibility
-        has_direct_assignment = any(a.student_id == student.id for a in exam.assignments)
-        is_eligible_by_profile = (
-            student.grade == exam.grade and student.academic_track_id == exam.academic_track_id
+    exam_ids = [exam.id for exam in eligible_exams]
+    student_attempts = (
+        db.query(StudentPracticeAttempt)
+        .filter(
+            StudentPracticeAttempt.student_id == student.id,
+            StudentPracticeAttempt.practice_exam_id.in_(exam_ids),
         )
-        if has_direct_assignment or is_eligible_by_profile:
-            student_attempts = [att for att in exam.attempts if att.student_id == student.id]
-            student_attempts.sort(key=lambda a: a.started_at)
-            exam.latest_attempt = student_attempts[-1] if student_attempts else None
-            results.append(exam)
-    return results
+        .order_by(StudentPracticeAttempt.started_at.asc())
+        .all()
+    )
+    latest_by_exam: Dict[uuid.UUID, StudentPracticeAttempt] = {}
+    for att in student_attempts:
+        latest_by_exam[att.practice_exam_id] = att
+
+    for exam in eligible_exams:
+        exam.latest_attempt = latest_by_exam.get(exam.id)
+    return eligible_exams
 
 
 def start_practice_attempt(

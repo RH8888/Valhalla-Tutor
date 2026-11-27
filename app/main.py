@@ -56,6 +56,7 @@ async def _telegram_backup_scheduler_loop() -> None:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    settings.validate_production_settings()
     scheduler_task = asyncio.create_task(_telegram_backup_scheduler_loop())
     try:
         yield

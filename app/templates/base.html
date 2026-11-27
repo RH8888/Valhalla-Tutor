@@ -22,6 +22,16 @@
                     evt.detail.headers['X-CSRF-Token'] = token;
                 }
             });
+            document.body.addEventListener('htmx:afterSwap', (evt) => {
+                const target = evt.target;
+                if (!target || (target.id !== 'tutor-unread-badge' && target.id !== 'student-unread-badge')) {
+                    return;
+                }
+                document.querySelectorAll(`[data-sync-badge="${target.id}"]`).forEach((mirror) => {
+                    const clones = Array.from(target.childNodes, (node) => node.cloneNode(true));
+                    mirror.replaceChildren(...clones);
+                });
+            });
         });
 
         function toggleMobileMenu() {
@@ -311,7 +321,7 @@
                 {% if current_user and current_user.role == "STUDENT" %}
                 <a href="/student/chat" class="relative p-2 text-slate-600 hover:text-indigo-600 rounded-lg hover:bg-slate-100 transition" title="{{ _('chat') }}">
                     <span class="text-base">💬</span>
-                    <span id="student-unread-badge-mobile" hx-get="/student/chat/unread-count" hx-trigger="load, every 15s" hx-swap="outerHTML"></span>
+                    <span id="student-unread-badge-mobile" data-sync-badge="student-unread-badge"></span>
                 </a>
                 {% endif %}
                 <button id="mobile-menu-btn" type="button" onclick="toggleMobileMenu()" aria-label="{{ _('toggle_menu') }}"

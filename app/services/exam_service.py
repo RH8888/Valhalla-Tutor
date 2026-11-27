@@ -56,6 +56,51 @@ class DuplicateExamResultError(Exception):
     pass
 
 
+_GRADE_CANONICAL_MAP: Dict[str, str] = {
+    "10": "10",
+    "دهم": "10",
+    "11": "11",
+    "یازدهم": "11",
+    "12": "12",
+    "دوازدهم": "12",
+}
+
+_GRADE_VARIANTS_MAP: Dict[str, List[str]] = {
+    "10": ["10", "دهم"],
+    "دهم": ["10", "دهم"],
+    "11": ["11", "یازدهم"],
+    "یازدهم": ["11", "یازدهم"],
+    "12": ["12", "دوازدهم"],
+    "دوازدهم": ["12", "دوازدهم"],
+}
+
+
+def _normalize_grade_code(grade: Optional[str]) -> Optional[str]:
+    if grade is None:
+        return None
+    cleaned = str(grade).strip()
+    if not cleaned:
+        return None
+    return _GRADE_CANONICAL_MAP.get(cleaned, cleaned)
+
+
+def _get_grade_variants(grade: str) -> List[str]:
+    cleaned = str(grade).strip()
+    return _GRADE_VARIANTS_MAP.get(cleaned, [cleaned])
+
+
+def _extract_result_breakdown(res: StudentExamResult) -> Dict[str, float]:
+    """Return {label: percentage} preferring reporting groups with subject-result fallback."""
+    if res.group_results:
+        return {gr.group_title: gr.percentage for gr in res.group_results}
+    if res.subject_results:
+        return {
+            (sr.subject.name if sr.subject else str(sr.subject_id)): sr.percentage
+            for sr in res.subject_results
+        }
+    return {}
+
+
 def _validate_percentage(raw_val: Any, subject_label: Optional[str] = None) -> float:
     """Parse and validate a finite exam percentage within [0.0, 100.0]."""
     prefix = f"Percentage for subject '{subject_label}'" if subject_label else "Percentage"
@@ -362,11 +407,19 @@ def restore_archived_exam_series(db: Session, exam_id: uuid.UUID, actor_id: Opti
 
 
 def safe_delete_exam_series(db: Session, exam_id: uuid.UUID, actor_id: Optional[uuid.UUID] = None, force: bool = False) -> None:
-    exam = get_exam_by_id(db, exam_id)
+    if not _lock_exam_row(db, exam_id):
+        raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
+    exam = get_exam_by_id(db, exam_id, populate_existing=True)
     if not exam:
         raise ExamNotFoundError(f"Exam with id {exam_id} not found.")
 
-    has_results = any(len(s.results) > 0 for s in exam.sessions)
+    has_results = (
+        db.query(StudentExamResult.id)
+        .join(ExamSession, ExamSession.id == StudentExamResult.exam_session_id)
+        .filter(ExamSession.exam_id == exam.id)
+        .first()
+        is not None
+    )
     if has_results and not force:
         raise ExamValidationError(
             "This exam series has submitted student results. Hard deletion is prevented to preserve historical results. "
@@ -379,8 +432,11 @@ def safe_delete_exam_series(db: Session, exam_id: uuid.UUID, actor_id: Optional[
         entity_id=exam.id,
         action="DELETED",
         actor_id=actor_id,
-        exam_id=exam.id,
+        exam_id=None,
         previous_value=json.dumps({"title": exam.title}, ensure_ascii=False),
+    )
+    db.query(ExamAuditLog).filter(ExamAuditLog.exam_id == exam.id).update(
+        {"exam_id": None}
     )
     db.delete(exam)
     db.commit()
@@ -795,11 +851,19 @@ def delete_exam_session(
     actor_id: Optional[uuid.UUID] = None,
     force: bool = False,
 ) -> None:
-    session = get_exam_session_by_id(db, session_id)
+    if not _lock_session_row(db, session_id):
+        raise ExamSessionNotFoundError(f"Exam session with id {session_id} not found.")
+    session = get_exam_session_by_id(db, session_id, populate_existing=True)
     if not session:
         raise ExamSessionNotFoundError(f"Exam session with id {session_id} not found.")
 
-    if session.results and len(session.results) > 0 and not force:
+    has_results = (
+        db.query(StudentExamResult.id)
+        .filter(StudentExamResult.exam_session_id == session.id)
+        .first()
+        is not None
+    )
+    if has_results and not force:
         raise ExamValidationError(
             "This occurrence already has submitted student results. "
             "Ordinary deletion is prevented to protect student data. Please cancel the occurrence instead."
@@ -1261,14 +1325,38 @@ def get_student_available_exams(db: Session, student: User) -> Dict[str, Any]:
         return {"upcoming": [], "past": [], "track_assigned": False}
 
     assigned_series_ids = {
-        sa.exam_id for sa in db.query(ExamSeriesAssignment).filter(ExamSeriesAssignment.student_id == student.id).all()
+        sa.exam_id for sa in db.query(ExamSeriesAssignment.exam_id).filter(ExamSeriesAssignment.student_id == student.id).all()
     }
     assigned_session_ids = {
-        ea.exam_session_id for ea in db.query(ExternalExamAssignment).filter(ExternalExamAssignment.student_id == student.id).all()
+        ea.exam_session_id for ea in db.query(ExternalExamAssignment.exam_session_id).filter(ExternalExamAssignment.student_id == student.id).all()
     }
-    result_session_ids = {
-        sr.exam_session_id for sr in db.query(StudentExamResult).filter(StudentExamResult.student_id == student.id).all()
+    student_results = (
+        db.query(StudentExamResult)
+        .options(
+            joinedload(StudentExamResult.subject_results),
+            joinedload(StudentExamResult.group_results),
+        )
+        .filter(StudentExamResult.student_id == student.id)
+        .all()
+    )
+    results_by_session = {sr.exam_session_id: sr for sr in student_results}
+    result_session_ids = set(results_by_session.keys())
+
+    series_with_configs = {
+        row[0] for row in db.query(ExamGradeTrackConfig.exam_id).distinct().all()
     }
+    matching_series_ids: Set[uuid.UUID] = set()
+    if student.grade and student.academic_track_id:
+        variants = _get_grade_variants(student.grade)
+        matching_series_ids = {
+            row[0]
+            for row in db.query(ExamGradeTrackConfig.exam_id)
+            .filter(
+                ExamGradeTrackConfig.grade.in_(variants),
+                ExamGradeTrackConfig.track_id == student.academic_track_id,
+            )
+            .all()
+        }
 
     all_sessions = (
         db.query(ExamSession)
@@ -1277,10 +1365,6 @@ def get_student_available_exams(db: Session, student: User) -> Dict[str, Any]:
             joinedload(ExamSession.track_configs)
             .joinedload(ExamTrackConfiguration.subject_configs)
             .joinedload(ExamSubjectConfiguration.subject),
-            joinedload(ExamSession.results)
-            .joinedload(StudentExamResult.subject_results),
-            joinedload(ExamSession.results)
-            .joinedload(StudentExamResult.group_results),
         )
         .order_by(desc(ExamSession.date))
         .all()
@@ -1295,18 +1379,18 @@ def get_student_available_exams(db: Session, student: User) -> Dict[str, Any]:
             s.id in assigned_session_ids
             or s.exam_id in assigned_series_ids
         )
-        has_grade_track_configs = bool(s.exam and s.exam.grade_track_configs)
+        has_grade_track_configs = s.exam_id in series_with_configs
         if is_directly_assigned:
             is_assigned = True
         elif has_grade_track_configs:
-            is_assigned = get_student_series_grade_track_config(db, s.exam_id, student) is not None
+            is_assigned = s.exam_id in matching_series_ids
         else:
             is_assigned = any(tc.track_id == student.academic_track_id for tc in s.track_configs)
         has_result = s.id in result_session_ids
         if not is_assigned and not has_result:
             continue
 
-        student_result = next((r for r in s.results if r.student_id == student.id), None)
+        student_result = results_by_session.get(s.id)
         item = {
             "session": s,
             "result": student_result,
@@ -2265,14 +2349,7 @@ def get_student_series_grade_track_config(
     if not student.grade or not student.academic_track_id:
         return None
 
-    variants = {
-        "10": ["10", "دهم"],
-        "دهم": ["10", "دهم"],
-        "11": ["11", "یازدهم"],
-        "یازدهم": ["11", "یازدهم"],
-        "12": ["12", "دوازدهم"],
-        "دوازدهم": ["12", "دوازدهم"],
-    }.get(str(student.grade).strip(), [str(student.grade).strip()])
+    variants = _get_grade_variants(student.grade)
 
     return (
         db.query(ExamGradeTrackConfig)
@@ -2588,13 +2665,29 @@ def get_all_series_incompatible_students(db: Session) -> List[Dict[str, Any]]:
         )
         .all()
     )
+    if not assignments:
+        return []
+
+    valid_configs = {
+        (cfg_exam_id, _normalize_grade_code(cfg_grade), cfg_track_id)
+        for cfg_exam_id, cfg_grade, cfg_track_id in db.query(
+            ExamGradeTrackConfig.exam_id,
+            ExamGradeTrackConfig.grade,
+            ExamGradeTrackConfig.track_id,
+        ).all()
+    }
+
     incompatible = []
     for sa in assignments:
         student = sa.student
         if not student:
             continue
-        config = get_student_series_grade_track_config(db, sa.exam_id, student)
-        if not config:
+        is_compatible = bool(
+            student.grade
+            and student.academic_track_id
+            and (sa.exam_id, _normalize_grade_code(student.grade), student.academic_track_id) in valid_configs
+        )
+        if not is_compatible:
             track_name = student.academic_track.name if student.academic_track else str(student.academic_track_id)
             incompatible.append({
                 "assignment_id": str(sa.id),
@@ -2903,9 +2996,13 @@ def compare_students_on_session(
     if not session:
         raise ExamSessionNotFoundError(f"Session {session_id} not found.")
 
+    filter_grade = _normalize_grade_code(grade)
     assignments = [a for a in session.assignments if a.student]
-    if grade:
-        assignments = [a for a in assignments if a.student.grade == str(grade)]
+    if filter_grade:
+        assignments = [
+            a for a in assignments
+            if _normalize_grade_code(a.student.grade) == filter_grade
+        ]
     if track_id:
         assignments = [a for a in assignments if a.student.academic_track_id == track_id]
 
@@ -2920,7 +3017,7 @@ def compare_students_on_session(
         if res:
             res_type = "Tutor-Corrected" if res.is_tutor_corrected else "Student-Entered"
             review_state = "Reviewed" if res.is_reviewed else "Not Reviewed"
-            group_scores = {gr.group_title: gr.percentage for gr in res.group_results}
+            group_scores = _extract_result_breakdown(res)
             for title, pct in group_scores.items():
                 if title not in group_scores_agg:
                     group_scores_agg[title] = []
@@ -2968,7 +3065,7 @@ def compare_students_on_session(
 
     return {
         "session": session,
-        "filter_grade": grade,
+        "filter_grade": filter_grade,
         "filter_track_id": track_id,
         "rows": rows,
         "group_averages": group_averages,
@@ -2992,7 +3089,10 @@ def get_exam_series_analytics(db: Session, exam_id: uuid.UUID) -> Dict[str, Any]
     all_results = (
         db.query(StudentExamResult)
         .join(ExamSession, ExamSession.id == StudentExamResult.exam_session_id)
-        .options(joinedload(StudentExamResult.group_results))
+        .options(
+            joinedload(StudentExamResult.group_results),
+            joinedload(StudentExamResult.subject_results).joinedload(StudentExamSubjectResult.subject),
+        )
         .filter(ExamSession.exam_id == exam.id)
         .order_by(ExamSession.date.asc())
         .all()
@@ -3025,7 +3125,7 @@ def get_exam_series_analytics(db: Session, exam_id: uuid.UUID) -> Dict[str, Any]
         s_results = [r for r in all_results if r.exam_session_id == s.id]
         if s_results:
             s_pcts = [
-                gr.percentage for r in s_results for gr in r.group_results
+                pct for r in s_results for pct in _extract_result_breakdown(r).values()
             ]
             avg_p = round(sum(s_pcts) / len(s_pcts), 2) if s_pcts else 0.0
             consecutive_comparisons.append({
@@ -3039,10 +3139,8 @@ def get_exam_series_analytics(db: Session, exam_id: uuid.UUID) -> Dict[str, Any]
     for r in all_results:
         if r.overall_rank is not None:
             ranks.append(r.overall_rank)
-        for gr in r.group_results:
-            if gr.group_title not in group_percentages:
-                group_percentages[gr.group_title] = []
-            group_percentages[gr.group_title].append(gr.percentage)
+        for title, pct in _extract_result_breakdown(r).items():
+            group_percentages.setdefault(title, []).append(pct)
 
     reporting_group_averages = {
         title: round(sum(scores) / len(scores), 2)
@@ -3080,6 +3178,7 @@ def get_student_comprehensive_analytics(
         .options(
             joinedload(StudentExamResult.exam_session).joinedload(ExamSession.exam),
             joinedload(StudentExamResult.group_results),
+            joinedload(StudentExamResult.subject_results).joinedload(StudentExamSubjectResult.subject),
         )
         .filter(StudentExamResult.student_id == student_id)
     )
@@ -3097,16 +3196,15 @@ def get_student_comprehensive_analytics(
         date_str = sess.date.strftime("%Y-%m-%d")
         exam_title = sess.title or sess.exam.title
 
-        pcts = [gr.percentage for gr in r.group_results]
+        breakdown = _extract_result_breakdown(r)
+        pcts = list(breakdown.values())
         overall_avg = round(sum(pcts) / len(pcts), 2) if pcts else None
 
         if r.overall_rank is not None:
             rank_progression.append({"date": date_str, "exam_title": exam_title, "rank": r.overall_rank})
 
-        for gr in r.group_results:
-            if gr.group_title not in group_history:
-                group_history[gr.group_title] = []
-            group_history[gr.group_title].append(gr.percentage)
+        for title, pct in breakdown.items():
+            group_history.setdefault(title, []).append(pct)
 
         diff = round(overall_avg - prev_overall_avg, 2) if (overall_avg is not None and prev_overall_avg is not None) else None
         consecutive_diffs.append({
@@ -3159,7 +3257,7 @@ def get_student_comprehensive_analytics(
         for s in assigned_sessions if s.id not in submitted_session_ids
     ]
 
-    all_scores = [gr.percentage for r in results for gr in r.group_results]
+    all_scores = [pct for r in results for pct in _extract_result_breakdown(r).values()]
     overall_mean = round(sum(all_scores) / len(all_scores), 2) if all_scores else None
 
     # Overall performance trend

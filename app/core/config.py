@@ -1,7 +1,22 @@
 from functools import lru_cache
 from typing import Optional
+from urllib.parse import urlparse
 from pydantic import computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+_INSECURE_SECRET_KEYS = {
+    "dev-secret-key-please-change-in-production-min-32-chars",
+    "replace_with_strong_random_secret_key_min_32_chars",
+    "changeme",
+    "secret",
+}
+
+_INSECURE_DB_PASSWORDS = {
+    "postgres",
+    "replace_with_strong_random_db_password",
+    "changeme",
+}
 
 
 class Settings(BaseSettings):
@@ -56,6 +71,44 @@ class Settings(BaseSettings):
             f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
+
+    def validate_production_settings(self) -> None:
+        """Fail closed when running in production with insecure or default credentials."""
+        if (self.ENVIRONMENT or "").strip().lower() != "production":
+            return
+
+        secret = (self.SECRET_KEY or "").strip()
+        if (
+            len(secret) < 32
+            or secret.lower() in _INSECURE_SECRET_KEYS
+            or secret.lower().startswith(("dev-secret-key", "replace_with_"))
+        ):
+            raise RuntimeError(
+                "Refusing to start in production with default or weak SECRET_KEY (minimum 32 non-default chars)."
+            )
+
+        if self.DATABASE_URL:
+            parsed = urlparse(self.DATABASE_URL)
+            if parsed.scheme.startswith("postgres"):
+                db_password = (parsed.password or "").strip()
+                if (
+                    not db_password
+                    or db_password.lower() in _INSECURE_DB_PASSWORDS
+                    or db_password.lower().startswith("replace_with_")
+                ):
+                    raise RuntimeError(
+                        "Refusing to start in production with default or empty PostgreSQL password in DATABASE_URL."
+                    )
+        else:
+            db_password = (self.POSTGRES_PASSWORD or "").strip()
+            if (
+                not db_password
+                or db_password.lower() in _INSECURE_DB_PASSWORDS
+                or db_password.lower().startswith("replace_with_")
+            ):
+                raise RuntimeError(
+                    "Refusing to start in production with default or empty POSTGRES_PASSWORD."
+                )
 
 
 @lru_cache

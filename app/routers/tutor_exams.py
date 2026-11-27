@@ -356,7 +356,8 @@ def post_configure_grade_track(
     if not track:
         raise HTTPException(status_code=404, detail="Academic track not found")
 
-    track_sub_ids = {s.id for s in track.subjects}
+    track_subjects_by_id = {s.id: s for s in track.subjects}
+    track_sub_ids = set(track_subjects_by_id.keys())
     selected_subject_ids_raw = form_data.getlist("selected_subjects")
     try:
         selected_subject_ids = [
@@ -370,7 +371,7 @@ def post_configure_grade_track(
     for sid in selected_subject_ids:
         grp_name = str(form_data.get(f"subject_group_{sid}", "")).strip()
         if not grp_name:
-            sub = db.query(Subject).filter(Subject.id == sid).first()
+            sub = track_subjects_by_id.get(sid)
             grp_name = sub.name if sub else str(sid)
         if grp_name not in groups_map:
             groups_map[grp_name] = []

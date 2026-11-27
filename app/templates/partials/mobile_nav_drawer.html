@@ -52,8 +52,7 @@
             <a href="/tutor/messages"
                 class="min-h-[44px] px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-between text-xs font-bold text-slate-800 transition">
                 <span class="flex items-center gap-2"><span>💬</span> {{ _('messages') }}</span>
-                <span id="tutor-unread-badge-drawer" hx-get="/tutor/messages/unread-count" hx-trigger="load, every 15s"
-                    hx-swap="outerHTML"></span>
+                <span id="tutor-unread-badge-drawer" data-sync-badge="tutor-unread-badge"></span>
             </a>
             <a href="/tutor/settings/backup"
                 class="col-span-2 min-h-[44px] px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center gap-2 text-xs font-bold text-slate-800 transition">
@@ -153,8 +152,7 @@
             <a href="/student/chat"
                 class="min-h-[44px] px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-between text-xs font-bold text-slate-800 transition">
                 <span class="flex items-center gap-2"><span>💬</span> {{ _('chat') }}</span>
-                <span id="student-unread-badge-drawer" hx-get="/student/chat/unread-count" hx-trigger="load, every 15s"
-                    hx-swap="outerHTML"></span>
+                <span id="student-unread-badge-drawer" data-sync-badge="student-unread-badge"></span>
             </a>
         </div>
 
