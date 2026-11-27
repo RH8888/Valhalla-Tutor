@@ -7,6 +7,8 @@ from app.models.subject import Subject, SubjectGrade
 from app.models.track import AcademicTrack, track_subjects, student_custom_subjects
 from app.models.course import Course
 from app.models.book import Book
+from app.models.exam import ExamGradeTrackConfig, ExamTrackConfiguration
+from app.models.practice_exam import PracticeExam
 from app.models.user import User
 
 SUPPORTED_GRADES = ["10", "11", "12"]
@@ -327,6 +329,21 @@ def delete_track(db: Session, track_id: uuid.UUID) -> None:
     assigned_count = db.query(User).filter(User.academic_track_id == track_id).count()
     if assigned_count > 0:
         raise TrackInUseError(f"Cannot delete track '{track.name}' because {assigned_count} student(s) are assigned to it.")
+
+    practice_exam_count = db.query(PracticeExam).filter(PracticeExam.academic_track_id == track_id).count()
+    if practice_exam_count > 0:
+        raise TrackInUseError(
+            f"Cannot delete track '{track.name}' because {practice_exam_count} practice exam(s) reference it."
+        )
+
+    exam_track_count = (
+        db.query(ExamTrackConfiguration).filter(ExamTrackConfiguration.track_id == track_id).count()
+        + db.query(ExamGradeTrackConfig).filter(ExamGradeTrackConfig.track_id == track_id).count()
+    )
+    if exam_track_count > 0:
+        raise TrackInUseError(
+            f"Cannot delete track '{track.name}' because external exam configurations reference it."
+        )
 
     db.delete(track)
     db.commit()

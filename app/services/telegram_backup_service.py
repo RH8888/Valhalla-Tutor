@@ -436,7 +436,21 @@ def create_and_deliver_manual_backup(
 
         pg_dump_bin = shutil.which("pg_dump")
         db_url = settings.sync_database_url
-        if pg_dump_bin and db_url.startswith("postgresql"):
+        is_postgres = db_url.startswith("postgresql") and (
+            db.bind is None or db.bind.dialect.name == "postgresql"
+        )
+        if is_postgres:
+            if not pg_dump_bin:
+                msg = "pg_dump is unavailable in the web container; cannot create a restorable PostgreSQL backup (db.dump)."
+                rec.last_backup_at = now_utc()
+                rec.last_backup_success = False
+                rec.last_backup_message = msg
+                db.commit()
+                return TelegramDeliveryResult(
+                    delivered=False,
+                    skipped=False,
+                    message=msg,
+                )
             clean_url = db_url.replace("postgresql+psycopg2://", "postgresql://", 1)
             db_file = staging / "db.dump"
             subprocess.run(

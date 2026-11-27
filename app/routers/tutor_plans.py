@@ -2,6 +2,7 @@ import html
 import uuid
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional
+from urllib.parse import quote
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -58,6 +59,7 @@ router = APIRouter(
 def get_student_plans_page(
     student_id: uuid.UUID,
     request: Request,
+    err: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
@@ -77,6 +79,7 @@ def get_student_plans_page(
             "student": student,
             "plans": plans,
             "default_start_date": default_start_date,
+            "err": err,
             "current_user": current_user,
             "current_session": current_session,
         },
@@ -426,7 +429,15 @@ def post_delete_plan(
     if not plan:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
     student_id = plan.student_id
-    delete_study_plan(db, plan_id, tutor_id=current_user.id)
+    try:
+        delete_study_plan(db, plan_id, tutor_id=current_user.id)
+    except PlanNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PlanValidationError as exc:
+        return RedirectResponse(
+            url=f"/tutor/students/{student_id}/plans?err={quote(str(exc), safe='')}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
     return RedirectResponse(
         url=f"/tutor/students/{student_id}/plans",
         status_code=status.HTTP_303_SEE_OTHER,

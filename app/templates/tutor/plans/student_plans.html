@@ -20,6 +20,12 @@
         </div>
     </div>
 
+    {% if err %}
+    <div class="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm">
+        ⚠️ {{ err }}
+    </div>
+    {% endif %}
+
     <!-- Create New Plan Card -->
     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
         <h2 class="text-lg font-bold text-slate-900 mb-2">{{ _('Create New 14-Day Study Plan') }}</h2>

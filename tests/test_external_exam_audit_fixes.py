@@ -2,19 +2,27 @@ import uuid
 from datetime import date, datetime, time, timedelta, timezone
 
 import pytest
-from fastapi.testclient import TestClient
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
+from starlette.datastructures import FormData
+from starlette.requests import Request
 
-from app.core.dependencies import SESSION_COOKIE_NAME
 from app.core.timezone import get_timezone
-from app.models.exam import ExamAuditLog
+from app.models.exam import ExamAuditLog, ExternalExamAssignment
+from app.routers.student_exams import get_student_analytics_page, get_submit_result_form
+from app.routers.tutor_exams import (
+    get_session_detail,
+    get_tutor_student_analytics_page,
+    post_configure_grade_track,
+    post_correct_result,
+    post_delete_series,
+)
 from app.services.academic_service import (
     assign_student_track,
     create_subject,
     create_track,
     set_track_subjects,
 )
-from app.services.auth_service import create_session
 from app.services.exam_service import (
     ExamValidationError,
     assign_exam_series_to_students,
@@ -34,6 +42,20 @@ from app.services.exam_service import (
 from app.services.user_service import create_student
 
 
+def _dummy_request(path: str = "/") -> Request:
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": path,
+        "raw_path": path.encode("ascii"),
+        "query_string": b"",
+        "headers": [],
+        "scheme": "http",
+        "server": ("testserver", 80),
+    }
+    return Request(scope)
+
+
 def _setup_curriculum(db: Session):
     sub_bio = create_subject(db, name="زیست‌شناسی", grades=["10", "11", "12"])
     sub_chem = create_subject(db, name="شیمی", grades=["10", "11", "12"])
@@ -44,7 +66,6 @@ def _setup_curriculum(db: Session):
 
 def test_reporting_group_analytics_and_session_table(
     db_session: Session,
-    client: TestClient,
     tutor_user,
     tutor_session,
 ):
@@ -64,7 +85,7 @@ def test_reporting_group_analytics_and_session_table(
         exam_id=exam.id,
         grade="12",
         track_id=track_tajrobi.id,
-        groups_map={"زیست و شیمی": [sub_bio.id, sub_chem.id]},
+        reporting_groups_data=[{"title": "زیست و شیمی", "subject_ids": [sub_bio.id, sub_chem.id]}],
     )
     rg = gtc.reporting_groups[0]
     session = create_exam_session(
@@ -98,26 +119,35 @@ def test_reporting_group_analytics_and_session_table(
     assert sess_analytics["students"][0]["average_percentage"] == 76.5
     assert sess_analytics["students"][0]["subject_scores"]["زیست و شیمی"]["percentage"] == 76.5
 
-    # Verify HTML responses render reporting group scores cleanly
-    st_token, _ = create_session(db_session, st12)
-    client.cookies.set(SESSION_COOKIE_NAME, st_token)
-    res_st = client.get("/student/exams/analytics")
+    # Verify HTML responses from routers render reporting group scores cleanly
+    _, tutor_sess = tutor_session
+    res_st = get_student_analytics_page(
+        request=_dummy_request("/student/exams/analytics"),
+        db=db_session,
+        current_user=st12,
+        current_session=tutor_sess,
+    )
     assert res_st.status_code == 200
-    assert "زیست و شیمی" in res_st.text
-    assert "76.5%" in res_st.text
+    st_body = res_st.body.decode("utf-8")
+    assert "زیست و شیمی" in st_body
+    assert "76.5%" in st_body
 
-    tutor_token, _ = tutor_session
-    client.cookies.set(SESSION_COOKIE_NAME, tutor_token)
-    res_tutor = client.get(f"/tutor/exams/sessions/{session.id}")
+    res_tutor = get_session_detail(
+        request=_dummy_request(f"/tutor/exams/sessions/{session.id}"),
+        session_id=session.id,
+        db=db_session,
+        current_user=tutor_user,
+        current_session=tutor_sess,
+    )
     assert res_tutor.status_code == 200
-    assert "زیست و شیمی" in res_tutor.text
-    assert "76.5%" in res_tutor.text
+    tutor_body = res_tutor.body.decode("utf-8")
+    assert "زیست و شیمی" in tutor_body
+    assert "76.5%" in tutor_body
 
 
 def test_tutor_score_correction_subjects_and_rg_ownership(
     db_session: Session,
-    client: TestClient,
-    tutor_session,
+    tutor_user,
 ):
     sub_bio, sub_chem, track_tajrobi = _setup_curriculum(db_session)
     st12 = create_student(
@@ -147,23 +177,24 @@ def test_tutor_score_correction_subjects_and_rg_ownership(
         overall_rank=200,
     )
 
-    tutor_token, tutor_sess = tutor_session
-    client.cookies.set(SESSION_COOKIE_NAME, tutor_token)
-
-    resp = client.post(
-        f"/tutor/exams/results/{result.id}/correct",
-        data={
-            "csrf_token": tutor_sess.csrf_token,
-            f"subject_{sub_bio.id}_correct": "20",
-            f"subject_{sub_bio.id}_incorrect": "1",
-            f"subject_{sub_bio.id}_percentage": "82.5",
-            f"subject_{sub_chem.id}_correct": "15",
-            f"subject_{sub_chem.id}_incorrect": "0",
-            f"subject_{sub_chem.id}_percentage": "75.0",
-            "overall_rank": "85",
-            "correction_reason": "Verified against official sheet",
-        },
-        follow_redirects=False,
+    form = FormData(
+        [
+            (f"subject_{sub_bio.id}_correct", "20"),
+            (f"subject_{sub_bio.id}_incorrect", "1"),
+            (f"subject_{sub_bio.id}_percentage", "82.5"),
+            (f"subject_{sub_chem.id}_correct", "15"),
+            (f"subject_{sub_chem.id}_incorrect", "0"),
+            (f"subject_{sub_chem.id}_percentage", "75.0"),
+            ("overall_rank", "85"),
+            ("correction_reason", "Verified against official sheet"),
+        ]
+    )
+    resp = post_correct_result(
+        request=_dummy_request(f"/tutor/exams/results/{result.id}/correct"),
+        result_id=result.id,
+        form_data=form,
+        db=db_session,
+        current_user=tutor_user,
     )
     assert resp.status_code == 303
 
@@ -175,7 +206,11 @@ def test_tutor_score_correction_subjects_and_rg_ownership(
     assert by_sub[sub_bio.id].percentage == 82.5
     assert by_sub[sub_chem.id].percentage == 75.0
 
-    audit = db_session.query(ExamAuditLog).filter(ExamAuditLog.entity_id == result.id, ExamAuditLog.action == "CORRECTED").first()
+    audit = (
+        db_session.query(ExamAuditLog)
+        .filter(ExamAuditLog.entity_id == result.id, ExamAuditLog.action == "CORRECTED")
+        .first()
+    )
     assert audit is not None
     assert "82.5" in audit.new_value
 
@@ -186,7 +221,7 @@ def test_tutor_score_correction_subjects_and_rg_ownership(
         exam_id=exam_b.id,
         grade="12",
         track_id=track_tajrobi.id,
-        groups_map={"گروه غیرمجاز": [sub_bio.id]},
+        reporting_groups_data=[{"title": "گروه غیرمجاز", "subject_ids": [sub_bio.id]}],
     )
     foreign_rg = gtc_b.reporting_groups[0]
 
@@ -200,7 +235,7 @@ def test_tutor_score_correction_subjects_and_rg_ownership(
 
 def test_grade_plus_track_eligibility_blocks_wrong_grade_unless_assigned(
     db_session: Session,
-    client: TestClient,
+    tutor_session,
 ):
     sub_bio, sub_chem, track_tajrobi = _setup_curriculum(db_session)
     st12 = create_student(db_session, username="elig_12", full_name="Grade 12", password="Password123!", grade="12")
@@ -214,7 +249,7 @@ def test_grade_plus_track_eligibility_blocks_wrong_grade_unless_assigned(
         exam_id=exam.id,
         grade="12",
         track_id=track_tajrobi.id,
-        groups_map={"عمومی و اختصاصی": [sub_bio.id, sub_chem.id]},
+        reporting_groups_data=[{"title": "عمومی و اختصاصی", "subject_ids": [sub_bio.id, sub_chem.id]}],
     )
     rg = gtc.reporting_groups[0]
     session = create_exam_session(
@@ -236,20 +271,27 @@ def test_grade_plus_track_eligibility_blocks_wrong_grade_unless_assigned(
             group_data=[{"reporting_group_id": rg.id, "group_title": rg.title, "percentage": 55.0}],
         )
 
-    st10_token, _ = create_session(db_session, st10)
-    client.cookies.set(SESSION_COOKIE_NAME, st10_token)
-    get_form = client.get(f"/student/exams/{session.id}/submit")
-    assert get_form.status_code == 403
+    _, sess = tutor_session
+    with pytest.raises(HTTPException) as exc_info:
+        get_submit_result_form(
+            request=_dummy_request(f"/student/exams/{session.id}/submit"),
+            session_id=session.id,
+            db=db_session,
+            current_user=st10,
+            current_session=sess,
+        )
+    assert exc_info.value.status_code == 403
 
     # Direct assignment grants access even if grade differs
-    assign_exam_series_to_students(db_session, exam.id, [st10.id], bypass_eligibility=True)
+    db_session.add(ExternalExamAssignment(exam_session_id=session.id, student_id=st10.id))
+    db_session.commit()
     avail_10_after = get_student_available_exams(db_session, st10)
     assert len(avail_10_after["upcoming"]) + len(avail_10_after["past"]) == 1
 
 
 def test_deadlines_timezone_duplicate_date_and_route_errors(
     db_session: Session,
-    client: TestClient,
+    tutor_user,
     tutor_session,
 ):
     sub_bio, sub_chem, track_tajrobi = _setup_curriculum(db_session)
@@ -272,7 +314,11 @@ def test_deadlines_timezone_duplicate_date_and_route_errors(
         track_subjects_map={track_tajrobi.id: [sub_bio.id]},
     )
 
-    expected_dl_utc = datetime.combine(d1 + timedelta(days=2), time(23, 59, 59), tzinfo=get_timezone()).astimezone(timezone.utc)
+    expected_dl_utc = datetime.combine(
+        d1 + timedelta(days=2),
+        time(23, 59, 59),
+        tzinfo=get_timezone(),
+    ).astimezone(timezone.utc)
     s1_dl = s1.submission_deadline
     if s1_dl.tzinfo is None:
         s1_dl = s1_dl.replace(tzinfo=timezone.utc)
@@ -281,28 +327,47 @@ def test_deadlines_timezone_duplicate_date_and_route_errors(
     # Naive submission_deadline stored in SQLite must not raise TypeError in overview
     s2.submission_deadline = datetime(2025, 1, 1, 23, 59, 59)
     db_session.commit()
+    configure_exam_grade_track(
+        db_session,
+        exam_id=exam.id,
+        grade="12",
+        track_id=track_tajrobi.id,
+        reporting_groups_data=[{"title": "زیست", "subject_ids": [sub_bio.id]}],
+    )
     assign_exam_series_to_students(db_session, exam.id, [st12.id])
     overview = get_bulk_series_submission_overview(db_session, exam_id=exam.id)
-    assert overview["total_sessions"] == 2
+    assert len(overview["sessions"]) == 2
 
     # Updating session date to existing date raises ExamValidationError cleanly
     with pytest.raises(ExamValidationError, match="already exists"):
         update_exam_session(db_session, s2.id, exam_date=d1)
 
-    tutor_token, tutor_sess = tutor_session
-    client.cookies.set(SESSION_COOKIE_NAME, tutor_token)
+    _, tutor_sess = tutor_session
+    with pytest.raises(HTTPException) as bad_uuid_exc:
+        post_configure_grade_track(
+            request=_dummy_request(f"/tutor/exams/{exam.id}/grade-track"),
+            exam_id=exam.id,
+            form_data=FormData([("grade", "12"), ("track_id", "not-a-uuid")]),
+            db=db_session,
+            current_user=tutor_user,
+            current_session=tutor_sess,
+        )
+    assert bad_uuid_exc.value.status_code == 400
 
-    r_bad_uuid = client.post(
-        f"/tutor/exams/{exam.id}/grade-track",
-        data={"csrf_token": tutor_sess.csrf_token, "grade": "12", "track_id": "not-a-uuid"},
-    )
-    assert r_bad_uuid.status_code == 400
+    with pytest.raises(HTTPException) as missing_student_exc:
+        get_tutor_student_analytics_page(
+            request=_dummy_request("/tutor/exams/students/missing"),
+            student_id=uuid.uuid4(),
+            db=db_session,
+            current_user=tutor_user,
+            current_session=tutor_sess,
+        )
+    assert missing_student_exc.value.status_code == 404
 
-    r_missing_student = client.get(f"/tutor/exams/students/{uuid.uuid4()}")
-    assert r_missing_student.status_code == 404
-
-    r_missing_delete = client.post(
-        f"/tutor/exams/{uuid.uuid4()}/delete",
-        data={"csrf_token": tutor_sess.csrf_token},
-    )
-    assert r_missing_delete.status_code == 404
+    with pytest.raises(HTTPException) as missing_delete_exc:
+        post_delete_series(
+            exam_id=uuid.uuid4(),
+            db=db_session,
+            current_user=tutor_user,
+        )
+    assert missing_delete_exc.value.status_code == 404

@@ -1762,6 +1762,9 @@ def tutor_correct_exam_result(
                 percentage=pct,
             ))
 
+    db.flush()
+    db.expire(result, ["group_results", "subject_results"])
+
     new_state = {
         "overall_rank": result.overall_rank,
         "notes": result.notes,
@@ -1956,6 +1959,9 @@ def update_student_exam_result(
             })
     else:
         new_subjects = prev_state["subjects"]
+
+    db.flush()
+    db.expire(result, ["group_results", "subject_results"])
 
     new_state = {
         "overall_rank": result.overall_rank,

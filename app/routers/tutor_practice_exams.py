@@ -389,7 +389,12 @@ def get_practice_attempt_results(
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
-    data = get_practice_exam_detailed_results(db, attempt_id)
+    try:
+        data = get_practice_exam_detailed_results(db, attempt_id)
+    except PracticeExamNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except PracticeExamValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     return templates.TemplateResponse(
         request=request,
         name="tutor/practice_exams/attempt_result.html",
