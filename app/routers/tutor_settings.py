@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 from urllib.parse import quote
 from fastapi import APIRouter, Depends, Form, Request, status
@@ -18,9 +19,12 @@ from app.services.telegram_backup_service import (
     TelegramBackupValidationError,
     create_and_deliver_manual_backup,
     get_or_create_telegram_settings,
+    sanitize_telegram_error,
     test_saved_telegram_connection,
     update_telegram_settings,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/tutor/settings",
@@ -119,7 +123,15 @@ def post_test_telegram_connection(db: Session = Depends(get_db)):
 
 @router.post("/backup/run-now")
 def post_run_telegram_backup_now(db: Session = Depends(get_db)):
-    res = create_and_deliver_manual_backup(db)
+    try:
+        res = create_and_deliver_manual_backup(db)
+    except Exception as exc:
+        err_msg = sanitize_telegram_error(f"Backup failed: {exc}", None)
+        logger.warning("Manual Telegram backup failed: %s", err_msg)
+        return RedirectResponse(
+            url=f"/tutor/settings/backup?err={quote(err_msg)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
     param = "msg" if res.delivered else "err"
     return RedirectResponse(
         url=f"/tutor/settings/backup?{param}={quote(res.message)}",

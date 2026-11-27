@@ -144,3 +144,32 @@ def test_telegram_test_and_run_now_routes(
     )
     assert resp_run.status_code == 303
     assert "msg=" in resp_run.headers["location"]
+
+
+def test_telegram_run_now_handles_unexpected_exception_without_leaking_db_password(
+    client: TestClient,
+    tutor_session,
+    monkeypatch,
+):
+    t_token, t_rec = tutor_session
+    leaked_secret = "RouteSecretDbPassword!77"
+
+    def explode(db):
+        raise RuntimeError(
+            f"pg_dump failed on postgresql://postgres:{leaked_secret}@db:5432/valhalla_db"
+        )
+
+    monkeypatch.setattr(
+        "app.routers.tutor_settings.create_and_deliver_manual_backup",
+        explode,
+    )
+    resp = client.post(
+        "/tutor/settings/backup/run-now",
+        cookies={SESSION_COOKIE_NAME: t_token},
+        data={"csrf_token": t_rec.csrf_token},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    location = resp.headers["location"]
+    assert "err=" in location
+    assert leaked_secret not in location

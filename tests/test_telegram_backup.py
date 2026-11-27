@@ -1,4 +1,5 @@
 import hashlib
+import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -320,3 +321,62 @@ def test_scheduled_backup_tick_advances_next_run_even_on_failure(db_session, tmp
     assert rec.last_backup_success is False
     assert rec.next_run_at is not None
     assert rec.next_run_at.replace(tzinfo=timezone.utc) > past
+
+
+def test_sanitize_telegram_error_masks_db_credential_urls():
+    pg_secret = "SuperSecretPgPass!23"
+    err = (
+        f"Command '['/usr/bin/pg_dump', 'postgresql://postgres:{pg_secret}@db:5432/valhalla_db']' "
+        f"failed with postgres://admin:{pg_secret}@localhost/testdb"
+    )
+    sanitized = sanitize_telegram_error(err, None)
+    assert pg_secret not in sanitized
+    assert "postgresql://postgres:[REDACTED]@db:5432/valhalla_db" in sanitized
+    assert "postgres://admin:[REDACTED]@localhost/testdb" in sanitized
+
+
+def test_pg_dump_called_process_error_never_leaks_password(db_session, tmp_path: Path, monkeypatch):
+    db_secret = "UltraSecretPostgresPassword99!"
+    monkeypatch.setattr(
+        "app.core.config.settings.DATABASE_URL",
+        f"postgresql+psycopg2://pgbackup:{db_secret}@db.internal:5433/valhalla_prod",
+    )
+    monkeypatch.setattr(db_session.bind.dialect, "name", "postgresql")
+    monkeypatch.setattr("app.services.telegram_backup_service.shutil.which", lambda name: "/usr/bin/pg_dump")
+
+    update_telegram_settings(
+        db_session,
+        enabled=True,
+        chat_id="123456",
+        new_bot_token="999888777:AA_PgDump_Test_Token",
+    )
+
+    captured = {}
+
+    def fake_subprocess_run(cmd, check=False, capture_output=False, env=None, **kwargs):
+        captured["cmd"] = cmd
+        captured["env"] = env
+        raise subprocess.CalledProcessError(
+            returncode=1,
+            cmd=cmd,
+            stderr=f"pg_dump: error: connection to postgresql://pgbackup:{db_secret}@db.internal:5433/valhalla_prod failed".encode("utf-8"),
+        )
+
+    monkeypatch.setattr("app.services.telegram_backup_service.subprocess.run", fake_subprocess_run)
+
+    res = create_and_deliver_manual_backup(db_session)
+
+    # Password and credential URL must never be passed on the pg_dump command line
+    assert all(db_secret not in str(arg) for arg in captured["cmd"])
+    assert "-h" in captured["cmd"] and "db.internal" in captured["cmd"]
+    assert "-p" in captured["cmd"] and "5433" in captured["cmd"]
+    assert "-U" in captured["cmd"] and "pgbackup" in captured["cmd"]
+    assert "-d" in captured["cmd"] and "valhalla_prod" in captured["cmd"]
+    assert captured["env"]["PGPASSWORD"] == db_secret
+
+    # Returned error and persisted status must not leak POSTGRES_PASSWORD
+    assert res.delivered is False
+    assert db_secret not in res.message
+    rec = get_or_create_telegram_settings(db_session)
+    assert rec.last_backup_success is False
+    assert db_secret not in (rec.last_backup_message or "")

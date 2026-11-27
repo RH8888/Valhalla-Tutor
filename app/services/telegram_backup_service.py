@@ -19,6 +19,7 @@ from typing import List, Optional, Tuple
 
 import httpx
 from sqlalchemy import select, text
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -170,11 +171,28 @@ def mask_bot_token(token: Optional[str]) -> Optional[str]:
     return f"••••{stripped[-4:]}"
 
 
+_DB_CRED_URL_RE = re.compile(
+    r"(postgres(?:ql)?(?:\+[A-Za-z0-9_]+)?://[^:\s@/]+:)[^\s/]+(@)"
+)
+
+
+def _extract_db_password() -> Optional[str]:
+    try:
+        url_pwd = make_url(settings.sync_database_url).password
+    except Exception:
+        url_pwd = None
+    return url_pwd or settings.POSTGRES_PASSWORD or None
+
+
 def sanitize_telegram_error(message: str, bot_token: Optional[str] = None) -> str:
-    """Redact bot tokens and Telegram bot URLs from error strings."""
+    """Redact bot tokens, Telegram bot URLs, and DB credentials from error strings."""
     cleaned = re.sub(r"bot[0-9A-Za-z:_-]+", "bot[REDACTED]", str(message))
+    cleaned = _DB_CRED_URL_RE.sub(r"\1[REDACTED]\2", cleaned)
     if bot_token and bot_token.strip():
         cleaned = cleaned.replace(bot_token.strip(), "[REDACTED]")
+    db_pwd = _extract_db_password()
+    if db_pwd and len(db_pwd) >= 6 and db_pwd.lower() not in ("postgres", "postgresql"):
+        cleaned = cleaned.replace(db_pwd, "[REDACTED]")
     return cleaned[:480]
 
 
@@ -543,13 +561,49 @@ def create_and_deliver_manual_backup(
                     skipped=False,
                     message=msg,
                 )
-            clean_url = db_url.replace("postgresql+psycopg2://", "postgresql://", 1)
+            parsed_url = make_url(db_url)
             db_file = staging / "db.dump"
-            subprocess.run(
-                [pg_dump_bin, clean_url, "-F", "c", "-b", "--no-owner", "--no-privileges", "-f", str(db_file)],
-                check=True,
-                capture_output=True,
-            )
+            pg_dump_cmd = [pg_dump_bin]
+            if parsed_url.host:
+                pg_dump_cmd.extend(["-h", parsed_url.host])
+            if parsed_url.port:
+                pg_dump_cmd.extend(["-p", str(parsed_url.port)])
+            if parsed_url.username:
+                pg_dump_cmd.extend(["-U", parsed_url.username])
+            if parsed_url.database:
+                pg_dump_cmd.extend(["-d", parsed_url.database])
+            pg_dump_cmd.extend(["-F", "c", "-b", "--no-owner", "--no-privileges", "-f", str(db_file)])
+
+            pg_dump_env = os.environ.copy()
+            if parsed_url.password:
+                pg_dump_env["PGPASSWORD"] = parsed_url.password
+
+            try:
+                subprocess.run(
+                    pg_dump_cmd,
+                    check=True,
+                    capture_output=True,
+                    env=pg_dump_env,
+                )
+            except subprocess.CalledProcessError as exc:
+                stderr_text = ""
+                if exc.stderr:
+                    stderr_text = (
+                        exc.stderr.decode("utf-8", errors="replace")
+                        if isinstance(exc.stderr, bytes)
+                        else str(exc.stderr)
+                    )
+                raw_detail = f"pg_dump exited with code {exc.returncode}"
+                if stderr_text.strip():
+                    raw_detail = f"{raw_detail}: {stderr_text.strip()}"
+                err_msg = sanitize_telegram_error(raw_detail, None)
+                logger.warning("Telegram backup pg_dump failed: %s", err_msg)
+                _record_status(db, rec, success=False, message=err_msg)
+                return TelegramDeliveryResult(
+                    delivered=False,
+                    skipped=False,
+                    message=err_msg,
+                )
             db_artifact_name = "db.dump"
         else:
             db_file = staging / "db_export.json.gz"
