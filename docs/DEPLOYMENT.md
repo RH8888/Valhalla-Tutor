@@ -113,6 +113,23 @@ curl -f http://127.0.0.1:8000/health/db
 docker inspect --format='{{json .State.Health}}' valhalla_web
 ```
 
+### Quick Management Script (`scripts/manage.sh`)
+
+For day-to-day VPS operations from any directory, use `scripts/manage.sh` (ensure it is executable with `chmod +x scripts/manage.sh`):
+
+```bash
+# Safe end-to-end update (checks clean git tree, runs local backup, pulls, rebuilds, migrates, restarts, verifies /health/db)
+./scripts/manage.sh update
+./scripts/manage.sh update --skip-backup   # skip pre-update backup if you just took one
+
+# Stack lifecycle & inspection
+./scripts/manage.sh start
+./scripts/manage.sh stop
+./scripts/manage.sh restart
+./scripts/manage.sh status
+./scripts/manage.sh logs
+```
+
 ### Safe Application Update Workflow
 ```bash
 # 1. Create a database backup BEFORE updating
