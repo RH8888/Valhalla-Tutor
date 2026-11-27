@@ -24,9 +24,8 @@ postgres_data/
 *.dump
 *.bak
 
-# Local uploads: keep structure and seed assets, ignore temporary files
-uploads/**/*.tmp
-uploads/**/.DS_Store
+# Local uploads: never bake into production image (mounted via uploads_data volume)
+uploads/
 
 # Python caches and bytecode
 __pycache__/

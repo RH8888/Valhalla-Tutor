@@ -162,3 +162,16 @@ docker compose exec web alembic current
 # View migration history
 docker compose exec web alembic history
 ```
+
+---
+
+## 6. Pre-Launch Full Test Verification (Docker + PostgreSQL 16)
+
+Before going live on the Linux VPS, run the entire pytest suite (including all `TestClient` route tests and `test_postgres_integration.py` against real PostgreSQL 16):
+
+```bash
+chmod +x scripts/run_docker_tests.sh
+./scripts/run_docker_tests.sh
+```
+
+This starts `db`, waits for PostgreSQL readiness, builds `web`, mounts `./tests` read-only into a disposable container, and runs `pytest -q` against `postgres:16-alpine`.

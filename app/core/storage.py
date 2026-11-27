@@ -26,6 +26,22 @@ def get_upload_base_path() -> Path:
     return base
 
 
+def validate_magic_bytes(header: bytes, ext: str) -> bool:
+    """Verify file header magic bytes match the declared extension."""
+    if not header:
+        return False
+    ext = ext.lower()
+    if ext == ".pdf":
+        return header.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(b"%PDF-")
+    if ext == ".png":
+        return header.startswith(b"\x89PNG\r\n\x1a\n")
+    if ext in {".jpg", ".jpeg"}:
+        return header.startswith(b"\xff\xd8\xff")
+    if ext == ".webp":
+        return len(header) >= 12 and header[:4] == b"RIFF" and header[8:12] == b"WEBP"
+    return False
+
+
 def save_uploaded_file(
     file: UploadFile,
     subfolder: str,
@@ -59,9 +75,10 @@ def save_uploaded_file(
     safe_filename = f"{uuid.uuid4().hex}{ext}"
     target_path = folder_path / safe_filename
 
-    # Stream chunks and enforce max size incrementally without buffering entire file in memory
+    # Stream chunks, verify magic bytes on first chunk, and enforce max size incrementally
     chunk_size = 64 * 1024
     total_bytes = 0
+    checked_magic = False
 
     try:
         with open(target_path, "wb") as f:
@@ -69,6 +86,13 @@ def save_uploaded_file(
                 chunk = file.file.read(chunk_size)
                 if not chunk:
                     break
+                if not checked_magic:
+                    if not validate_magic_bytes(chunk[:1024], ext):
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"File content does not match the '{ext}' file signature.",
+                        )
+                    checked_magic = True
                 total_bytes += len(chunk)
                 if total_bytes > max_size:
                     raise HTTPException(
@@ -76,6 +100,11 @@ def save_uploaded_file(
                         detail=f"File exceeds maximum allowed size of {max_size // (1024 * 1024)} MB.",
                     )
                 f.write(chunk)
+        if total_bytes == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Uploaded file is empty.",
+            )
     except Exception:
         if target_path.exists():
             try:
