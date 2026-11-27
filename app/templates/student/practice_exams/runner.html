@@ -251,13 +251,33 @@
     }
 
     document.querySelectorAll('.choice-radio').forEach(r => {
+        r.addEventListener('click', (e) => {
+            if (isSubmitting) {
+                e.preventDefault();
+            }
+        });
         r.addEventListener('change', (e) => {
-            if (isSubmitting) return;
+            if (isSubmitting) {
+                e.preventDefault();
+                return;
+            }
             const qNum = parseInt(e.target.dataset.q, 10);
             const choice = parseInt(e.target.dataset.choice, 10);
             queueAnswerSave(qNum, choice);
         });
     });
+
+    const runnerForm = document.getElementById('runner_form');
+    if (runnerForm) {
+        runnerForm.addEventListener('submit', (e) => {
+            if (isSubmitting) {
+                e.preventDefault();
+                return;
+            }
+            isSubmitting = true;
+            runnerForm.querySelectorAll('button[type="submit"]').forEach(btn => btn.disabled = true);
+        });
+    }
 
     async function waitForPendingSaves(maxWaitMs = 5000) {
         const start = Date.now();
@@ -270,13 +290,17 @@
         if (isSubmitting) return;
         isSubmitting = true;
 
-        document.querySelectorAll('.choice-radio').forEach(r => r.disabled = true);
+        // Lock UI interaction without disabling .choice-radio inputs (disabled inputs are omitted from POST)
+        const form = document.getElementById('runner_form');
+        if (form) {
+            form.classList.add('pointer-events-none', 'opacity-75');
+            form.querySelectorAll('button[type="submit"]').forEach(btn => btn.disabled = true);
+        }
         setStatus('saving', vt('js_advancing_next_section'));
 
         // Reliably await all in-flight and queued answer saves before booklet finalization
         await waitForPendingSaves();
 
-        const form = document.getElementById('runner_form');
         if (form) {
             form.submit();
         }

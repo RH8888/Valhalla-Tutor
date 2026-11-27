@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import secrets
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
@@ -621,11 +622,18 @@ def localize_html_content(html: str, locale: str = DEFAULT_LOCALE) -> str:
         _load_translations()
     fa_dict = _TRANSLATIONS.get("fa", {})
 
-    # 1. Protect script, style, code, and pre tags
+    # 1. Protect script, style, code, and pre tags using a per-call cryptographic nonce
+    # so user-supplied text cannot forge placeholders and splice raw tags back in.
+    nonce = secrets.token_hex(16)
+    placeholder_prefix = f"__VALHALLA_PROTECTED_{nonce}_"
+    while placeholder_prefix in html:
+        nonce = secrets.token_hex(16)
+        placeholder_prefix = f"__VALHALLA_PROTECTED_{nonce}_"
+
     preserved = []
     def preserve_tag(m: re.Match) -> str:
         preserved.append(m.group(0))
-        return f"___VALHALLA_PROTECTED_{len(preserved)-1}___"
+        return f"{placeholder_prefix}{len(preserved)-1}__"
 
     html = re.sub(r'<(script|style|code|pre)[^>]*>.*?</\1>', preserve_tag, html, flags=re.DOTALL | re.IGNORECASE)
 
@@ -689,8 +697,9 @@ def localize_html_content(html: str, locale: str = DEFAULT_LOCALE) -> str:
 
     html = re.sub(r'(>)([^<]+)(<)', replace_text_node, html)
 
-    # 5. Restore protected tags
-    for i, p in enumerate(preserved):
-        html = html.replace(f"___VALHALLA_PROTECTED_{i}___", p)
+    # 5. Restore protected tags in a single pass
+    if preserved:
+        restore_re = re.compile(rf"{re.escape(placeholder_prefix)}(\d+)__")
+        html = restore_re.sub(lambda m: preserved[int(m.group(1))], html)
 
     return html
