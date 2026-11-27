@@ -49,6 +49,7 @@ from app.models.meeting import (
     WeeklyScheduleProposal,
     WeeklyScheduleItem,
 )
+from app.models.settings import TelegramBackupSettings
 
 __all__ = [
     "Base",

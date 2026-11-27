@@ -21,6 +21,7 @@ from app.routers import (
     tutor_messages,
     tutor_plans,
     tutor_practice_exams,
+    tutor_settings,
     tutor_subjects,
     tutor_tracks,
     tutor_videos,
@@ -103,6 +104,7 @@ app.include_router(tutor_tracks.router)
 app.include_router(tutor_videos.router)
 app.include_router(tutor_books.router)
 app.include_router(tutor_messages.router)
+app.include_router(tutor_settings.router)
 app.include_router(student.router)
 app.include_router(student_chat.router)
 app.include_router(student_exams.router)
