@@ -31,6 +31,19 @@ class SchedulerError(Exception):
     pass
 
 
+def _parse_hhmm(time_str: str, label: str = "time") -> time:
+    """Parse an HH:MM string into a datetime.time or raise SchedulerError."""
+    raw = str(time_str or "").strip()
+    parts = raw.split(":")
+    if len(parts) != 2:
+        raise SchedulerError(f"Invalid {label} format '{time_str}'. Expected HH:MM.")
+    try:
+        h, m = int(parts[0]), int(parts[1])
+        return time(h, m)
+    except (ValueError, TypeError):
+        raise SchedulerError(f"Invalid {label} '{time_str}'. Expected valid HH:MM.")
+
+
 def learn_student_preferred_hour(
     db: Session,
     student_id: uuid.UUID,
@@ -281,10 +294,10 @@ def generate_weekly_proposal(
 
             d_start_str = day_config.get("start_time") or avail_start_time_str
             d_end_str = day_config.get("end_time") or avail_end_time_str
-            d_sh, d_sm = map(int, d_start_str.split(":"))
-            d_eh, d_em = map(int, d_end_str.split(":"))
-            day_avail_start = time(d_sh, d_sm)
-            day_avail_end = time(d_eh, d_em)
+            day_avail_start = _parse_hhmm(d_start_str, "availability start time")
+            day_avail_end = _parse_hhmm(d_end_str, "availability end time")
+            d_sh = day_avail_start.hour
+            d_eh = day_avail_end.hour
 
             if pref_h is not None and pref_m is not None:
                 pref_time = time(pref_h, pref_m)
@@ -360,9 +373,14 @@ def update_proposal_item(
     item = db.execute(query).scalar_one_or_none()
     if not item:
         raise SchedulerError("Proposal item not found.")
+    if item.proposal and item.proposal.status != ProposalStatus.DRAFT:
+        raise SchedulerError("Only draft schedule proposals can be modified.")
+    if duration_minutes <= 0:
+        raise SchedulerError("Duration must be a positive number of minutes.")
+    parsed_time = _parse_hhmm(start_time_str, "start time")
 
     item.scheduled_date = scheduled_date
-    item.start_time_str = start_time_str
+    item.start_time_str = parsed_time.strftime("%H:%M")
     item.duration_minutes = duration_minutes
     item.meeting_type = meeting_type
     item.notes = notes
@@ -386,6 +404,8 @@ def regenerate_unadjusted_items(
     proposal = db.get(WeeklyScheduleProposal, proposal_id)
     if not proposal or proposal.tutor_id != tutor.id:
         raise SchedulerError("Proposal not found.")
+    if proposal.status != ProposalStatus.DRAFT:
+        raise SchedulerError("Only draft schedule proposals can be regenerated.")
 
     daily_avail = proposal.get_daily_availability()
 
@@ -468,6 +488,8 @@ def approve_weekly_proposal(
     if proposal.status == ProposalStatus.APPROVED:
         # Already approved, return existing meetings
         return [item.meeting or db.get(TutorMeeting, item.meeting_id) for item in proposal.items if (item.meeting or item.meeting_id)]
+    if proposal.status != ProposalStatus.DRAFT:
+        raise SchedulerError("Only draft schedule proposals can be approved.")
 
     created_meetings: List[TutorMeeting] = []
 

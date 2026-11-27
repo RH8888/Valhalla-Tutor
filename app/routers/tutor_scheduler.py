@@ -2,6 +2,7 @@ import html
 import uuid
 from datetime import date, datetime, time, timedelta
 from typing import List, Optional
+from urllib.parse import quote
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session, joinedload
@@ -257,6 +258,7 @@ def post_generate_schedule(
 def get_proposal_review(
     proposal_id: uuid.UUID,
     request: Request,
+    err: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
@@ -281,6 +283,7 @@ def get_proposal_review(
             "current_session": current_session,
             "proposal": proposal,
             "daily_avail": daily_avail,
+            "err": err,
         },
     )
 
@@ -316,8 +319,13 @@ def post_update_proposal_item(
         )
         if item.proposal_id != proposal_id:
             raise HTTPException(status_code=404, detail="Proposal item not found.")
-    except SchedulerError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+    except (SchedulerError, ValueError) as exc:
+        if "not found" in str(exc).lower():
+            raise HTTPException(status_code=404, detail=str(exc))
+        return RedirectResponse(
+            url=f"/tutor/scheduler/proposals/{proposal_id}?err={quote(str(exc), safe='')}",
+            status_code=303,
+        )
     return RedirectResponse(url=f"/tutor/scheduler/proposals/{proposal_id}", status_code=303)
 
 
@@ -327,7 +335,15 @@ def post_regenerate_proposal(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    regenerate_unadjusted_items(db, proposal_id, current_user)
+    try:
+        regenerate_unadjusted_items(db, proposal_id, current_user)
+    except (SchedulerError, ValueError) as exc:
+        if "not found" in str(exc).lower():
+            raise HTTPException(status_code=404, detail=str(exc))
+        return RedirectResponse(
+            url=f"/tutor/scheduler/proposals/{proposal_id}?err={quote(str(exc), safe='')}",
+            status_code=303,
+        )
     return RedirectResponse(url=f"/tutor/scheduler/proposals/{proposal_id}", status_code=303)
 
 
@@ -341,7 +357,13 @@ def post_approve_proposal(
     if not proposal or proposal.tutor_id != current_user.id:
         raise HTTPException(status_code=404, detail="Proposal not found.")
 
-    approve_weekly_proposal(db, proposal_id, current_user)
+    try:
+        approve_weekly_proposal(db, proposal_id, current_user)
+    except (SchedulerError, MeetingValidationError, MeetingOverlapError, ValueError) as exc:
+        return RedirectResponse(
+            url=f"/tutor/scheduler/proposals/{proposal_id}?err={quote(str(exc), safe='')}",
+            status_code=303,
+        )
     target_date_str = proposal.target_week_start.strftime("%Y-%m-%d")
     return RedirectResponse(url=f"/tutor/calendar?date={target_date_str}&approved=1", status_code=303)
 

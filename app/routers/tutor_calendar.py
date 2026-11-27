@@ -312,10 +312,16 @@ def post_create_meeting(
     parsed_date = parse_date_or_today(meeting_date, current_user.timezone)
     parsed_time = parse_time_or_default(start_time)
 
-    rem_val = int(reminder_minutes) if reminder_minutes and reminder_minutes.strip() != "" and reminder_minutes.strip() != "none" else None
     m_type = MeetingType.OFFLINE if meeting_type == "OFFLINE" else MeetingType.ONLINE
 
     try:
+        if reminder_minutes and reminder_minutes.strip() not in ("", "none"):
+            rem_val = int(reminder_minutes)
+            if rem_val < 0:
+                raise MeetingValidationError("Reminder minutes must be a non-negative integer.")
+        else:
+            rem_val = None
+
         create_meeting(
             db=db,
             tutor=current_user,
@@ -329,7 +335,8 @@ def post_create_meeting(
             notes=notes,
             reminder_minutes=rem_val,
         )
-    except (MeetingValidationError, MeetingOverlapError) as e:
+    except (MeetingValidationError, MeetingOverlapError, ValueError) as e:
+        err_msg = "Reminder minutes must be a valid non-negative integer." if isinstance(e, ValueError) else str(e)
         return templates.TemplateResponse(
             request=request,
             name="tutor/calendar/partials/meeting_form.html",
@@ -343,7 +350,7 @@ def post_create_meeting(
                 "selected_student_id": student_id,
                 "meeting": None,
                 "is_edit": False,
-                "error": str(e),
+                "error": err_msg,
                 "duration_minutes": duration_minutes,
                 "meeting_type": meeting_type,
                 "meeting_url": meeting_url,
@@ -400,7 +407,10 @@ def get_edit_meeting_modal(
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
-    meeting = get_meeting_by_id(db, meeting_id, tutor_id=current_user.id)
+    try:
+        meeting = get_meeting_by_id(db, meeting_id, tutor_id=current_user.id)
+    except MeetingNotFoundError:
+        raise HTTPException(status_code=404, detail="Meeting not found")
     students = list_students(db, include_inactive=True)
     local_start = to_local(meeting.start_time, current_user.timezone)
 
@@ -436,9 +446,15 @@ def post_edit_meeting(
     current_session: UserSession = Depends(get_current_session),
 ):
     m_type = MeetingType.OFFLINE if meeting_type == "OFFLINE" else MeetingType.ONLINE
-    rem_val = int(reminder_minutes) if reminder_minutes and reminder_minutes.strip() not in ("", "none") else None
 
     try:
+        if reminder_minutes and reminder_minutes.strip() not in ("", "none"):
+            rem_val = int(reminder_minutes)
+            if rem_val < 0:
+                raise MeetingValidationError("Reminder minutes must be a non-negative integer.")
+        else:
+            rem_val = None
+
         update_meeting_details(
             db=db,
             meeting_id=meeting_id,
@@ -449,7 +465,10 @@ def post_edit_meeting(
             notes=notes,
             reminder_minutes=rem_val,
         )
-    except MeetingServiceError as e:
+    except MeetingNotFoundError:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    except (MeetingServiceError, ValueError) as e:
+        err_msg = "Reminder minutes must be a valid non-negative integer." if isinstance(e, ValueError) else str(e)
         meeting = get_meeting_by_id(db, meeting_id, tutor_id=current_user.id)
         students = list_students(db, include_inactive=True)
         local_start = to_local(meeting.start_time, current_user.timezone)
@@ -466,7 +485,7 @@ def post_edit_meeting(
                 "selected_student_id": meeting.student_id,
                 "meeting": meeting,
                 "is_edit": True,
-                "error": str(e),
+                "error": err_msg,
             },
             status_code=400,
         )
@@ -594,5 +613,8 @@ def post_dismiss_reminder(
     current_session: UserSession = Depends(get_current_session),
 ):
     """Dismiss reminder and re-render the indicator."""
-    dismiss_reminder(db, reminder_id, current_user.id)
+    try:
+        dismiss_reminder(db, reminder_id, current_user.id)
+    except MeetingNotFoundError:
+        raise HTTPException(status_code=404, detail="Reminder not found")
     return get_unread_reminders(request, db, current_user, current_session)
