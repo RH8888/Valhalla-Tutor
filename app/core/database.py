@@ -6,11 +6,21 @@ from app.core.config import settings
 from app.models.base import Base
 
 # SQLAlchemy 2.0 Engine (Synchronous per architecture specification)
-engine = create_engine(
-    settings.sync_database_url,
-    pool_pre_ping=True,
-    echo=settings.DEBUG,
-)
+_engine_kwargs = {
+    "pool_pre_ping": True,
+    "echo": settings.DEBUG,
+}
+if not settings.sync_database_url.startswith("sqlite"):
+    _engine_kwargs.update(
+        {
+            "pool_size": settings.DB_POOL_SIZE,
+            "max_overflow": settings.DB_MAX_OVERFLOW,
+            "pool_timeout": settings.DB_POOL_TIMEOUT,
+            "pool_recycle": settings.DB_POOL_RECYCLE,
+        }
+    )
+
+engine = create_engine(settings.sync_database_url, **_engine_kwargs)
 
 SessionLocal = sessionmaker(
     autocommit=False,

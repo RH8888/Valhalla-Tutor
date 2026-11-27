@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.core.dependencies import (
     get_current_session,
     get_current_user,
+    get_form_data,
     require_tutor,
     verify_csrf_token,
 )
@@ -126,13 +127,13 @@ def get_scheduler_dashboard(
 
 
 @router.post("/scheduler/generate", response_class=HTMLResponse)
-async def post_generate_schedule(
+def post_generate_schedule(
     request: Request,
+    form_data=Depends(get_form_data),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
-    form_data = await request.form()
     target_week_str = form_data.get("target_week_start")
     try:
         if target_week_str:

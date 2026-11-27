@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_session, get_current_user, require_tutor, verify_csrf_token
+from app.core.dependencies import get_current_session, get_current_user, get_form_data, require_tutor, verify_csrf_token
 from app.core.storage import (
     BOOKLET_ALLOWED_EXTENSIONS,
     BOOKLET_ALLOWED_MIMES,
@@ -173,7 +173,7 @@ def get_practice_exam_detail(
 
 
 @router.post("/{exam_id}/booklets")
-async def post_upload_booklet(
+def post_upload_booklet(
     request: Request,
     exam_id: uuid.UUID,
     title: str = Form(...),
@@ -285,14 +285,14 @@ def post_create_reporting_group(
 
 
 @router.post("/{exam_id}/questions")
-async def post_configure_questions(
+def post_configure_questions(
     request: Request,
     exam_id: uuid.UUID,
+    form_data=Depends(get_form_data),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
-    form_data = await request.form()
     exam = get_practice_exam_by_id(db, exam_id)
     if not exam:
         raise HTTPException(status_code=404, detail="Practice exam not found.")
@@ -349,14 +349,14 @@ async def post_configure_questions(
 
 
 @router.post("/{exam_id}/assign")
-async def post_assign_practice_exam(
+def post_assign_practice_exam(
     request: Request,
     exam_id: uuid.UUID,
+    form_data=Depends(get_form_data),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
-    form_data = await request.form()
     student_ids_raw = form_data.getlist("student_ids")
     try:
         student_ids = [uuid.UUID(str(sid)) for sid in student_ids_raw if sid]

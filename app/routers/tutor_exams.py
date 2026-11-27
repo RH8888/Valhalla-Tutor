@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.timezone import today_local
-from app.core.dependencies import get_current_session, get_current_user, require_tutor, verify_csrf_token
+from app.core.dependencies import get_current_session, get_current_user, get_form_data, require_tutor, verify_csrf_token
 from app.core.templates import templates
 from app.models.session import UserSession
 from app.models.user import User
@@ -331,9 +331,10 @@ def get_configure_grade_track_form(
 
 
 @router.post("/{exam_id}/grade-tracks/create")
-async def post_configure_grade_track(
+def post_configure_grade_track(
     request: Request,
     exam_id: uuid.UUID,
+    form_data=Depends(get_form_data),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
@@ -342,7 +343,6 @@ async def post_configure_grade_track(
     if not exam:
         raise HTTPException(status_code=404, detail="Exam series not found")
 
-    form_data = await request.form()
     grade = str(form_data.get("grade", "")).strip()
     track_id_raw = form_data.get("track_id")
     if not track_id_raw or not grade:
@@ -540,9 +540,10 @@ def get_assign_students_page(
 
 
 @router.post("/{exam_id}/assignments")
-async def post_assign_students(
+def post_assign_students(
     request: Request,
     exam_id: uuid.UUID,
+    form_data=Depends(get_form_data),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
@@ -551,7 +552,6 @@ async def post_assign_students(
     if not exam:
         raise HTTPException(status_code=404, detail="Exam series not found")
 
-    form_data = await request.form()
     student_ids_raw = form_data.getlist("student_ids")
     try:
         student_ids = [uuid.UUID(str(sid)) for sid in student_ids_raw if sid]
@@ -605,13 +605,13 @@ def get_create_session_form(
 
 
 @router.post("/sessions/create")
-async def post_create_session(
+def post_create_session(
     request: Request,
+    form_data=Depends(get_form_data),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
-    form_data = await request.form()
     exam_id_raw = form_data.get("exam_id")
     date_raw = form_data.get("date")
     title = form_data.get("title")
@@ -791,9 +791,10 @@ def post_reopen_result(
 
 
 @router.post("/results/{result_id}/correct")
-async def post_correct_result(
+def post_correct_result(
     request: Request,
     result_id: uuid.UUID,
+    form_data=Depends(get_form_data),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -801,7 +802,6 @@ async def post_correct_result(
     if not result:
         raise HTTPException(status_code=404, detail="Result not found.")
 
-    form_data = await request.form()
     rank_raw = form_data.get("overall_rank")
     notes = form_data.get("notes")
     reason = form_data.get("correction_reason")
@@ -935,12 +935,12 @@ def post_delete_session(
 
 
 @router.post("/sessions/bulk/action")
-async def post_bulk_session_action(
+def post_bulk_session_action(
     request: Request,
+    form_data=Depends(get_form_data),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    form_data = await request.form()
     action = form_data.get("bulk_action")
     session_ids_raw = form_data.getlist("session_ids")
     reason = form_data.get("reason")
@@ -989,13 +989,13 @@ def post_extend_series_schedule(
 
 
 @router.post("/{exam_id}/students/bulk-remove")
-async def post_bulk_remove_students(
+def post_bulk_remove_students(
     request: Request,
     exam_id: uuid.UUID,
+    form_data=Depends(get_form_data),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    form_data = await request.form()
     student_ids_raw = form_data.getlist("student_ids")
     try:
         student_ids = [uuid.UUID(str(sid)) for sid in student_ids_raw if sid]

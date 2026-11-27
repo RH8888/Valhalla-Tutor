@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_DB: str = "valhalla_db"
     DATABASE_URL: Optional[str] = None
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 10
+    DB_POOL_TIMEOUT: int = 15
+    DB_POOL_RECYCLE: int = 1800
 
     # Security Configuration
     SECRET_KEY: str = "dev-secret-key-please-change-in-production-min-32-chars"

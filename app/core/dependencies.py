@@ -1,7 +1,8 @@
 import secrets
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
+from starlette.datastructures import FormData
 
 from app.core.database import get_db
 from app.models.session import UserSession
@@ -90,4 +91,22 @@ async def verify_csrf_token(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid or missing CSRF token",
         )
+
+
+async def get_form_data(request: Request) -> FormData:
+    """Parse form data asynchronously so sync route handlers run safely in FastAPI's threadpool."""
+    return await request.form()
+
+
+async def get_json_or_form(
+    request: Request,
+) -> Tuple[Optional[Any], Optional[FormData], bool]:
+    """Parse JSON or form data asynchronously; returns (json_body, form_data, json_error)."""
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        try:
+            return await request.json(), None, False
+        except Exception:
+            return None, None, True
+    return None, await request.form(), False
 

@@ -8,7 +8,7 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_session, get_current_user, require_student, verify_csrf_token
+from app.core.dependencies import get_current_session, get_current_user, get_form_data, require_student, verify_csrf_token
 from app.core.timezone import now_utc
 from app.models.practice_exam import StudentPracticeAttempt
 from app.core.storage import (
@@ -139,9 +139,10 @@ def get_submit_result_form(
 
 
 @router.post("/{session_id}/submit")
-async def post_submit_result(
+def post_submit_result(
     request: Request,
     session_id: uuid.UUID,
+    form_data=Depends(get_form_data),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
@@ -150,7 +151,6 @@ async def post_submit_result(
     if not session:
         raise HTTPException(status_code=404, detail="Exam session not found")
 
-    form_data = await request.form()
     overall_rank_raw = form_data.get("overall_rank")
     notes = form_data.get("notes")
 
@@ -309,9 +309,10 @@ def get_edit_result_form(
 
 
 @router.post("/results/{result_id}/edit")
-async def post_edit_result(
+def post_edit_result(
     request: Request,
     result_id: uuid.UUID,
+    form_data=Depends(get_form_data),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
@@ -342,7 +343,6 @@ async def post_edit_result(
                     detail="Submission deadline has passed for this exam occurrence.",
                 )
 
-    form_data = await request.form()
     overall_rank_raw = form_data.get("overall_rank")
     notes = form_data.get("notes")
 

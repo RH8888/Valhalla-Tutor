@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.timezone import today_local
-from app.core.dependencies import get_current_session, get_current_user, require_tutor, verify_csrf_token
+from app.core.dependencies import get_current_session, get_current_user, get_form_data, require_tutor, verify_csrf_token
 from app.core.storage import (
     REPORT_CARD_ALLOWED_EXTENSIONS,
     REPORT_CARD_ALLOWED_MIMES,
@@ -112,7 +112,7 @@ def get_create_historical_exam_form(
 
 
 @router.post("/create")
-async def post_create_historical_exam(
+def post_create_historical_exam(
     request: Request,
     student_id: uuid.UUID = Form(...),
     exam_name: str = Form(...),
@@ -122,11 +122,11 @@ async def post_create_historical_exam(
     overall_rank: Optional[str] = Form(None),
     notes: Optional[str] = Form(None),
     report_card_file: Optional[UploadFile] = File(None),
+    form_data=Depends(get_form_data),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
-    form_data = await request.form()
     file_path: Optional[str] = None
     file_name: Optional[str] = None
     try:

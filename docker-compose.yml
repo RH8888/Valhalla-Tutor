@@ -4,6 +4,7 @@ services:
     image: postgres:16-alpine
     container_name: valhalla_db
     restart: unless-stopped
+    command: ["postgres", "-c", "max_connections=150", "-c", "shared_buffers=256MB"]
     env_file:
       - .env
     environment:
@@ -29,7 +30,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2G
+          memory: 768M
         reservations:
           memory: 256M
     networks:
@@ -52,6 +53,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB:-valhalla_db}
       - UPLOAD_DIR=/app/uploads
+      - WEB_CONCURRENCY=${WEB_CONCURRENCY:-2}
     volumes:
       - uploads_data:/app/uploads
     depends_on:
@@ -74,7 +76,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2G
+          memory: 1G
         reservations:
           memory: 256M
     networks:

@@ -1,23 +1,67 @@
 import ipaddress
+import os
+import sqlite3
+import tempfile
 import time
 from collections import defaultdict
 from functools import lru_cache
 from threading import Lock
-from typing import Tuple
+from typing import Optional, Tuple
 
 from fastapi import HTTPException, Request, status
 
 from app.core.config import settings
 
+_DEFAULT_RATE_LIMIT_DB = os.path.join(tempfile.gettempdir(), "valhalla_rate_limits.sqlite3")
+
 
 class LoginRateLimiter:
-    """In-memory rate limiter tracking failed/total login attempts per key."""
+    """Rate limiter supporting both in-memory and multi-worker shared SQLite (WAL) backends."""
 
-    def __init__(self, max_requests: int = 5, window_seconds: int = 60):
+    def __init__(
+        self,
+        max_requests: int = 5,
+        window_seconds: int = 60,
+        db_path: Optional[str] = None,
+        namespace: str = "default",
+    ):
         self.max_requests = max_requests
         self.window_seconds = window_seconds
+        self.db_path = db_path
+        self.namespace = namespace
         self.attempts: dict[str, list[float]] = defaultdict(list)
         self.lock = Lock()
+        if self.db_path:
+            self._init_db()
+
+    def _connect(self) -> sqlite3.Connection:
+        assert self.db_path is not None
+        conn = sqlite3.connect(self.db_path, timeout=5.0, isolation_level=None)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+        return conn
+
+    def _init_db(self) -> None:
+        with self.lock:
+            conn = self._connect()
+            try:
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS rate_limit_attempts (
+                        namespace TEXT NOT NULL,
+                        key TEXT NOT NULL,
+                        attempted_at REAL NOT NULL
+                    )
+                    """
+                )
+                conn.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS ix_rate_limit_ns_key_ts
+                    ON rate_limit_attempts (namespace, key, attempted_at)
+                    """
+                )
+            finally:
+                conn.close()
 
     def _cleanup_old(self, key: str, now: float) -> None:
         cutoff = now - self.window_seconds
@@ -26,6 +70,32 @@ class LoginRateLimiter:
     def check_allowed(self, key: str) -> Tuple[bool, int]:
         """Check if request is allowed. Returns (allowed, remaining_seconds)."""
         now = time.time()
+        cutoff = now - self.window_seconds
+        if self.db_path:
+            with self.lock:
+                conn = self._connect()
+                try:
+                    conn.execute("BEGIN IMMEDIATE")
+                    conn.execute(
+                        "DELETE FROM rate_limit_attempts WHERE namespace = ? AND key = ? AND attempted_at <= ?",
+                        (self.namespace, key, cutoff),
+                    )
+                    rows = conn.execute(
+                        "SELECT attempted_at FROM rate_limit_attempts WHERE namespace = ? AND key = ? ORDER BY attempted_at ASC",
+                        (self.namespace, key),
+                    ).fetchall()
+                    conn.execute("COMMIT")
+                except Exception:
+                    conn.execute("ROLLBACK")
+                    raise
+                finally:
+                    conn.close()
+                if len(rows) >= self.max_requests:
+                    oldest = float(rows[0][0])
+                    retry_after = max(1, int(self.window_seconds - (now - oldest)))
+                    return False, retry_after
+                return True, 0
+
         with self.lock:
             self._cleanup_old(key, now)
             if len(self.attempts[key]) >= self.max_requests:
@@ -37,18 +107,67 @@ class LoginRateLimiter:
     def record_attempt(self, key: str) -> None:
         """Record an attempt timestamp."""
         now = time.time()
+        cutoff = now - self.window_seconds
+        if self.db_path:
+            with self.lock:
+                conn = self._connect()
+                try:
+                    conn.execute("BEGIN IMMEDIATE")
+                    conn.execute(
+                        "DELETE FROM rate_limit_attempts WHERE namespace = ? AND key = ? AND attempted_at <= ?",
+                        (self.namespace, key, cutoff),
+                    )
+                    conn.execute(
+                        "INSERT INTO rate_limit_attempts (namespace, key, attempted_at) VALUES (?, ?, ?)",
+                        (self.namespace, key, now),
+                    )
+                    conn.execute("COMMIT")
+                except Exception:
+                    conn.execute("ROLLBACK")
+                    raise
+                finally:
+                    conn.close()
+            return
+
         with self.lock:
             self._cleanup_old(key, now)
             self.attempts[key].append(now)
 
     def reset(self) -> None:
-        """Clear all rate limit entries (useful for testing)."""
+        """Clear all rate limit entries for this limiter (useful for testing)."""
+        if self.db_path:
+            with self.lock:
+                conn = self._connect()
+                try:
+                    conn.execute("BEGIN IMMEDIATE")
+                    conn.execute(
+                        "DELETE FROM rate_limit_attempts WHERE namespace = ?",
+                        (self.namespace,),
+                    )
+                    conn.execute("COMMIT")
+                except Exception:
+                    conn.execute("ROLLBACK")
+                    raise
+                finally:
+                    conn.close()
+            return
+
         with self.lock:
             self.attempts.clear()
 
 
-login_limiter = LoginRateLimiter(max_requests=5, window_seconds=60)
-message_limiter = LoginRateLimiter(max_requests=30, window_seconds=60)
+login_limiter = LoginRateLimiter(
+    max_requests=5,
+    window_seconds=60,
+    db_path=_DEFAULT_RATE_LIMIT_DB,
+    namespace="login",
+)
+message_limiter = LoginRateLimiter(
+    max_requests=30,
+    window_seconds=60,
+    db_path=_DEFAULT_RATE_LIMIT_DB,
+    namespace="message",
+)
 
 
 def _clean_ip_str(raw: str) -> str:
@@ -91,14 +210,11 @@ def get_client_ip(request: Request) -> str:
     try:
         peer_ip_obj = ipaddress.ip_address(peer_clean)
     except ValueError:
-        # Non-IP peer (e.g., 'testclient' in Starlette test harness)
         return raw_peer
 
-    # If the immediate connecting peer is NOT a trusted proxy, do not trust forwarded headers.
     if not is_trusted_proxy(peer_ip_obj):
         return str(peer_ip_obj)
 
-    # Peer is a trusted proxy: inspect X-Forwarded-For from right to left.
     xff = request.headers.get("x-forwarded-for")
     if xff:
         hops = [h.strip() for h in xff.split(",") if h.strip()]
@@ -111,7 +227,6 @@ def get_client_ip(request: Request) -> str:
             if not is_trusted_proxy(hop_ip):
                 return str(hop_ip)
 
-    # Check X-Real-IP if X-Forwarded-For didn't yield an untrusted client IP
     x_real_ip = request.headers.get("x-real-ip")
     if x_real_ip:
         cleaned_real = _clean_ip_str(x_real_ip)
@@ -121,7 +236,6 @@ def get_client_ip(request: Request) -> str:
         except ValueError:
             pass
 
-    # If all forwarded hops were trusted proxies or headers missing, return peer IP
     return str(peer_ip_obj)
 
 
@@ -147,5 +261,3 @@ def enforce_message_rate_limit(key: str) -> None:
             headers={"Retry-After": str(retry_after)},
         )
     message_limiter.record_attempt(key)
-
-

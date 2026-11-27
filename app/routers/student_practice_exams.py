@@ -6,7 +6,13 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_session, get_current_user, require_student, verify_csrf_token
+from app.core.dependencies import (
+    get_current_session,
+    get_current_user,
+    get_json_or_form,
+    require_student,
+    verify_csrf_token,
+)
 from app.core.storage import get_absolute_file_path
 from app.core.templates import templates
 from app.models.practice_exam import PracticeExamBooklet, StudentPracticeAttempt
@@ -252,17 +258,17 @@ def get_booklet_runner(
 
 @router.post("/attempts/{attempt_id}/booklets/{booklet_id}/answers")
 @router.post("/attempts/{attempt_id}/booklets/{booklet_id}/answer")
-async def post_save_single_answer(
+def post_save_single_answer(
     request: Request,
     attempt_id: uuid.UUID,
     booklet_id: uuid.UUID,
+    payload=Depends(get_json_or_form),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
-    try:
-        body = await request.json()
-    except Exception:
+    body, _, json_err = payload
+    if json_err or not isinstance(body, dict):
         raise HTTPException(status_code=400, detail="Invalid JSON body.")
 
     q_num = body.get("question_number")
@@ -306,24 +312,24 @@ async def post_save_single_answer(
 
 
 @router.post("/attempts/{attempt_id}/booklets/{booklet_id}/save")
-async def post_save_booklet_answers(
+def post_save_booklet_answers(
     request: Request,
     attempt_id: uuid.UUID,
     booklet_id: uuid.UUID,
+    payload=Depends(get_json_or_form),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
+    body, form_data, json_err = payload
     content_type = request.headers.get("content-type", "")
     if "application/json" in content_type:
-        try:
-            body = await request.json()
-        except Exception:
+        if json_err:
             raise HTTPException(status_code=400, detail="Invalid JSON body.")
         if not isinstance(body, dict):
             raise HTTPException(status_code=400, detail="Invalid JSON payload.")
         if "question_number" in body:
-            return await post_save_single_answer(request, attempt_id, booklet_id, db, current_user, current_session)
+            return post_save_single_answer(request, attempt_id, booklet_id, payload, db, current_user, current_session)
         raw_answers = body.get("answers", {})
         if not isinstance(raw_answers, dict):
             raise HTTPException(status_code=400, detail="answers must be an object.")
@@ -342,7 +348,6 @@ async def post_save_booklet_answers(
             code = 403 if "Unauthorized" in str(exc) else 400
             return JSONResponse(status_code=code, content={"status": "error", "detail": str(exc)})
 
-    form_data = await request.form()
     try:
         state = get_student_booklet_state(db, attempt_id, booklet_id, student_id=current_user.id)
     except PracticeExamNotFoundError as exc:
@@ -386,31 +391,28 @@ async def post_save_booklet_answers(
 
 
 @router.post("/attempts/{attempt_id}/booklets/{booklet_id}/submit")
-async def post_submit_booklet_and_advance(
+def post_submit_booklet_and_advance(
     request: Request,
     attempt_id: uuid.UUID,
     booklet_id: uuid.UUID,
+    payload=Depends(get_json_or_form),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
+    body, form_data, json_err = payload
     content_type = request.headers.get("content-type", "")
     is_json = "application/json" in content_type or request.headers.get("accept", "").startswith("application/json")
     answers: Dict[int, Optional[int]] = {}
 
     if "application/json" in content_type:
-        try:
-            body = await request.json()
-            if isinstance(body, dict):
-                raw_ans = body.get("answers", body)
-                if isinstance(raw_ans, dict):
-                    for k, v in raw_ans.items():
-                        if str(k).isdigit():
-                            answers[int(k)] = int(v) if v is not None and str(v).isdigit() else None
-        except Exception:
-            answers = {}
+        if not json_err and isinstance(body, dict):
+            raw_ans = body.get("answers", body)
+            if isinstance(raw_ans, dict):
+                for k, v in raw_ans.items():
+                    if str(k).isdigit():
+                        answers[int(k)] = int(v) if v is not None and str(v).isdigit() else None
     else:
-        form_data = await request.form()
         try:
             state = get_student_booklet_state(db, attempt_id, booklet_id, student_id=current_user.id)
         except PracticeExamNotFoundError as exc:

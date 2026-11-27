@@ -47,3 +47,23 @@ def test_i18n_localize_html_blocks_placeholder_injection_xss():
     # User-supplied legacy placeholder string must NOT be replaced with <script>
     assert '<div class="user-note">Hello ___VALHALLA_PROTECTED_0___ world</div>' in rendered
     assert 'placeholder="___VALHALLA_PROTECTED_0___"' in rendered
+
+
+def test_no_async_route_handlers_block_event_loop_in_routers():
+    routers_dir = ROOT_DIR / "app" / "routers"
+    async_routes = []
+    for py_file in routers_dir.glob("*.py"):
+        for lineno, line in enumerate(py_file.read_text(encoding="utf-8").splitlines(), start=1):
+            if line.lstrip().startswith("async def "):
+                async_routes.append(f"{py_file.name}:{lineno}")
+    assert async_routes == [], f"Found async def route handlers: {async_routes}"
+
+
+def test_database_pool_settings_configured():
+    from app.core.config import Settings
+
+    cfg = Settings()
+    assert cfg.DB_POOL_SIZE >= 10
+    assert cfg.DB_MAX_OVERFLOW >= 10
+    assert cfg.DB_POOL_TIMEOUT > 0
+    assert cfg.DB_POOL_RECYCLE > 0
