@@ -295,6 +295,15 @@ _DYNAMIC_PATTERNS = [
     (re.compile(r"^Subject with id (.+?) does not exist\.$", re.I), lambda m: "درس انتخاب‌شده وجود ندارد."),
     (re.compile(r"^Percentage for subject '(.+?)' .*", re.I), lambda m: f"درصد درس «{m.group(1)}» باید عدد معتبری بین ۰ تا ۱۰۰ باشد."),
     (re.compile(r"^Grade '(.+?)' .*", re.I), lambda m: f"پایه تحصیلی «{m.group(1)}» با تنظیمات درس مطابقت ندارد."),
+    (re.compile(r"^Telegram API error: (.+)$", re.I), lambda m: f"خطای رابط تلگرام: \u2066{m.group(1)}\u2069"),
+    (re.compile(r"^Connection failed: (.+)$", re.I), lambda m: f"خطا در برقراری ارتباط: \u2066{m.group(1)}\u2069"),
+    (re.compile(r"^Telegram upload failed for (.+?): (.+)$", re.I), lambda m: f"بارگذاری تلگرام برای فایل \u2066{m.group(1)}\u2069 ناموفق بود: \u2066{m.group(2)}\u2069"),
+    (re.compile(r"^Backup file not found: (.+)$", re.I), lambda m: f"فایل پشتیبان یافت نشد: \u2066{m.group(1)}\u2069"),
+    (re.compile(r"^Delivered (.+?) in (\d+) part\(s\)(?: \((\d+) bytes\))?\.$", re.I), lambda m: (
+        f"فایل \u2066{m.group(1)}\u2069 در {to_persian_digits(m.group(2))} بخش ({to_persian_digits(m.group(3))} بایت) با موفقیت ارسال شد."
+        if m.group(3)
+        else f"فایل \u2066{m.group(1)}\u2069 در {to_persian_digits(m.group(2))} بخش با موفقیت ارسال شد."
+    )),
 ]
 
 

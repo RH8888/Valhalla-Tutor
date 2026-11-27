@@ -1,11 +1,14 @@
 {# Mobile Navigation Menu Drawer #}
-{% set current_req_url = (request.url.path ~ ('?' ~ request.url.query if request.url.query else '')) if request else '/' %}
+{% set current_req_url = (request.url.path ~ ('?' ~ request.url.query if request.url.query else '')) if request else '/'
+%}
 {% if current_user %}
-<div id="mobile-menu" class="hidden lg:hidden border-t border-slate-100 mt-2.5 pt-3 pb-2 space-y-4 max-h-[calc(100vh-5rem)] overflow-y-auto">
+<div id="mobile-menu"
+    class="hidden lg:hidden border-t border-slate-100 mt-2.5 pt-3 pb-2 space-y-4 max-h-[calc(100vh-5rem)] overflow-y-auto">
     <!-- User Profile Strip -->
     <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
         <div class="flex items-center gap-2.5">
-            <div class="w-8 h-8 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-xs">
+            <div
+                class="w-8 h-8 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-xs">
                 {{ current_user.full_name[:1] }}
             </div>
             <div>
@@ -13,7 +16,8 @@
                 <div class="text-[10px] text-slate-500 bidi-ltr text-start" dir="ltr">@{{ current_user.username }}</div>
             </div>
         </div>
-        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold {% if current_user.role == 'TUTOR' %}bg-indigo-100 text-indigo-800{% else %}bg-emerald-100 text-emerald-800{% endif %}">
+        <span
+            class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold {% if current_user.role == 'TUTOR' %}bg-indigo-100 text-indigo-800{% else %}bg-emerald-100 text-emerald-800{% endif %}">
             {{ current_user.role | fa_role }}
         </span>
     </div>
@@ -25,10 +29,12 @@
             <span>{{ _('language') }}</span>
         </span>
         <div class="inline-flex rounded-lg p-0.5 bg-slate-200/80 border border-slate-200">
-            <a href="/set-language?lang=en&redirect_url={{ current_req_url | urlencode }}" class="px-2.5 py-1 rounded-md font-bold text-xs transition {% if get_locale() == 'en' %}bg-white text-indigo-600 shadow-2xs{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+            <a href="/set-language?lang=en&redirect_url={{ current_req_url | urlencode }}"
+                class="px-2.5 py-1 rounded-md font-bold text-xs transition {% if get_locale() == 'en' %}bg-white text-indigo-600 shadow-2xs{% else %}text-slate-600 hover:text-slate-900{% endif %}">
                 🇺🇸 English
             </a>
-            <a href="/set-language?lang=fa&redirect_url={{ current_req_url | urlencode }}" class="px-2.5 py-1 rounded-md font-bold text-xs transition {% if get_locale() == 'fa' %}bg-white text-indigo-600 shadow-2xs{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+            <a href="/set-language?lang=fa&redirect_url={{ current_req_url | urlencode }}"
+                class="px-2.5 py-1 rounded-md font-bold text-xs transition {% if get_locale() == 'fa' %}bg-white text-indigo-600 shadow-2xs{% else %}text-slate-600 hover:text-slate-900{% endif %}">
                 🇮🇷 فارسی
             </a>
         </div>
@@ -39,66 +45,97 @@
     <div class="space-y-3">
         <!-- Direct Primary Links -->
         <div class="grid grid-cols-2 gap-2">
-            <a href="/tutor/students" class="min-h-[44px] px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center gap-2 text-xs font-bold text-slate-800 transition">
+            <a href="/tutor/students"
+                class="min-h-[44px] px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center gap-2 text-xs font-bold text-slate-800 transition">
                 <span>👥</span> {{ _('students') }}
             </a>
-            <a href="/tutor/messages" class="min-h-[44px] px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-between text-xs font-bold text-slate-800 transition">
+            <a href="/tutor/messages"
+                class="min-h-[44px] px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-between text-xs font-bold text-slate-800 transition">
                 <span class="flex items-center gap-2"><span>💬</span> {{ _('messages') }}</span>
-                <span id="tutor-unread-badge-drawer" hx-get="/tutor/messages/unread-count" hx-trigger="load, every 15s" hx-swap="outerHTML"></span>
+                <span id="tutor-unread-badge-drawer" hx-get="/tutor/messages/unread-count" hx-trigger="load, every 15s"
+                    hx-swap="outerHTML"></span>
             </a>
-            <a href="/tutor/settings/backup" class="col-span-2 min-h-[44px] px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center gap-2 text-xs font-bold text-slate-800 transition">
-                <span>☁️</span> Telegram Backups
+            <a href="/tutor/settings/backup"
+                class="col-span-2 min-h-[44px] px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center gap-2 text-xs font-bold text-slate-800 transition">
+                <span>☁️</span> {{ _('Telegram Backups') }}
             </a>
         </div>
 
         <!-- Schedule Domain -->
         <div class="p-3 bg-slate-50/80 rounded-xl border border-slate-200 space-y-2">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">📅 {{ _('schedule') }}</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">📅 {{ _('schedule')
+                }}</span>
             <div class="grid grid-cols-1 gap-1.5">
-                <a href="/tutor/calendar" class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
+                <a href="/tutor/calendar"
+                    class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
                     <span>{{ _('Calendar & Meetings') }}</span>
-                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
                 </a>
-                <a href="/tutor/scheduler" class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
+                <a href="/tutor/scheduler"
+                    class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
                     <span>{{ _('Weekly Availability') }}</span>
-                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
                 </a>
             </div>
         </div>
 
         <!-- Assessments Domain -->
         <div class="p-3 bg-slate-50/80 rounded-xl border border-slate-200 space-y-2">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">✍️ {{ _('assessments') }}</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">✍️ {{ _('assessments')
+                }}</span>
             <div class="grid grid-cols-1 gap-1.5">
-                <a href="/tutor/practice-exams" class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
+                <a href="/tutor/practice-exams"
+                    class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
                     <span>{{ _('practice_exams') }}</span>
-                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
                 </a>
-                <a href="/tutor/exams" class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
+                <a href="/tutor/exams"
+                    class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
                     <span>{{ _('external_exams') }}</span>
-                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
                 </a>
-                <a href="/tutor/historical-exams" class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
+                <a href="/tutor/historical-exams"
+                    class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
                     <span>{{ _('historical_results') }}</span>
-                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
                 </a>
             </div>
         </div>
 
         <!-- Curriculum Domain -->
         <div class="p-3 bg-slate-50/80 rounded-xl border border-slate-200 space-y-2">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">📚 {{ _('curriculum') }}</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">📚 {{ _('curriculum')
+                }}</span>
             <div class="grid grid-cols-2 gap-1.5 text-xs">
-                <a href="/tutor/tracks" class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 font-semibold text-slate-700 flex items-center gap-1.5 border border-slate-100">
+                <a href="/tutor/tracks"
+                    class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 font-semibold text-slate-700 flex items-center gap-1.5 border border-slate-100">
                     <span>🧭</span> {{ _('tracks') }}
                 </a>
-                <a href="/tutor/subjects" class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 font-semibold text-slate-700 flex items-center gap-1.5 border border-slate-100">
+                <a href="/tutor/subjects"
+                    class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 font-semibold text-slate-700 flex items-center gap-1.5 border border-slate-100">
                     <span>📖</span> {{ _('subjects') }}
                 </a>
-                <a href="/tutor/videos" class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 font-semibold text-slate-700 flex items-center gap-1.5 border border-slate-100">
+                <a href="/tutor/videos"
+                    class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 font-semibold text-slate-700 flex items-center gap-1.5 border border-slate-100">
                     <span>🎬</span> {{ _('videos') }}
                 </a>
-                <a href="/tutor/books" class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 font-semibold text-slate-700 flex items-center gap-1.5 border border-slate-100">
+                <a href="/tutor/books"
+                    class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 font-semibold text-slate-700 flex items-center gap-1.5 border border-slate-100">
                     <span>📑</span> {{ _('books') }}
                 </a>
             </div>
@@ -109,57 +146,90 @@
     <div class="space-y-3">
         <!-- Direct Links -->
         <div class="grid grid-cols-2 gap-2">
-            <a href="/student/dashboard" class="min-h-[44px] px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center gap-2 text-xs font-bold text-slate-800 transition">
+            <a href="/student/dashboard"
+                class="min-h-[44px] px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center gap-2 text-xs font-bold text-slate-800 transition">
                 <span>🏠</span> {{ _('dashboard') }}
             </a>
-            <a href="/student/chat" class="min-h-[44px] px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-between text-xs font-bold text-slate-800 transition">
+            <a href="/student/chat"
+                class="min-h-[44px] px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-between text-xs font-bold text-slate-800 transition">
                 <span class="flex items-center gap-2"><span>💬</span> {{ _('chat') }}</span>
-                <span id="student-unread-badge-drawer" hx-get="/student/chat/unread-count" hx-trigger="load, every 15s" hx-swap="outerHTML"></span>
+                <span id="student-unread-badge-drawer" hx-get="/student/chat/unread-count" hx-trigger="load, every 15s"
+                    hx-swap="outerHTML"></span>
             </a>
         </div>
 
         <!-- Study Planning Domain -->
         <div class="p-3 bg-slate-50/80 rounded-xl border border-slate-200 space-y-2">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">🎯 {{ _('study_planning') }}</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">🎯 {{ _('study_planning')
+                }}</span>
             <div class="grid grid-cols-1 gap-1.5">
-                <a href="/student/plan" class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
+                <a href="/student/plan"
+                    class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
                     <span>{{ _('Current 14-Day Plan') }}</span>
-                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
                 </a>
-                <a href="/student/plans/history" class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
+                <a href="/student/plans/history"
+                    class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
                     <span>{{ _('Plan Archives') }}</span>
-                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
                 </a>
-                <a href="/student/history" class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
+                <a href="/student/history"
+                    class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
                     <span>{{ _('Completion History') }}</span>
-                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
                 </a>
             </div>
         </div>
 
         <!-- Assessments Domain -->
         <div class="p-3 bg-slate-50/80 rounded-xl border border-slate-200 space-y-2">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">✍️ {{ _('assessments_exams') }}</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">✍️ {{
+                _('assessments_exams') }}</span>
             <div class="grid grid-cols-1 gap-1.5">
-                <a href="/student/practice-exams" class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
+                <a href="/student/practice-exams"
+                    class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
                     <span>{{ _('practice_exams') }}</span>
-                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
                 </a>
-                <a href="/student/exams" class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
+                <a href="/student/exams"
+                    class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
                     <span>{{ _('external_exams') }}</span>
-                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
                 </a>
-                <a href="/student/historical-exams" class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
+                <a href="/student/historical-exams"
+                    class="min-h-[40px] px-2.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-semibold text-slate-700 flex items-center justify-between border border-slate-100">
                     <span>{{ _('historical_results') }}</span>
-                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
                 </a>
             </div>
         </div>
 
         <!-- Curriculum Direct Link -->
-        <a href="/student/curriculum" class="min-h-[44px] px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-between text-xs font-bold text-slate-800 transition">
+        <a href="/student/curriculum"
+            class="min-h-[44px] px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-between text-xs font-bold text-slate-800 transition">
             <span class="flex items-center gap-2"><span>📚</span> {{ _('my_curriculum') }}</span>
-            <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+            <svg class="w-3.5 h-3.5 text-slate-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
         </a>
     </div>
     {% endif %}
@@ -169,7 +239,7 @@
         <form action="/auth/logout" method="POST" class="w-full">
             <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
             <button type="submit"
-                    class="w-full min-h-[44px] flex items-center justify-center gap-2 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl transition">
+                class="w-full min-h-[44px] flex items-center justify-center gap-2 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl transition">
                 <span>🚪</span>
                 <span>{{ _('sign_out') }}</span>
             </button>
@@ -184,14 +254,18 @@
             <span>{{ _('language') }}</span>
         </span>
         <div class="inline-flex rounded-lg p-0.5 bg-slate-200/80 border border-slate-200">
-            <a href="/set-language?lang=en&redirect_url={{ current_req_url | urlencode }}" class="px-2.5 py-1 rounded-md font-bold text-xs transition {% if get_locale() == 'en' %}bg-white text-indigo-600 shadow-2xs{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+            <a href="/set-language?lang=en&redirect_url={{ current_req_url | urlencode }}"
+                class="px-2.5 py-1 rounded-md font-bold text-xs transition {% if get_locale() == 'en' %}bg-white text-indigo-600 shadow-2xs{% else %}text-slate-600 hover:text-slate-900{% endif %}">
                 🇺🇸 English
             </a>
-            <a href="/set-language?lang=fa&redirect_url={{ current_req_url | urlencode }}" class="px-2.5 py-1 rounded-md font-bold text-xs transition {% if get_locale() == 'fa' %}bg-white text-indigo-600 shadow-2xs{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+            <a href="/set-language?lang=fa&redirect_url={{ current_req_url | urlencode }}"
+                class="px-2.5 py-1 rounded-md font-bold text-xs transition {% if get_locale() == 'fa' %}bg-white text-indigo-600 shadow-2xs{% else %}text-slate-600 hover:text-slate-900{% endif %}">
                 🇮🇷 فارسی
             </a>
         </div>
     </div>
-    <a href="/auth/login" class="w-full min-h-[44px] flex items-center justify-center rounded-xl bg-indigo-600 text-white font-bold text-sm">{{ _('sign_in') }}</a>
+    <a href="/auth/login"
+        class="w-full min-h-[44px] flex items-center justify-center rounded-xl bg-indigo-600 text-white font-bold text-sm">{{
+        _('sign_in') }}</a>
 </div>
 {% endif %}

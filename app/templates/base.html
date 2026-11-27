@@ -161,7 +161,7 @@
                 <span id="tutor-unread-badge" hx-get="/tutor/messages/unread-count" hx-trigger="load, every 15s" hx-swap="outerHTML"></span>
             </a>
             <a href="/tutor/settings/backup"
-                class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Backups</a>
+                class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">{{ _('Backups') }}</a>
             {% elif current_user and current_user.role == "STUDENT" %}
             <a href="/student/dashboard"
                 class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">{{ _('dashboard') }}</a>

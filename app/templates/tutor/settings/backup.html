@@ -1,17 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Telegram Backup Settings - {{ _('app_name') }}{% endblock %}
+{% block title %}{{ _('Telegram Backup Settings') }} - {{ _('app_name') }}{% endblock %}
 
 {% block content %}
 <div class="max-w-3xl mx-auto space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-            <h1 class="text-xl sm:text-2xl font-bold text-slate-900">Off-Site Telegram Backup</h1>
+            <h1 class="text-xl sm:text-2xl font-bold text-slate-900">{{ _('Off-Site Telegram Backup') }}</h1>
             <p class="text-sm text-slate-500 mt-1">
-                Configure encrypted database &amp; upload delivery to a Telegram chat or channel.
+                {{ _('Configure encrypted database & upload delivery to a Telegram chat or channel.') }}
             </p>
         </div>
         <a href="/tutor/students" class="text-xs font-semibold text-indigo-600 hover:text-indigo-700">
-            ← {{ _('back_to_directory') }}
+            <span class="inline-block rtl:rotate-180">&larr;</span> {{ _('back_to_directory') }}
         </a>
     </div>
 
@@ -29,24 +29,24 @@
     <!-- Last Backup Status -->
     <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 space-y-3">
         <div class="flex items-center justify-between">
-            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Last Telegram Backup Status</h2>
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">{{ _('Last Telegram Backup Status') }}</h2>
             {% if tg_settings.last_backup_success is true %}
             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-                Success
+                {{ _('Success') }}
             </span>
             {% elif tg_settings.last_backup_success is false %}
             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800">
-                Failed
+                {{ _('Failed') }}
             </span>
             {% else %}
             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
-                Never Run
+                {{ _('Never Run') }}
             </span>
             {% endif %}
         </div>
         <div class="text-sm text-slate-700 space-y-1">
             <div>
-                <span class="font-semibold text-slate-500">Timestamp:</span>
+                <span class="font-semibold text-slate-500">{{ _('Timestamp:') }}</span>
                 {% if tg_settings.last_backup_at %}
                 <span class="bidi-ltr inline-block" dir="ltr">{{ tg_settings.last_backup_at | local_dt(current_user.timezone) }}</span>
                 {% else %}
@@ -54,8 +54,8 @@
                 {% endif %}
             </div>
             <div>
-                <span class="font-semibold text-slate-500">Details:</span>
-                <span>{{ tg_settings.last_backup_message or 'No Telegram backup has been attempted yet.' }}</span>
+                <span class="font-semibold text-slate-500">{{ _('Details:') }}</span>
+                <span>{{ _(tg_settings.last_backup_message) if tg_settings.last_backup_message else _('No Telegram backup has been attempted yet.') }}</span>
             </div>
         </div>
     </div>
@@ -67,10 +67,10 @@
         <div class="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200">
             <div>
                 <label for="enabled" class="text-sm font-bold text-slate-800 cursor-pointer">
-                    Enable Telegram Backup Delivery
+                    {{ _('Enable Telegram Backup Delivery') }}
                 </label>
                 <p class="text-xs text-slate-500 mt-0.5">
-                    When enabled, scheduled and manual backups are sent to Telegram (archives &gt;48 MB are split automatically).
+                    {{ _('When enabled, scheduled and manual backups are sent to Telegram (archives >48 MB are split automatically).') }}
                 </p>
             </div>
             <input type="checkbox" id="enabled" name="enabled" value="1"
@@ -80,42 +80,42 @@
 
         <div class="space-y-1.5">
             <label for="chat_id" class="block text-sm font-semibold text-slate-700">
-                Target Chat ID
+                {{ _('Target Chat ID') }}
             </label>
             <input type="text" id="chat_id" name="chat_id" dir="ltr"
                 value="{{ tg_settings.chat_id or '' }}"
-                placeholder="e.g. -1001234567890 or 123456789"
+                placeholder="{{ _('e.g. -1001234567890 or 123456789') }}"
                 class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 focus:border-indigo-500 focus:ring-indigo-500">
-            <p class="text-xs text-slate-500">Numeric user, group, or channel chat ID.</p>
+            <p class="text-xs text-slate-500">{{ _('Numeric user, group, or channel chat ID.') }}</p>
         </div>
 
         <div class="space-y-1.5">
             <label for="bot_token" class="block text-sm font-semibold text-slate-700">
-                Telegram Bot Token
+                {{ _('Telegram Bot Token') }}
             </label>
             {% if has_token %}
             <div class="flex items-center justify-between text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
                 <span class="text-slate-600">
-                    Saved token: <code class="font-mono font-bold text-slate-800" dir="ltr">{{ tg_settings.bot_token_mask or '••••••••' }}</code>
+                    <span>{{ _('Saved token:') }}</span> <code class="font-mono font-bold text-slate-800" dir="ltr">{{ tg_settings.bot_token_mask or '••••••••' }}</code>
                 </span>
                 <label class="inline-flex items-center gap-1.5 text-rose-700 font-semibold cursor-pointer">
                     <input type="checkbox" name="clear_bot_token" value="1" class="rounded border-slate-300 text-rose-600 focus:ring-rose-500">
-                    <span>Clear saved token</span>
+                    <span>{{ _('Clear saved token') }}</span>
                 </label>
             </div>
             {% endif %}
             <input type="password" id="bot_token" name="bot_token" dir="ltr" autocomplete="new-password"
-                placeholder="{% if has_token %}Leave blank to keep existing token, or enter a new token{% else %}123456789:AA...{% endif %}"
+                placeholder="{% if has_token %}{{ _('Leave blank to keep existing token, or enter a new token') }}{% else %}123456789:AA...{% endif %}"
                 class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 focus:border-indigo-500 focus:ring-indigo-500">
             <p class="text-xs text-slate-500">
-                Encrypted at rest in the database and never exposed in HTML or logs.
+                {{ _('Encrypted at rest in the database and never exposed in HTML or logs.') }}
             </p>
         </div>
 
         <div class="pt-2 flex flex-wrap items-center justify-end gap-3">
             <button type="submit"
                 class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold shadow-xs transition">
-                Save Settings
+                {{ _('Save Settings') }}
             </button>
         </div>
     </form>
@@ -123,9 +123,9 @@
     <!-- Actions Card -->
     <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-            <h2 class="text-sm font-bold text-slate-900">Verification &amp; Manual Delivery</h2>
+            <h2 class="text-sm font-bold text-slate-900">{{ _('Verification & Manual Delivery') }}</h2>
             <p class="text-xs text-slate-500 mt-0.5">
-                Test your saved credentials or send a snapshot to Telegram right now.
+                {{ _('Test your saved credentials or send a snapshot to Telegram right now.') }}
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-2.5">
@@ -133,14 +133,14 @@
                 <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                 <button type="submit"
                     class="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition">
-                    Test Connection
+                    {{ _('Test Connection') }}
                 </button>
             </form>
             <form method="POST" action="/tutor/settings/backup/run-now">
                 <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
                 <button type="submit"
                     class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition">
-                    Backup to Telegram Now
+                    {{ _('Backup to Telegram Now') }}
                 </button>
             </form>
         </div>
