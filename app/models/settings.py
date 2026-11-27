@@ -29,6 +29,15 @@ class TelegramBackupSettings(Base):
     )
     last_backup_success: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
     last_backup_message: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    schedule_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    schedule_mode: Mapped[str] = mapped_column(String(16), nullable=False, default="daily")
+    interval_value: Mapped[int] = mapped_column(Integer, nullable=False, default=24)
+    interval_unit: Mapped[str] = mapped_column(String(16), nullable=False, default="hours")
+    daily_time: Mapped[str] = mapped_column(String(5), nullable=False, default="00:00")
+    next_run_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

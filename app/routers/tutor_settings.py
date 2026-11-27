@@ -15,6 +15,7 @@ from app.core.templates import templates
 from app.models.session import UserSession
 from app.models.user import User
 from app.services.telegram_backup_service import (
+    TelegramBackupValidationError,
     create_and_deliver_manual_backup,
     get_or_create_telegram_settings,
     test_saved_telegram_connection,
@@ -58,18 +59,48 @@ def post_save_telegram_backup_settings(
     chat_id: Optional[str] = Form(None),
     bot_token: Optional[str] = Form(None),
     clear_bot_token: Optional[str] = Form(None),
+    schedule_enabled: Optional[str] = Form(None),
+    schedule_mode: str = Form("daily"),
+    interval_value: Optional[str] = Form(None),
+    interval_unit: str = Form("hours"),
+    daily_time: Optional[str] = Form("00:00"),
     db: Session = Depends(get_db),
 ):
     is_enabled = enabled in ("1", "true", "on", "yes")
     should_clear = clear_bot_token in ("1", "true", "on", "yes")
+    is_schedule_enabled = schedule_enabled in ("1", "true", "on", "yes")
 
-    update_telegram_settings(
-        db,
-        enabled=is_enabled,
-        chat_id=chat_id,
-        new_bot_token=bot_token,
-        clear_bot_token=should_clear,
-    )
+    try:
+        parsed_interval = (
+            int(interval_value)
+            if interval_value is not None and interval_value.strip() != ""
+            else 24
+        )
+    except ValueError:
+        return RedirectResponse(
+            url=f"/tutor/settings/backup?err={quote('Backup interval must be a whole number of at least 1.')}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    try:
+        update_telegram_settings(
+            db,
+            enabled=is_enabled,
+            chat_id=chat_id,
+            new_bot_token=bot_token,
+            clear_bot_token=should_clear,
+            schedule_enabled=is_schedule_enabled,
+            schedule_mode=schedule_mode,
+            interval_value=parsed_interval,
+            interval_unit=interval_unit,
+            daily_time=daily_time,
+        )
+    except TelegramBackupValidationError as exc:
+        return RedirectResponse(
+            url=f"/tutor/settings/backup?err={quote(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
     return RedirectResponse(
         url=f"/tutor/settings/backup?msg={quote('Telegram backup settings saved.')}",
         status_code=status.HTTP_303_SEE_OTHER,

@@ -2243,5 +2243,20 @@
   "Saved Bot Token could not be decrypted.": "Saved Bot Token could not be decrypted.",
   "Telegram Bot Token is missing.": "Telegram Bot Token is missing.",
   "Enable Telegram backup delivery first.": "Enable Telegram backup delivery first.",
-  "pg_dump is unavailable in the web container; cannot create a restorable PostgreSQL backup (db.dump).": "pg_dump is unavailable in the web container; cannot create a restorable PostgreSQL backup (db.dump)."
+  "pg_dump is unavailable in the web container; cannot create a restorable PostgreSQL backup (db.dump).": "pg_dump is unavailable in the web container; cannot create a restorable PostgreSQL backup (db.dump).",
+  "Next Scheduled Backup:": "Next Scheduled Backup:",
+  "Not scheduled": "Not scheduled",
+  "Enable Automatic Scheduled Backups": "Enable Automatic Scheduled Backups",
+  "Automatically create and send backups to Telegram on your chosen schedule.": "Automatically create and send backups to Telegram on your chosen schedule.",
+  "Daily at Time": "Daily at Time",
+  "Runs daily at this time (Asia/Tehran, e.g. 00:00 for 12:00 AM).": "Runs daily at this time (Asia/Tehran, e.g. 00:00 for 12:00 AM).",
+  "Every X Hours / Days": "Every X Hours / Days",
+  "Hours": "Hours",
+  "Repeats on a fixed interval starting from when settings are saved.": "Repeats on a fixed interval starting from when settings are saved.",
+  "Daily backup time must be in HH:MM (24-hour) format.": "Daily backup time must be in HH:MM (24-hour) format.",
+  "Daily backup time must be between 00:00 and 23:59.": "Daily backup time must be between 00:00 and 23:59.",
+  "Backup interval must be a whole number of at least 1.": "Backup interval must be a whole number of at least 1.",
+  "Backup interval must be at least 1.": "Backup interval must be at least 1.",
+  "Backup interval unit must be 'hours' or 'days'.": "Backup interval unit must be 'hours' or 'days'.",
+  "Schedule mode must be 'interval' or 'daily'.": "Schedule mode must be 'interval' or 'daily'."
 }

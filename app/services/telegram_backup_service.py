@@ -13,17 +13,18 @@ import sys
 import tarfile
 import tempfile
 from dataclasses import dataclass
+from datetime import datetime, time as dt_time, timedelta, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.storage import get_upload_base_path
-from app.core.timezone import now_utc
+from app.core.timezone import get_timezone, now_utc, to_utc
 from app.models.base import Base
 from app.models.settings import TelegramBackupSettings
 
@@ -33,6 +34,65 @@ logger = logging.getLogger(__name__)
 TELEGRAM_MAX_PART_BYTES = 48 * 1024 * 1024
 TELEGRAM_API_BASE = "https://api.telegram.org"
 _TOKEN_PREFIX = "v1:"
+_SCHEDULER_ADVISORY_LOCK_ID = 88421001
+_DAILY_TIME_RE = re.compile(r"^(\d{2}):(\d{2})$")
+
+
+class TelegramBackupValidationError(ValueError):
+    """Raised when Telegram backup schedule settings are invalid."""
+
+
+def parse_daily_time(time_str: Optional[str]) -> Tuple[int, int]:
+    """Validate and parse a 24-hour HH:MM string."""
+    raw = (time_str or "").strip()
+    m = _DAILY_TIME_RE.match(raw)
+    if not m:
+        raise TelegramBackupValidationError("Daily backup time must be in HH:MM (24-hour) format.")
+    hour, minute = int(m.group(1)), int(m.group(2))
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        raise TelegramBackupValidationError("Daily backup time must be between 00:00 and 23:59.")
+    return hour, minute
+
+
+def compute_next_run_at(
+    rec: TelegramBackupSettings,
+    reference_utc: Optional[datetime] = None,
+) -> Optional[datetime]:
+    """Compute the next scheduled UTC run time in Asia/Tehran or interval mode."""
+    if not rec.schedule_enabled:
+        return None
+
+    now = to_utc(reference_utc) if reference_utc is not None else now_utc()
+    mode = (rec.schedule_mode or "daily").strip().lower()
+
+    if mode == "interval":
+        try:
+            val = int(rec.interval_value)
+        except (TypeError, ValueError):
+            raise TelegramBackupValidationError("Backup interval must be a whole number of at least 1.")
+        if val < 1:
+            raise TelegramBackupValidationError("Backup interval must be at least 1.")
+        unit = (rec.interval_unit or "hours").strip().lower()
+        if unit == "hours":
+            return now + timedelta(hours=val)
+        if unit == "days":
+            return now + timedelta(days=val)
+        raise TelegramBackupValidationError("Backup interval unit must be 'hours' or 'days'.")
+
+    if mode == "daily":
+        hour, minute = parse_daily_time(rec.daily_time)
+        tz = get_timezone()
+        local_now = now.astimezone(tz)
+        candidate_local = datetime.combine(local_now.date(), dt_time(hour, minute), tzinfo=tz)
+        if candidate_local <= local_now:
+            candidate_local = datetime.combine(
+                local_now.date() + timedelta(days=1),
+                dt_time(hour, minute),
+                tzinfo=tz,
+            )
+        return candidate_local.astimezone(timezone.utc)
+
+    raise TelegramBackupValidationError("Schedule mode must be 'interval' or 'daily'.")
 
 
 @dataclass
@@ -137,6 +197,11 @@ def update_telegram_settings(
     chat_id: Optional[str],
     new_bot_token: Optional[str] = None,
     clear_bot_token: bool = False,
+    schedule_enabled: Optional[bool] = None,
+    schedule_mode: Optional[str] = None,
+    interval_value: Optional[int] = None,
+    interval_unit: Optional[str] = None,
+    daily_time: Optional[str] = None,
 ) -> TelegramBackupSettings:
     rec = get_or_create_telegram_settings(db)
     rec.enabled = bool(enabled)
@@ -150,6 +215,33 @@ def update_telegram_settings(
         clean_tok = new_bot_token.strip()
         rec.encrypted_bot_token = encrypt_secret(clean_tok)
         rec.bot_token_mask = mask_bot_token(clean_tok)
+
+    schedule_touched = any(
+        arg is not None
+        for arg in (schedule_enabled, schedule_mode, interval_value, interval_unit, daily_time)
+    )
+    if schedule_touched:
+        if schedule_enabled is not None:
+            rec.schedule_enabled = bool(schedule_enabled)
+        if schedule_mode is not None:
+            mode_clean = schedule_mode.strip().lower()
+            if mode_clean not in ("interval", "daily"):
+                raise TelegramBackupValidationError("Schedule mode must be 'interval' or 'daily'.")
+            rec.schedule_mode = mode_clean
+        if interval_value is not None:
+            if int(interval_value) < 1:
+                raise TelegramBackupValidationError("Backup interval must be at least 1.")
+            rec.interval_value = int(interval_value)
+        if interval_unit is not None:
+            unit_clean = interval_unit.strip().lower()
+            if unit_clean not in ("hours", "days"):
+                raise TelegramBackupValidationError("Backup interval unit must be 'hours' or 'days'.")
+            rec.interval_unit = unit_clean
+        if daily_time is not None:
+            hour, minute = parse_daily_time(daily_time)
+            rec.daily_time = f"{hour:02d}:{minute:02d}"
+
+        rec.next_run_at = compute_next_run_at(rec)
 
     rec.updated_at = now_utc()
     db.commit()
@@ -491,6 +583,81 @@ def create_and_deliver_manual_backup(
             max_part_bytes=max_part_bytes,
             client=client,
         )
+
+
+def run_scheduled_backup_tick(
+    db: Session,
+    *,
+    client: Optional[httpx.Client] = None,
+) -> bool:
+    """
+    Check whether an automatic scheduled Telegram backup is due and execute it.
+    Uses a non-blocking PostgreSQL advisory lock so multi-worker deployments do not duplicate runs.
+    Returns True if a scheduled backup run was attempted, False otherwise.
+    """
+    rec = get_or_create_telegram_settings(db)
+    if not rec.schedule_enabled or not rec.enabled or not rec.chat_id or not rec.encrypted_bot_token:
+        return False
+
+    now = now_utc()
+    if rec.next_run_at is None:
+        rec.next_run_at = compute_next_run_at(rec, now)
+        rec.updated_at = now
+        db.commit()
+        return False
+
+    if now < to_utc(rec.next_run_at):
+        return False
+
+    is_postgres = db.bind is not None and db.bind.dialect.name == "postgresql"
+    lock_acquired = False
+    if is_postgres:
+        lock_acquired = bool(
+            db.execute(
+                text("SELECT pg_try_advisory_lock(:lock_id)"),
+                {"lock_id": _SCHEDULER_ADVISORY_LOCK_ID},
+            ).scalar()
+        )
+        if not lock_acquired:
+            return False
+
+    try:
+        db.expire(rec)
+        rec = get_or_create_telegram_settings(db)
+        now = now_utc()
+        if (
+            not rec.schedule_enabled
+            or not rec.enabled
+            or not rec.chat_id
+            or not rec.encrypted_bot_token
+            or rec.next_run_at is None
+            or now < to_utc(rec.next_run_at)
+        ):
+            return False
+
+        try:
+            create_and_deliver_manual_backup(db, client=client)
+        except Exception as exc:
+            err_msg = sanitize_telegram_error(str(exc), None)
+            logger.warning("Scheduled Telegram backup failed: %s", err_msg)
+            _record_status(db, rec, success=False, message=err_msg)
+        finally:
+            # Always advance next_run_at even on failure to prevent 60-second retry loops
+            rec = get_or_create_telegram_settings(db)
+            rec.next_run_at = compute_next_run_at(rec, now_utc())
+            rec.updated_at = now_utc()
+            db.commit()
+
+        return True
+    finally:
+        if is_postgres and lock_acquired:
+            try:
+                db.execute(
+                    text("SELECT pg_advisory_unlock(:lock_id)"),
+                    {"lock_id": _SCHEDULER_ADVISORY_LOCK_ID},
+                )
+            except Exception:
+                pass
 
 
 def _cli_main() -> int:

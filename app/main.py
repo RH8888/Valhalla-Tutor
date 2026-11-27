@@ -1,8 +1,12 @@
+import asyncio
+from contextlib import asynccontextmanager
+import logging
+import os
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
-import os
 
 from app.core.config import settings
 from app.routers import (
@@ -28,12 +32,48 @@ from app.routers import (
     student_chat,
 )
 
+_logger = logging.getLogger(__name__)
+
+
+def _run_scheduled_backup_once() -> None:
+    from app.core.database import SessionLocal
+    from app.services.telegram_backup_service import run_scheduled_backup_tick
+
+    with SessionLocal() as db:
+        run_scheduled_backup_tick(db)
+
+
+async def _telegram_backup_scheduler_loop() -> None:
+    while True:
+        try:
+            await asyncio.sleep(60)
+            await asyncio.to_thread(_run_scheduled_backup_once)
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            _logger.exception("Scheduled Telegram backup tick failed")
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    scheduler_task = asyncio.create_task(_telegram_backup_scheduler_loop())
+    try:
+        yield
+    finally:
+        scheduler_task.cancel()
+        try:
+            await scheduler_task
+        except asyncio.CancelledError:
+            pass
+
+
 _is_production = settings.ENVIRONMENT.lower() == "production"
 app = FastAPI(
     title=settings.APP_NAME,
     description="Academic Planner and Tracking System for Tutor and Students",
     version="0.1.0",
     debug=settings.DEBUG,
+    lifespan=lifespan,
     docs_url=None if _is_production else "/docs",
     redoc_url=None if _is_production else "/redoc",
     openapi_url=None if _is_production else "/openapi.json",

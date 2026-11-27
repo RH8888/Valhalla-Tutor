@@ -57,6 +57,14 @@
                 <span class="font-semibold text-slate-500">{{ _('Details:') }}</span>
                 <span>{{ _(tg_settings.last_backup_message) if tg_settings.last_backup_message else _('No Telegram backup has been attempted yet.') }}</span>
             </div>
+            <div>
+                <span class="font-semibold text-slate-500">{{ _('Next Scheduled Backup:') }}</span>
+                {% if tg_settings.schedule_enabled and tg_settings.next_run_at %}
+                <span class="bidi-ltr inline-block font-medium text-indigo-700" dir="ltr">{{ tg_settings.next_run_at | local_dt(current_user.timezone) }}</span>
+                {% else %}
+                <span class="text-slate-400">{{ _('Not scheduled') }}</span>
+                {% endif %}
+            </div>
         </div>
     </div>
 
@@ -110,6 +118,60 @@
             <p class="text-xs text-slate-500">
                 {{ _('Encrypted at rest in the database and never exposed in HTML or logs.') }}
             </p>
+        </div>
+
+        <!-- Automatic Schedule Section -->
+        <div class="border-t border-slate-200 pt-5 space-y-4">
+            <div class="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                <div>
+                    <label for="schedule_enabled" class="text-sm font-bold text-slate-800 cursor-pointer">
+                        {{ _('Enable Automatic Scheduled Backups') }}
+                    </label>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        {{ _('Automatically create and send backups to Telegram on your chosen schedule.') }}
+                    </p>
+                </div>
+                <input type="checkbox" id="schedule_enabled" name="schedule_enabled" value="1"
+                    {% if tg_settings.schedule_enabled %}checked{% endif %}
+                    class="h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label class="flex flex-col gap-2.5 p-3.5 rounded-xl border border-slate-200 hover:border-indigo-300 cursor-pointer transition">
+                    <div class="flex items-center gap-2">
+                        <input type="radio" name="schedule_mode" value="daily"
+                            {% if (tg_settings.schedule_mode or 'daily') == 'daily' %}checked{% endif %}
+                            class="text-indigo-600 focus:ring-indigo-500">
+                        <span class="text-sm font-semibold text-slate-800">{{ _('Daily at Time') }}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="time" id="daily_time" name="daily_time" dir="ltr"
+                            value="{{ tg_settings.daily_time or '00:00' }}"
+                            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-indigo-500">
+                    </div>
+                    <p class="text-[11px] text-slate-500">{{ _('Runs daily at this time (Asia/Tehran, e.g. 00:00 for 12:00 AM).') }}</p>
+                </label>
+
+                <label class="flex flex-col gap-2.5 p-3.5 rounded-xl border border-slate-200 hover:border-indigo-300 cursor-pointer transition">
+                    <div class="flex items-center gap-2">
+                        <input type="radio" name="schedule_mode" value="interval"
+                            {% if tg_settings.schedule_mode == 'interval' %}checked{% endif %}
+                            class="text-indigo-600 focus:ring-indigo-500">
+                        <span class="text-sm font-semibold text-slate-800">{{ _('Every X Hours / Days') }}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="interval_value" name="interval_value" min="1" step="1" dir="ltr"
+                            value="{{ tg_settings.interval_value or 24 }}"
+                            class="w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-indigo-500">
+                        <select id="interval_unit" name="interval_unit"
+                            class="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 bg-white focus:border-indigo-500 focus:ring-indigo-500">
+                            <option value="hours" {% if (tg_settings.interval_unit or 'hours') == 'hours' %}selected{% endif %}>{{ _('Hours') }}</option>
+                            <option value="days" {% if tg_settings.interval_unit == 'days' %}selected{% endif %}>{{ _('Days') }}</option>
+                        </select>
+                    </div>
+                    <p class="text-[11px] text-slate-500">{{ _('Repeats on a fixed interval starting from when settings are saved.') }}</p>
+                </label>
+            </div>
         </div>
 
         <div class="pt-2 flex flex-wrap items-center justify-end gap-3">

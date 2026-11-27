@@ -2243,5 +2243,20 @@
   "Saved Bot Token could not be decrypted.": "توکن ذخیره‌شده ربات قابل رمزگشایی نیست.",
   "Telegram Bot Token is missing.": "توکن ربات تلگرام وارد نشده است.",
   "Enable Telegram backup delivery first.": "ابتدا ارسال پشتیبان به تلگرام را فعال کنید.",
-  "pg_dump is unavailable in the web container; cannot create a restorable PostgreSQL backup (db.dump).": "ابزار ⁦pg_dump⁩ در کانتینر وب در دسترس نیست؛ امکان ساخت نسخه پشتیبان قابل بازیابی PostgreSQL (⁦db.dump⁩) وجود ندارد."
+  "pg_dump is unavailable in the web container; cannot create a restorable PostgreSQL backup (db.dump).": "ابزار ⁦pg_dump⁩ در کانتینر وب در دسترس نیست؛ امکان ساخت نسخه پشتیبان قابل بازیابی PostgreSQL (⁦db.dump⁩) وجود ندارد.",
+  "Next Scheduled Backup:": "پشتیبان‌گیری خودکار بعدی:",
+  "Not scheduled": "زمان‌بندی نشده",
+  "Enable Automatic Scheduled Backups": "فعال‌سازی پشتیبان‌گیری خودکار زمان‌بندی‌شده",
+  "Automatically create and send backups to Telegram on your chosen schedule.": "ایجاد و ارسال خودکار نسخه پشتیبان به تلگرام مطابق زمان‌بندی انتخابی شما.",
+  "Daily at Time": "روزانه در ساعت مشخص",
+  "Runs daily at this time (Asia/Tehran, e.g. 00:00 for 12:00 AM).": "هر روز در این ساعت اجرا می‌شود (به وقت تهران، مثلاً 00:00 برای ۱۲ بامداد).",
+  "Every X Hours / Days": "هر چند ساعت / روز یک‌بار",
+  "Hours": "ساعت",
+  "Repeats on a fixed interval starting from when settings are saved.": "پس از ذخیره تنظیمات، در بازه‌های زمانی ثابت تکرار می‌شود.",
+  "Daily backup time must be in HH:MM (24-hour) format.": "ساعت پشتیبان‌گیری روزانه باید در قالب ۲۴ ساعته HH:MM باشد.",
+  "Daily backup time must be between 00:00 and 23:59.": "ساعت پشتیبان‌گیری روزانه باید بین 00:00 تا 23:59 باشد.",
+  "Backup interval must be a whole number of at least 1.": "بازه زمانی پشتیبان‌گیری باید عدد صحیح حداقل ۱ باشد.",
+  "Backup interval must be at least 1.": "بازه زمانی پشتیبان‌گیری باید حداقل ۱ باشد.",
+  "Backup interval unit must be 'hours' or 'days'.": "واحد بازه زمانی باید ساعت یا روز باشد.",
+  "Schedule mode must be 'interval' or 'daily'.": "حالت زمان‌بندی باید بازه‌ای یا روزانه باشد."
 }
