@@ -135,7 +135,9 @@
                                     <span class="font-semibold text-slate-800 block">{{ sub.subject_name }}</span>
                                     <div class="flex items-center justify-between mt-1 text-slate-500 tnum">
                                         <span class="font-bold text-slate-700">{{ sub.percentage | fa_percent }}</span>
+                                        {% if not sub.get('is_group') %}
                                         <span class="text-emerald-600 font-medium bidi-ltr">+{{ sub.correct | fa_digits }} / -{{ sub.incorrect | fa_digits }}</span>
+                                        {% endif %}
                                     </div>
                                 </div>
                             {% endfor %}

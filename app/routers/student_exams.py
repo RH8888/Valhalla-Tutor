@@ -116,8 +116,18 @@ def get_submit_result_form(
         None,
     )
     grade_track_cfg = get_student_series_grade_track_config(db, session.exam_id, current_user)
-    if not track_config and not grade_track_cfg:
-        raise HTTPException(status_code=403, detail="Exam not available for your track.")
+    is_directly_assigned = any(a.student_id == current_user.id for a in session.assignments) or any(
+        sa.student_id == current_user.id for sa in (session.exam.series_assignments if session.exam else [])
+    )
+    has_grade_track_configs = bool(session.exam and session.exam.grade_track_configs)
+    if is_directly_assigned:
+        is_eligible = True
+    elif has_grade_track_configs:
+        is_eligible = grade_track_cfg is not None
+    else:
+        is_eligible = track_config is not None
+    if not is_eligible:
+        raise HTTPException(status_code=403, detail="Exam not available for your track or grade.")
 
     effective_subjects = get_student_effective_subjects(current_user)
     effective_ids = {s.id for s in effective_subjects}
@@ -161,13 +171,23 @@ def post_submit_result(
 
     grade_track_cfg = get_student_series_grade_track_config(db, session.exam_id, current_user)
     reporting_groups = grade_track_cfg.reporting_groups if grade_track_cfg else []
+    is_directly_assigned = any(a.student_id == current_user.id for a in session.assignments) or any(
+        sa.student_id == current_user.id for sa in (session.exam.series_assignments if session.exam else [])
+    )
+    has_grade_track_configs = bool(session.exam and session.exam.grade_track_configs)
+    if is_directly_assigned:
+        is_eligible = True
+    elif has_grade_track_configs:
+        is_eligible = grade_track_cfg is not None
+    else:
+        is_eligible = track_config is not None
 
     rc_path: Optional[str] = None
     rc_name: Optional[str] = None
     try:
         if session.exam.is_archived or not session.exam.is_active:
             raise ExamValidationError("Cannot submit results for an archived or inactive exam series.")
-        if not track_config and not grade_track_cfg:
+        if not is_eligible:
             raise ExamValidationError("You are not configured or eligible for this exam.")
 
         group_data = []

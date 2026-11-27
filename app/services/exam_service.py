@@ -1,13 +1,13 @@
 import json
 import math
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 from sqlalchemy import desc
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.timezone import now_utc, today_local
+from app.core.timezone import get_timezone, now_utc, to_utc, today_local
 from app.models.exam import (
     Exam,
     ExamGradeTrackConfig,
@@ -640,7 +640,10 @@ def create_exam_session(
 
     if submission_deadline is None and exam.submission_days_after_exam:
         dl_date = exam_date + timedelta(days=exam.submission_days_after_exam)
-        submission_deadline = datetime(dl_date.year, dl_date.month, dl_date.day, 23, 59, 59)
+        local_tz = get_timezone()
+        submission_deadline = datetime.combine(dl_date, time(23, 59, 59), tzinfo=local_tz).astimezone(timezone.utc)
+    elif submission_deadline is not None:
+        submission_deadline = to_utc(submission_deadline)
 
     session = ExamSession(
         exam_id=exam.id,
@@ -717,6 +720,16 @@ def update_exam_session(
         raise ExamSessionNotFoundError(f"Exam session with id {session_id} not found.")
     if session.exam and (session.exam.is_archived or not session.exam.is_active):
         raise ExamValidationError("Cannot modify occurrences of an archived or inactive exam series.")
+
+    if exam_date != session.date:
+        duplicate_date = db.query(ExamSession.id).filter(
+            ExamSession.exam_id == session.exam_id,
+            ExamSession.date == exam_date,
+            ExamSession.id != session.id,
+        ).first()
+        if duplicate_date:
+            exam_title = session.exam.title if session.exam else str(session.exam_id)
+            raise ExamValidationError(f"An occurrence for exam '{exam_title}' on {exam_date} already exists.")
 
     session.date = exam_date
     session.title = title.strip() if title and title.strip() else None
@@ -1278,11 +1291,17 @@ def get_student_available_exams(db: Session, student: User) -> Dict[str, Any]:
     past = []
 
     for s in all_sessions:
-        is_assigned = (
+        is_directly_assigned = (
             s.id in assigned_session_ids
             or s.exam_id in assigned_series_ids
-            or any(tc.track_id == student.academic_track_id for tc in s.track_configs)
         )
+        has_grade_track_configs = bool(s.exam and s.exam.grade_track_configs)
+        if is_directly_assigned:
+            is_assigned = True
+        elif has_grade_track_configs:
+            is_assigned = get_student_series_grade_track_config(db, s.exam_id, student) is not None
+        else:
+            is_assigned = any(tc.track_id == student.academic_track_id for tc in s.track_configs)
         has_result = s.id in result_session_ids
         if not is_assigned and not has_result:
             continue
@@ -1396,10 +1415,7 @@ def submit_student_exam_result(
 
     now = now_utc()
     is_late = False
-    s_deadline = session.submission_deadline
-    if s_deadline and s_deadline.tzinfo is None:
-        from datetime import timezone
-        s_deadline = s_deadline.replace(tzinfo=timezone.utc)
+    s_deadline = to_utc(session.submission_deadline) if session.submission_deadline else None
     if s_deadline and now > s_deadline:
         is_late = True
         if not getattr(session, 'allow_late_submission', True) and not is_tutor_override:
@@ -1409,12 +1425,29 @@ def submit_student_exam_result(
     if existing_result:
         raise DuplicateExamResultError("Results have already been submitted for this exam occurrence.")
 
+    is_directly_assigned = bool(
+        db.query(ExternalExamAssignment.id).filter(
+            ExternalExamAssignment.exam_session_id == session.id,
+            ExternalExamAssignment.student_id == student.id,
+        ).first()
+        or db.query(ExamSeriesAssignment.id).filter(
+            ExamSeriesAssignment.exam_id == session.exam_id,
+            ExamSeriesAssignment.student_id == student.id,
+        ).first()
+    )
     track_config = next(
         (tc for tc in session.track_configs if tc.track_id == student.academic_track_id),
         None,
     )
     grade_track_cfg = get_student_series_grade_track_config(db, session.exam_id, student)
-    if not track_config and not grade_track_cfg:
+    has_grade_track_configs = bool(session.exam and session.exam.grade_track_configs)
+    if is_directly_assigned:
+        is_eligible = True
+    elif has_grade_track_configs:
+        is_eligible = grade_track_cfg is not None
+    else:
+        is_eligible = track_config is not None
+    if not is_eligible and not is_tutor_override:
         raise ExamValidationError("This exam is not available for your academic track or grade.")
 
     if group_percentages:
@@ -1665,9 +1698,20 @@ def tutor_correct_exam_result(
             if isinstance(rg_id, str):
                 rg_id = uuid.UUID(rg_id)
             g_title = (grp.get("group_title") or grp.get("title") or "").strip()
-            if not g_title and rg_id:
+            if rg_id:
                 rg_obj = db.query(ExamReportingGroup).get(rg_id)
+                belongs_to_exam = False
                 if rg_obj:
+                    if rg_obj.exam_session_id is not None:
+                        belongs_to_exam = rg_obj.exam_session_id == result.exam_session_id
+                    elif rg_obj.exam_grade_track_config_id is not None and rg_obj.grade_track_config:
+                        belongs_to_exam = (
+                            result.exam_session is not None
+                            and rg_obj.grade_track_config.exam_id == result.exam_session.exam_id
+                        )
+                if not rg_obj or not belongs_to_exam:
+                    raise ExamValidationError("Reporting group does not belong to this exam series.")
+                if not g_title:
                     g_title = rg_obj.title
             if not g_title:
                 raise ExamValidationError("Reporting group title cannot be empty.")
@@ -1722,6 +1766,10 @@ def tutor_correct_exam_result(
         "overall_rank": result.overall_rank,
         "notes": result.notes,
         "groups": [{"title": gr.group_title, "pct": gr.percentage} for gr in result.group_results],
+        "subjects": [
+            {"subject_id": str(sr.subject_id), "correct": sr.correct_answers, "incorrect": sr.incorrect_answers, "pct": sr.percentage}
+            for sr in result.subject_results
+        ],
     }
     log_exam_audit(
         db,
@@ -1941,6 +1989,7 @@ def get_student_exam_analytics(db: Session, student_id: uuid.UUID) -> Dict[str, 
         .options(
             joinedload(StudentExamResult.exam_session).joinedload(ExamSession.exam),
             joinedload(StudentExamResult.subject_results).joinedload(StudentExamSubjectResult.subject),
+            joinedload(StudentExamResult.group_results),
         )
         .filter(StudentExamResult.student_id == student_id)
         .order_by(ExamSession.date.asc(), ExamSession.created_at.asc())
@@ -1974,35 +2023,66 @@ def get_student_exam_analytics(db: Session, student_id: uuid.UUID) -> Dict[str, 
         percentages = []
 
         sub_details = []
-        for sr in r.subject_results:
-            sub_name = sr.subject.name
-            total_correct += sr.correct_answers
-            total_incorrect += sr.incorrect_answers
-            percentages.append(sr.percentage)
+        if r.subject_results:
+            for sr in r.subject_results:
+                sub_name = sr.subject.name
+                total_correct += sr.correct_answers
+                total_incorrect += sr.incorrect_answers
+                percentages.append(sr.percentage)
 
-            if sub_name not in subject_trends:
-                subject_trends[sub_name] = {
-                    "subject_id": str(sr.subject_id),
-                    "name": sub_name,
-                    "points": [],
-                }
-                subject_scores[sub_name] = []
+                if sub_name not in subject_trends:
+                    subject_trends[sub_name] = {
+                        "subject_id": str(sr.subject_id),
+                        "name": sub_name,
+                        "points": [],
+                    }
+                    subject_scores[sub_name] = []
 
-            subject_trends[sub_name]["points"].append({
-                "date": date_str,
-                "exam_title": exam_title,
-                "percentage": sr.percentage,
-                "correct": sr.correct_answers,
-                "incorrect": sr.incorrect_answers,
-            })
-            subject_scores[sub_name].append(sr.percentage)
+                subject_trends[sub_name]["points"].append({
+                    "date": date_str,
+                    "exam_title": exam_title,
+                    "percentage": sr.percentage,
+                    "correct": sr.correct_answers,
+                    "incorrect": sr.incorrect_answers,
+                })
+                subject_scores[sub_name].append(sr.percentage)
 
-            sub_details.append({
-                "subject_name": sub_name,
-                "correct": sr.correct_answers,
-                "incorrect": sr.incorrect_answers,
-                "percentage": sr.percentage,
-            })
+                sub_details.append({
+                    "subject_name": sub_name,
+                    "correct": sr.correct_answers,
+                    "incorrect": sr.incorrect_answers,
+                    "percentage": sr.percentage,
+                    "is_group": False,
+                })
+        elif r.group_results:
+            for gr in r.group_results:
+                grp_name = gr.group_title
+                percentages.append(gr.percentage)
+
+                if grp_name not in subject_trends:
+                    subject_trends[grp_name] = {
+                        "subject_id": str(gr.reporting_group_id) if gr.reporting_group_id else grp_name,
+                        "name": grp_name,
+                        "points": [],
+                    }
+                    subject_scores[grp_name] = []
+
+                subject_trends[grp_name]["points"].append({
+                    "date": date_str,
+                    "exam_title": exam_title,
+                    "percentage": gr.percentage,
+                    "correct": 0,
+                    "incorrect": 0,
+                })
+                subject_scores[grp_name].append(gr.percentage)
+
+                sub_details.append({
+                    "subject_name": grp_name,
+                    "correct": 0,
+                    "incorrect": 0,
+                    "percentage": gr.percentage,
+                    "is_group": True,
+                })
 
         avg_pct = round(sum(percentages) / len(percentages), 2) if percentages else 0.0
 
@@ -2087,19 +2167,34 @@ def get_tutor_session_analytics(db: Session, session_id: uuid.UUID) -> Dict[str,
         total_correct = 0
         total_incorrect = 0
         scores = []
-        for sr in r.subject_results:
-            name = sr.subject.name
-            sub_map[name] = {
-                "correct": sr.correct_answers,
-                "incorrect": sr.incorrect_answers,
-                "percentage": sr.percentage,
-            }
-            total_correct += sr.correct_answers
-            total_incorrect += sr.incorrect_answers
-            scores.append(sr.percentage)
-            if name not in subject_totals:
-                subject_totals[name] = []
-            subject_totals[name].append(sr.percentage)
+        if r.subject_results:
+            for sr in r.subject_results:
+                name = sr.subject.name
+                sub_map[name] = {
+                    "correct": sr.correct_answers,
+                    "incorrect": sr.incorrect_answers,
+                    "percentage": sr.percentage,
+                    "is_group": False,
+                }
+                total_correct += sr.correct_answers
+                total_incorrect += sr.incorrect_answers
+                scores.append(sr.percentage)
+                if name not in subject_totals:
+                    subject_totals[name] = []
+                subject_totals[name].append(sr.percentage)
+        elif r.group_results:
+            for gr in r.group_results:
+                name = gr.group_title
+                sub_map[name] = {
+                    "correct": 0,
+                    "incorrect": 0,
+                    "percentage": gr.percentage,
+                    "is_group": True,
+                }
+                scores.append(gr.percentage)
+                if name not in subject_totals:
+                    subject_totals[name] = []
+                subject_totals[name].append(gr.percentage)
 
         avg_pct = round(sum(scores) / len(scores), 2) if scores else 0.0
         student_rows.append({
@@ -2124,11 +2219,16 @@ def get_tutor_session_analytics(db: Session, session_id: uuid.UUID) -> Dict[str,
         for name, vals in subject_totals.items()
     }
 
-    # All unique subjects across track configs for table headers
+    # All unique subjects/groups across track configs and submitted results for table headers
+    has_only_group_results = any(r.group_results and not r.subject_results for r in session.results) and not any(
+        r.subject_results for r in session.results
+    )
     all_subjects = set()
-    for tc in session.track_configs:
-        for sc in tc.subject_configs:
-            all_subjects.add(sc.subject.name)
+    if not has_only_group_results:
+        for tc in session.track_configs:
+            for sc in tc.subject_configs:
+                all_subjects.add(sc.subject.name)
+    all_subjects.update(subject_totals.keys())
 
     return {
         "session": session,
@@ -2737,7 +2837,8 @@ def get_bulk_series_submission_overview(
                 })
             else:
                 # Not submitted
-                is_overdue = bool(s.submission_deadline and now > s.submission_deadline)
+                s_deadline = to_utc(s.submission_deadline) if s.submission_deadline else None
+                is_overdue = bool(s_deadline and now > s_deadline)
                 if s.date <= today:
                     if is_overdue:
                         s_missing += 1

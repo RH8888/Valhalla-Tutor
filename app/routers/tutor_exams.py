@@ -348,17 +348,23 @@ def post_configure_grade_track(
     if not track_id_raw or not grade:
         raise HTTPException(status_code=400, detail="Grade and track are required.")
 
-    track_id = uuid.UUID(str(track_id_raw))
+    try:
+        track_id = uuid.UUID(str(track_id_raw))
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid academic track identifier.")
     track = get_track_by_id(db, track_id)
     if not track:
         raise HTTPException(status_code=404, detail="Academic track not found")
 
     track_sub_ids = {s.id for s in track.subjects}
     selected_subject_ids_raw = form_data.getlist("selected_subjects")
-    selected_subject_ids = [
-        uuid.UUID(str(sid)) for sid in selected_subject_ids_raw
-        if sid and uuid.UUID(str(sid)) in track_sub_ids
-    ]
+    try:
+        selected_subject_ids = [
+            uuid.UUID(str(sid)) for sid in selected_subject_ids_raw
+            if sid and uuid.UUID(str(sid)) in track_sub_ids
+        ]
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid subject identifier.")
 
     groups_map: Dict[str, List[uuid.UUID]] = {}
     for sid in selected_subject_ids:
@@ -436,6 +442,8 @@ def post_generate_schedule(
             url=f"/tutor/exams/{exam_id}?err={quote(str(exc), safe='')}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
+    except ExamNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @router.post("/sessions/{session_id}/skip")
@@ -718,7 +726,10 @@ def get_tutor_student_analytics_page(
     current_user: User = Depends(get_current_user),
     current_session: UserSession = Depends(get_current_session),
 ):
-    data = get_tutor_student_analytics(db, student_id)
+    try:
+        data = get_tutor_student_analytics(db, student_id)
+    except ExamValidationError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
     return templates.TemplateResponse(
         request=request,
         name="tutor/exams/student_analytics.html",
@@ -819,11 +830,48 @@ def post_correct_result(
                     "included_subject_names": gr.included_subject_names,
                 })
 
+        subject_data = []
+        for sr in result.subject_results:
+            pct_val = form_data.get(f"subject_{sr.subject_id}_percentage") or form_data.get(f"percentage_{sr.subject_id}")
+            corr_val = form_data.get(f"subject_{sr.subject_id}_correct") or form_data.get(f"correct_{sr.subject_id}")
+            incorr_val = form_data.get(f"subject_{sr.subject_id}_incorrect") or form_data.get(f"incorrect_{sr.subject_id}")
+            if (
+                (pct_val is not None and str(pct_val).strip())
+                or (corr_val is not None and str(corr_val).strip())
+                or (incorr_val is not None and str(incorr_val).strip())
+            ):
+                subject_data.append({
+                    "subject_id": sr.subject_id,
+                    "correct_answers": int(corr_val) if corr_val is not None and str(corr_val).strip() else sr.correct_answers,
+                    "incorrect_answers": int(incorr_val) if incorr_val is not None and str(incorr_val).strip() else sr.incorrect_answers,
+                    "percentage": float(pct_val) if pct_val is not None and str(pct_val).strip() else sr.percentage,
+                })
+
+        if not subject_data and not group_data and result.exam_session:
+            track_config = next(
+                (tc for tc in result.exam_session.track_configs if tc.track_id == result.academic_track_id),
+                None,
+            )
+            if track_config:
+                for sc in track_config.subject_configs:
+                    sid = sc.subject_id
+                    pct_val = form_data.get(f"subject_{sid}_percentage") or form_data.get(f"percentage_{sid}")
+                    corr_val = form_data.get(f"subject_{sid}_correct") or form_data.get(f"correct_{sid}")
+                    incorr_val = form_data.get(f"subject_{sid}_incorrect") or form_data.get(f"incorrect_{sid}")
+                    if pct_val is not None and str(pct_val).strip():
+                        subject_data.append({
+                            "subject_id": sid,
+                            "correct_answers": int(corr_val) if corr_val is not None and str(corr_val).strip() else 0,
+                            "incorrect_answers": int(incorr_val) if incorr_val is not None and str(incorr_val).strip() else 0,
+                            "percentage": float(pct_val),
+                        })
+
         clean_rank = int(rank_raw) if rank_raw and str(rank_raw).strip() else None
         res = tutor_correct_exam_result(
             db,
             result_id=result.id,
             actor_id=current_user.id,
+            subject_data=subject_data if subject_data else None,
             group_data=group_data if group_data else None,
             overall_rank=clean_rank,
             notes=str(notes) if notes else None,
@@ -892,6 +940,8 @@ def post_delete_series(
             url=f"/tutor/exams/{exam_id}?err={quote(str(exc), safe='')}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
+    except ExamNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @router.post("/sessions/{session_id}/cancel")
@@ -932,6 +982,8 @@ def post_delete_session(
             url=f"/tutor/exams/{exam_id}?err={quote(str(exc), safe='')}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
+    except ExamNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @router.post("/sessions/bulk/action")
@@ -955,17 +1007,20 @@ def post_bulk_session_action(
     if not session_ids:
         return RedirectResponse(url=f"{redirect_url}?err=No occurrences selected", status_code=status.HTTP_303_SEE_OTHER)
 
-    if action == "skip":
-        res = bulk_skip_exam_sessions(db, session_ids, actor_id=current_user.id, reason=str(reason) if reason else None)
-        msg = f"{res['affected_count']} occurrence(s) marked as No Exam."
-    elif action == "cancel":
-        res = bulk_cancel_exam_sessions(db, session_ids, actor_id=current_user.id, reason=str(reason) if reason else None)
-        msg = f"{res['affected_count']} occurrence(s) cancelled."
-    elif action == "restore":
-        res = bulk_restore_exam_sessions(db, session_ids, actor_id=current_user.id, reason=str(reason) if reason else None)
-        msg = f"{res['affected_count']} occurrence(s) restored."
-    else:
-        msg = "Unknown action."
+    try:
+        if action == "skip":
+            res = bulk_skip_exam_sessions(db, session_ids, actor_id=current_user.id, reason=str(reason) if reason else None)
+            msg = f"{res['affected_count']} occurrence(s) marked as No Exam."
+        elif action == "cancel":
+            res = bulk_cancel_exam_sessions(db, session_ids, actor_id=current_user.id, reason=str(reason) if reason else None)
+            msg = f"{res['affected_count']} occurrence(s) cancelled."
+        elif action == "restore":
+            res = bulk_restore_exam_sessions(db, session_ids, actor_id=current_user.id, reason=str(reason) if reason else None)
+            msg = f"{res['affected_count']} occurrence(s) restored."
+        else:
+            msg = "Unknown action."
+    except (ExamNotFoundError, ExamValidationError) as exc:
+        return RedirectResponse(url=f"{redirect_url}?err={quote(str(exc), safe='')}", status_code=status.HTTP_303_SEE_OTHER)
 
     return RedirectResponse(url=f"{redirect_url}?msg={msg}", status_code=status.HTTP_303_SEE_OTHER)
 
@@ -1004,7 +1059,10 @@ def post_bulk_remove_students(
     if not student_ids:
         return RedirectResponse(url=f"/tutor/exams/{exam_id}?err=No students selected", status_code=status.HTTP_303_SEE_OTHER)
 
-    res = bulk_remove_students_from_future_occurrences(db, exam_id, student_ids, actor_id=current_user.id)
+    try:
+        res = bulk_remove_students_from_future_occurrences(db, exam_id, student_ids, actor_id=current_user.id)
+    except (ExamNotFoundError, ExamValidationError) as exc:
+        return RedirectResponse(url=f"/tutor/exams/{exam_id}?err={quote(str(exc), safe='')}", status_code=status.HTTP_303_SEE_OTHER)
     return RedirectResponse(
         url=f"/tutor/exams/{exam_id}?msg=Removed {res['affected_students_count']} student(s) from future occurrences ({res['removed_assignments_count']} assignments cancelled). Past results strictly preserved.",
         status_code=status.HTTP_303_SEE_OTHER,
